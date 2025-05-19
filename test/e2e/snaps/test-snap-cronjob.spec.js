@@ -1,11 +1,13 @@
 const {
-  defaultGanacheOptions,
   withFixtures,
   unlockWallet,
   WINDOW_TITLES,
   largeDelayMs,
 } = require('../helpers');
 const FixtureBuilder = require('../fixture-builder');
+const {
+  mockCronjobSnap,
+} = require('../mock-response-data/snaps/snap-binary-mocks');
 const { TEST_SNAPS_WEBSITE_URL } = require('./enums');
 
 describe('Test Snap Cronjob', function () {
@@ -13,7 +15,7 @@ describe('Test Snap Cronjob', function () {
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
+        testSpecificMock: mockCronjobSnap,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
@@ -51,6 +53,8 @@ describe('Test Snap Cronjob', function () {
           text: 'Connect',
           tag: 'button',
         });
+
+        await driver.clickElementSafe('[data-testid="snap-install-scroll"]');
 
         // wait for and click confirm
         await driver.waitForSelector({ text: 'Confirm' });

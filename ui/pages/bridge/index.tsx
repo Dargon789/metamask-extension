@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Route, Switch, useHistory } from 'react-router-dom';
+import { UnifiedSwapBridgeEventName } from '@metamask/bridge-controller';
 import { I18nContext } from '../../contexts/i18n';
 import { clearSwapsState } from '../../ducks/swaps/swaps';
 import {
@@ -17,11 +18,8 @@ import {
   ButtonIconSize,
   IconName,
 } from '../../components/component-library';
-import {
-  getCurrentChainId,
-  getSelectedNetworkClientId,
-} from '../../../shared/modules/selectors/networks';
-import { getIsBridgeChain, getIsBridgeEnabled } from '../../selectors';
+import { getSelectedNetworkClientId } from '../../../shared/modules/selectors/networks';
+import { getIsBridgeEnabled } from '../../selectors';
 import useBridging from '../../hooks/bridge/useBridging';
 import {
   Content,
@@ -30,7 +28,10 @@ import {
   Page,
 } from '../../components/multichain/pages/page';
 import { useSwapsFeatureFlags } from '../swaps/hooks/useSwapsFeatureFlags';
-import { resetBridgeState, setFromChain } from '../../ducks/bridge/actions';
+import {
+  resetBridgeState,
+  trackUnifiedSwapBridgeEvent,
+} from '../../ducks/bridge/actions';
 import { useGasFeeEstimates } from '../../hooks/useGasFeeEstimates';
 import { useBridgeExchangeRates } from '../../hooks/bridge/useBridgeExchangeRates';
 import { useQuoteFetchEvents } from '../../hooks/bridge/useQuoteFetchEvents';
@@ -39,6 +40,7 @@ import PrepareBridgePage from './prepare/prepare-bridge-page';
 import AwaitingSignaturesCancelButton from './awaiting-signatures/awaiting-signatures-cancel-button';
 import AwaitingSignatures from './awaiting-signatures/awaiting-signatures';
 import { BridgeTransactionSettingsModal } from './prepare/bridge-transaction-settings-modal';
+import { useIsMultichainSwap } from './hooks/useIsMultichainSwap';
 
 const CrossChainSwap = () => {
   const t = useContext(I18nContext);
@@ -51,27 +53,24 @@ const CrossChainSwap = () => {
   const dispatch = useDispatch();
 
   const isBridgeEnabled = useSelector(getIsBridgeEnabled);
-  const isBridgeChain = useSelector(getIsBridgeChain);
   const selectedNetworkClientId = useSelector(getSelectedNetworkClientId);
-  const chainId = useSelector(getCurrentChainId);
-
-  useEffect(() => {
-    if (isBridgeChain && isBridgeEnabled && chainId) {
-      dispatch(setFromChain(chainId));
-    }
-  }, [isBridgeChain, isBridgeEnabled, chainId]);
 
   const resetControllerAndInputStates = async () => {
     await dispatch(resetBridgeState());
   };
 
   useEffect(() => {
+    dispatch(
+      trackUnifiedSwapBridgeEvent(UnifiedSwapBridgeEventName.PageViewed, {}),
+    );
     // Reset controller and inputs before unloading the page
-    resetControllerAndInputStates();
-
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.addEventListener('beforeunload', resetControllerAndInputStates);
 
     return () => {
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       window.removeEventListener('beforeunload', resetControllerAndInputStates);
       resetControllerAndInputStates();
     };
@@ -83,6 +82,8 @@ const CrossChainSwap = () => {
   useBridgeExchangeRates();
   // Emits events related to quote-fetching
   useQuoteFetchEvents();
+
+  const isSwap = useIsMultichainSwap();
 
   const redirectToDefaultRoute = async () => {
     history.push({
@@ -105,6 +106,8 @@ const CrossChainSwap = () => {
             iconName={IconName.ArrowLeft}
             size={ButtonIconSize.Sm}
             ariaLabel={t('back')}
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onClick={redirectToDefaultRoute}
           />
         }
@@ -119,7 +122,7 @@ const CrossChainSwap = () => {
           />
         }
       >
-        {t('bridge')}
+        {isSwap ? t('swap') : t('bridge')}
       </Header>
       <Content padding={0}>
         <Switch>

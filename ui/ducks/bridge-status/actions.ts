@@ -1,7 +1,5 @@
-import {
-  StartPollingForBridgeTxStatusArgs,
-  BridgeStatusAction,
-} from '../../../shared/types/bridge-status';
+import { QuoteMetadata, QuoteResponse } from '@metamask/bridge-controller';
+import { BridgeStatusAction } from '@metamask/bridge-status-controller';
 import { forceUpdateMetamaskState } from '../../store/actions';
 import { submitRequestToBackground } from '../../store/background-connection';
 import { MetaMaskReduxDispatch } from '../../store/store';
@@ -16,15 +14,22 @@ const callBridgeStatusControllerMethod = <T extends unknown[]>(
   };
 };
 
-export const startPollingForBridgeTxStatus = (
-  startPollingForBridgeTxStatusArgs: StartPollingForBridgeTxStatusArgs,
+/**
+ * Submit a solana bridge or swap transaction using the bridge status controller
+ *
+ * @param quote
+ * @param isStxSupportedInClient
+ * @returns
+ */
+export const submitBridgeTx = (
+  quote: QuoteResponse & QuoteMetadata,
+  isStxSupportedInClient: boolean,
 ) => {
   return async (dispatch: MetaMaskReduxDispatch) => {
     return dispatch(
-      callBridgeStatusControllerMethod<[StartPollingForBridgeTxStatusArgs]>(
-        BridgeStatusAction.START_POLLING_FOR_BRIDGE_TX_STATUS,
-        [startPollingForBridgeTxStatusArgs],
-      ),
+      callBridgeStatusControllerMethod<
+        [QuoteResponse & QuoteMetadata, boolean]
+      >(BridgeStatusAction.SUBMIT_TX, [quote, isStxSupportedInClient]),
     );
   };
 };

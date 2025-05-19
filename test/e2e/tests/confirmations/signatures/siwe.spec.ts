@@ -15,6 +15,7 @@ import {
   BlockaidReason,
   BlockaidResultType,
 } from '../../../../../shared/constants/security-provider';
+import { MetaMetricsRequestedThrough } from '../../../../../shared/constants/metametrics';
 import {
   assertAccountDetailsMetrics,
   assertHeaderInfoBalance,
@@ -30,7 +31,7 @@ import {
   SignatureType,
 } from './signature-helpers';
 
-describe('Confirmation Signature - SIWE @no-mmi', function (this: Suite) {
+describe('Confirmation Signature - SIWE', function (this: Suite) {
   it('initiates and confirms', async function () {
     await withTransactionEnvelopeTypeFixtures(
       this.test?.fullTitle(),
@@ -78,6 +79,7 @@ describe('Confirmation Signature - SIWE @no-mmi', function (this: Suite) {
           ],
           securityAlertReason: BlockaidReason.notApplicable,
           securityAlertResponse: BlockaidResultType.NotApplicable,
+          requestedThrough: MetaMetricsRequestedThrough.EthereumProvider,
         });
       },
       mockSignatureApproved,
@@ -110,6 +112,7 @@ describe('Confirmation Signature - SIWE @no-mmi', function (this: Suite) {
             'sign_in_with_ethereum',
           ],
           location: 'confirmation',
+          requestedThrough: MetaMetricsRequestedThrough.EthereumProvider,
           securityAlertReason: BlockaidReason.notApplicable,
           securityAlertResponse: BlockaidResultType.NotApplicable,
         });
@@ -121,7 +124,6 @@ describe('Confirmation Signature - SIWE @no-mmi', function (this: Suite) {
 
 async function assertInfoValues(driver: Driver) {
   const confirmation = new PersonalSignConfirmation(driver);
-  await confirmation.clickCollapseSectionButton();
   await confirmation.verifyOrigin();
-  await confirmation.verifySiweMessage();
+  await confirmation.check_siweMessage();
 }

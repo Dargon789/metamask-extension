@@ -1,16 +1,14 @@
 import * as React from 'react';
-import { NetworkConfiguration } from '@metamask/network-controller';
-import { Hex } from '@metamask/utils';
+import type { Hex } from '@metamask/utils';
 import {
-  TransactionMeta,
+  type TransactionMeta,
   TransactionStatus,
 } from '@metamask/transaction-controller';
 import {
-  BridgeHistoryItem,
-  Step,
+  type BridgeHistoryItem,
   ActionTypes,
-  StatusTypes,
-} from '../../../../shared/types/bridge-status';
+} from '@metamask/bridge-status-controller';
+import { StatusTypes, type Step } from '@metamask/bridge-controller';
 import { Box, Text } from '../../../components/component-library';
 import { Numeric } from '../../../../shared/modules/Numeric';
 import {
@@ -20,6 +18,10 @@ import {
   TextColor,
 } from '../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../hooks/useI18nContext';
+import {
+  type AllowedBridgeChainIds,
+  NETWORK_TO_SHORT_NETWORK_NAME_MAP,
+} from '../../../../shared/constants/bridge';
 
 type I18nFunction = (
   key: string,
@@ -34,30 +36,29 @@ type I18nFunction = (
  * @param t - The i18n context return value to get translations
  * @param stepStatus - The status of the step
  * @param step - The step to be rendered
- * @param networkConfigurationsByChainId - The network configurations by chain id
  */
 const getBridgeActionText = (
   t: I18nFunction,
   stepStatus: StatusTypes | null,
   step: Step,
-  networkConfigurationsByChainId: Record<`0x${string}`, NetworkConfiguration>,
 ) => {
   const hexDestChainId = step.destChainId
     ? (new Numeric(step.destChainId, 10).toPrefixedHexString() as Hex)
     : undefined;
-  const destNetworkConfiguration = hexDestChainId
-    ? networkConfigurationsByChainId[hexDestChainId]
-    : undefined;
+
+  const destChainName = hexDestChainId
+    ? NETWORK_TO_SHORT_NETWORK_NAME_MAP[hexDestChainId as AllowedBridgeChainIds]
+    : '';
+
+  const destSymbol = step.destAsset?.symbol;
+
+  if (!destSymbol) {
+    return null;
+  }
 
   return stepStatus === StatusTypes.COMPLETE
-    ? t('bridgeStepActionBridgeComplete', [
-        step.destAsset.symbol,
-        destNetworkConfiguration?.name,
-      ])
-    : t('bridgeStepActionBridgePending', [
-        step.destAsset.symbol,
-        destNetworkConfiguration?.name,
-      ]);
+    ? t('bridgeStepActionBridgeComplete', [destSymbol, destChainName])
+    : t('bridgeStepActionBridgePending', [destSymbol, destChainName]);
 };
 
 const getBridgeActionStatus = (bridgeHistoryItem: BridgeHistoryItem) => {
@@ -106,15 +107,16 @@ const getSwapActionText = (
   status: StatusTypes | null,
   step: Step,
 ) => {
+  const srcSymbol = step.srcAsset?.symbol;
+  const destSymbol = step.destAsset?.symbol;
+
+  if (!srcSymbol || !destSymbol) {
+    return null;
+  }
+
   return status === StatusTypes.COMPLETE
-    ? t('bridgeStepActionSwapComplete', [
-        step.srcAsset.symbol,
-        step.destAsset.symbol,
-      ])
-    : t('bridgeStepActionSwapPending', [
-        step.srcAsset.symbol,
-        step.destAsset.symbol,
-      ]);
+    ? t('bridgeStepActionSwapComplete', [srcSymbol, destSymbol])
+    : t('bridgeStepActionSwapPending', [srcSymbol, destSymbol]);
 };
 
 export const getStepStatus = ({
@@ -141,7 +143,6 @@ export const getStepStatus = ({
 
 type BridgeStepProps = {
   step: Step;
-  networkConfigurationsByChainId: Record<`0x${string}`, NetworkConfiguration>;
   time?: string;
   stepStatus: StatusTypes | null;
 };
@@ -152,7 +153,6 @@ type BridgeStepProps = {
 // 3. Swap > Bridge > Swap: e.g. Optimism ETH to Avalanche USDC
 export default function BridgeStepDescription({
   step,
-  networkConfigurationsByChainId,
   time,
   stepStatus,
 }: BridgeStepProps) {
@@ -179,12 +179,7 @@ export default function BridgeStepDescription({
         }
       >
         {step.action === ActionTypes.BRIDGE &&
-          getBridgeActionText(
-            t,
-            stepStatus,
-            step,
-            networkConfigurationsByChainId,
-          )}
+          getBridgeActionText(t, stepStatus, step)}
         {step.action === ActionTypes.SWAP &&
           getSwapActionText(t, stepStatus, step)}
       </Text>

@@ -1,9 +1,4 @@
-const {
-  defaultGanacheOptions,
-  openMenuSafe,
-  unlockWallet,
-  withFixtures,
-} = require('../../helpers');
+const { openMenuSafe, unlockWallet, withFixtures } = require('../../helpers');
 const FixtureBuilder = require('../../fixture-builder');
 
 describe('Auto-Lock Timer', function () {
@@ -11,7 +6,6 @@ describe('Auto-Lock Timer', function () {
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
@@ -42,7 +36,7 @@ describe('Auto-Lock Timer', function () {
         // Verify the wallet is locked
         await driver.waitForSelector({
           css: '[data-testid="unlock-page-title"]',
-          text: 'Welcome back!',
+          text: 'Welcome back',
         });
         await driver.waitForSelector('.unlock-page button');
       },

@@ -1,7 +1,6 @@
 const { strict: assert } = require('assert');
 const {
   withFixtures,
-  defaultGanacheOptions,
   logInWithBalanceValidation,
   unlockWallet,
 } = require('../../helpers');
@@ -42,11 +41,10 @@ describe('Settings', function () {
     await withFixtures(
       {
         fixtures: new FixtureBuilder().withConversionRateDisabled().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
       },
-      async ({ driver, ganacheServer }) => {
-        await logInWithBalanceValidation(driver, ganacheServer);
+      async ({ driver }) => {
+        await logInWithBalanceValidation(driver);
 
         await driver.clickElement(
           '[data-testid="account-overview__asset-tab"]',
@@ -59,11 +57,10 @@ describe('Settings', function () {
         assert.equal(await tokenListAmount.getText(), tokenValue);
 
         await driver.clickElement('[data-testid="account-menu-icon"]');
-        const accountTokenValue = await driver.waitForSelector(
-          '.multichain-account-list-item .multichain-account-list-item__avatar-currency .currency-display-component__text',
-        );
-
-        assert.equal(await accountTokenValue.getText(), '25', 'ETH');
+        await driver.waitForSelector({
+          css: '[data-testid="eth-overview__primary-currency"]',
+          text: '25 ETH',
+        });
       },
     );
   });
@@ -76,14 +73,12 @@ describe('Settings', function () {
           .withShowFiatTestnetEnabled()
           .withPreferencesControllerShowNativeTokenAsMainBalanceDisabled()
           .build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
         testSpecificMock: mockInfuraResponses,
       },
       async ({ driver }) => {
         await unlockWallet(driver);
 
-        await driver.clickElement('[data-testid="popover-close"]');
         await driver.clickElement(
           '[data-testid="account-overview__asset-tab"]',
         );
@@ -108,11 +103,11 @@ describe('Settings', function () {
         await switchToNetworkFlow(driver, 'Sepolia');
 
         await driver.clickElement('[data-testid="account-menu-icon"]');
-        const accountTokenValue = await driver.waitForSelector(
-          '.multichain-account-list-item .multichain-account-list-item__asset',
-        );
 
-        assert.equal(await accountTokenValue.getText(), '$42,500.00USD');
+        await driver.waitForSelector({
+          css: '[data-testid="eth-overview__primary-currency"]',
+          text: '$42,500.00USD',
+        });
       },
     );
   });
@@ -126,14 +121,12 @@ describe('Settings', function () {
           .withPreferencesControllerShowNativeTokenAsMainBalanceDisabled()
           .withConversionRateDisabled()
           .build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
         testSpecificMock: mockInfuraResponses,
       },
       async ({ driver }) => {
         await unlockWallet(driver);
 
-        await driver.clickElement('[data-testid="popover-close"]');
         await driver.clickElement(
           '[data-testid="account-overview__asset-tab"]',
         );
@@ -145,11 +138,10 @@ describe('Settings', function () {
         assert.equal(await tokenListAmount.getText(), '25\nETH');
 
         await driver.clickElement('[data-testid="account-menu-icon"]');
-        const accountTokenValue = await driver.waitForSelector(
-          '.multichain-account-list-item .multichain-account-list-item__asset',
-        );
-
-        assert.equal(await accountTokenValue.getText(), '25ETH');
+        await driver.waitForSelector({
+          css: '[data-testid="eth-overview__primary-currency"]',
+          text: '25 ETH',
+        });
       },
     );
   });
