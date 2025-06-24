@@ -32,6 +32,7 @@ jest.mock('../../store/actions', () => ({
   unlockAndGetSeedPhrase: jest.fn().mockResolvedValue(null),
   createNewVaultAndRestore: jest.fn(),
   setOnboardingDate: jest.fn(() => ({ type: 'TEST_DISPATCH' })),
+  hideLoadingIndication: jest.fn(() => ({ type: 'HIDE_LOADING_INDICATION' })),
 }));
 
 describe('Onboarding Flow', () => {
@@ -59,10 +60,6 @@ describe('Onboarding Flow', () => {
         { chainId: CHAIN_IDS.MAINNET },
         { chainId: CHAIN_IDS.LINEA_MAINNET },
       ),
-
-      incomingTransactionsPreferences: {
-        [CHAIN_IDS.MAINNET]: true,
-      },
       preferences: {
         petnamesEnabled: true,
       },
@@ -102,6 +99,9 @@ describe('Onboarding Flow', () => {
           },
         ],
       },
+      localeMessages: {
+        currentLocale: 'en',
+      },
     };
 
     const completedOnboardingStore = configureMockStore()(
@@ -130,17 +130,20 @@ describe('Onboarding Flow', () => {
     });
 
     it('should call createNewVaultAndGetSeedPhrase when creating a new wallet password', async () => {
-      const { queryByTestId } = renderWithProvider(
+      const { queryByTestId, queryByText } = renderWithProvider(
         <OnboardingFlow />,
         store,
         ONBOARDING_CREATE_PASSWORD_ROUTE,
       );
 
+      const createPasswordText = queryByText('MetaMask password');
+      expect(createPasswordText).toBeInTheDocument();
+
       const password = 'a-new-password';
       const checkTerms = queryByTestId('create-password-terms');
-      const createPassword = queryByTestId('create-password-new');
-      const confirmPassword = queryByTestId('create-password-confirm');
-      const createPasswordWallet = queryByTestId('create-password-wallet');
+      const createPassword = queryByTestId('create-password-new-input');
+      const confirmPassword = queryByTestId('create-password-confirm-input');
+      const createPasswordWallet = queryByTestId('create-password-submit');
 
       fireEvent.click(checkTerms);
       fireEvent.change(createPassword, { target: { value: password } });
@@ -175,15 +178,16 @@ describe('Onboarding Flow', () => {
     expect(recoveryPhrase).toBeInTheDocument();
   });
 
-  it('should render confirm recovery phrase', () => {
-    const { queryByTestId } = renderWithProvider(
+  it('should render to review recovery phrase from confirm recovery phrase', () => {
+    const { history } = renderWithProvider(
       <OnboardingFlow />,
       store,
       ONBOARDING_CONFIRM_SRP_ROUTE,
     );
 
-    const confirmRecoveryPhrase = queryByTestId('confirm-recovery-phrase');
-    expect(confirmRecoveryPhrase).toBeInTheDocument();
+    expect(history.location.pathname).toStrictEqual(
+      ONBOARDING_REVIEW_SRP_ROUTE,
+    );
   });
 
   it('should render import seed phrase', () => {
@@ -244,7 +248,7 @@ describe('Onboarding Flow', () => {
       ONBOARDING_COMPLETION_ROUTE,
     );
 
-    const creationSuccessful = queryByTestId('creation-successful');
+    const creationSuccessful = queryByTestId('wallet-ready');
     expect(creationSuccessful).toBeInTheDocument();
   });
 
@@ -255,7 +259,7 @@ describe('Onboarding Flow', () => {
       ONBOARDING_WELCOME_ROUTE,
     );
 
-    const onboardingWelcome = queryByTestId('onboarding-welcome');
+    const onboardingWelcome = queryByTestId('onboarding-welcome-banner-title');
     expect(onboardingWelcome).toBeInTheDocument();
   });
 

@@ -3,6 +3,8 @@ import { TransactionMeta } from '@metamask/transaction-controller';
 import { hexStripZeros } from '@ethersproject/bytes';
 import _ from 'lodash';
 import { Hex } from '@metamask/utils';
+
+import { APPROVAL_METHOD_NAMES } from '../../../../../../../../shared/constants/transaction';
 import { useDecodedTransactionData } from '../../hooks/useDecodedTransactionData';
 import { ConfirmInfoSection } from '../../../../../../../components/app/confirm/info/row/section';
 import {
@@ -30,12 +32,20 @@ import {
 import { UniswapPathPool } from '../../../../../../../../app/scripts/lib/transaction/decode/uniswap';
 import { useConfirmContext } from '../../../../../context/confirm';
 import { hasTransactionData } from '../../../../../../../../shared/modules/transaction.utils';
+import { renderShortTokenId } from '../../../../../../../components/app/assets/nfts/nft-details/utils';
+import { BatchedApprovalFunction } from '../batched-approval-function/batched-approval-function';
 
 export const TransactionData = ({
   data,
   noPadding,
   to,
-}: { data?: Hex; noPadding?: boolean; to?: Hex } = {}) => {
+  nestedTransactionIndex,
+}: {
+  data?: Hex;
+  noPadding?: boolean;
+  to?: Hex;
+  nestedTransactionIndex?: number;
+} = {}) => {
   const { currentConfirmation } = useConfirmContext<TransactionMeta>();
   const { nestedTransactions, txParams } = currentConfirmation ?? {};
   const { data: currentData, to: currentTo } = txParams ?? {};
@@ -77,17 +87,31 @@ export const TransactionData = ({
   return (
     <Container transactionData={transactionData} noPadding={noPadding}>
       <>
-        {decodeData.map((method, index) => (
-          <React.Fragment key={index}>
-            <FunctionContainer
-              method={method}
-              source={source}
-              isExpandable={isExpandable}
-              chainId={chainId}
-            />
-            {index < decodeData.length - 1 && <ConfirmInfoRowDivider />}
-          </React.Fragment>
-        ))}
+        {decodeData.map((method, index) => {
+          const isBatchedApproval =
+            nestedTransactionIndex !== undefined &&
+            nestedTransactionIndex >= 0 &&
+            APPROVAL_METHOD_NAMES.includes(method.name);
+          if (isBatchedApproval) {
+            return (
+              <BatchedApprovalFunction
+                method={method}
+                nestedTransactionIndex={nestedTransactionIndex}
+              />
+            );
+          }
+          return (
+            <React.Fragment key={index}>
+              <FunctionContainer
+                method={method}
+                source={source}
+                isExpandable={isExpandable}
+                chainId={chainId}
+              />
+              {index < decodeData.length - 1 && <ConfirmInfoRowDivider />}
+            </React.Fragment>
+          );
+        })}
       </>
     </Container>
   );
@@ -115,6 +139,8 @@ export function Container({
         <ConfirmInfoRow
           label={t('advancedDetailsDataDesc')}
           copyEnabled={Boolean(transactionData)}
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           copyText={transactionData || undefined}
         >
           <Box>{isLoading && <Preloader size={20} />}</Box>
@@ -212,8 +238,12 @@ function ParamValue({
   if (name === 'path' && source === DecodedTransactionDataSource.Uniswap) {
     return <UniswapPath pathPools={value} chainId={chainId} />;
   }
+  // if its a long string value truncate it
 
   let valueString = value.toString();
+  if (valueString.length > 15 && !valueString.startsWith('0x')) {
+    valueString = renderShortTokenId(valueString, 5);
+  }
 
   if (!Array.isArray(value) && valueString.startsWith('0x')) {
     valueString = hexStripZeros(valueString);

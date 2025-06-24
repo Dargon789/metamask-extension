@@ -25,6 +25,7 @@ import {
   oldestPendingConfirmationSelector,
   getUnapprovedTransactions,
   getPendingApprovals,
+  getIsMultichainAccountsState1Enabled,
 } from '../../selectors';
 import {
   lockMetamask,
@@ -123,6 +124,8 @@ function mapStateToProps(state) {
     oldestPendingApproval,
     pendingApprovals,
     transactionsMetadata,
+    isMultichainAccountsState1Enabled:
+      getIsMultichainAccountsState1Enabled(state),
     ///: BEGIN:ONLY_INCLUDE_IF(keyring-snaps)
     isShowKeyringSnapRemovalResultModal:
       state.appState.showKeyringRemovalSnapModal,
@@ -149,7 +152,10 @@ function mapDispatchToProps(dispatch) {
     clearSwitchedNetworkDetails: () => dispatch(clearSwitchedNetworkDetails()),
     automaticallySwitchNetwork: (networkId, selectedTabOrigin) =>
       dispatch(automaticallySwitchNetwork(networkId, selectedTabOrigin)),
-    clearEditedNetwork: () => dispatch(setEditedNetwork()),
+    networkMenuClose: () => {
+      dispatch(toggleNetworkMenu());
+      dispatch(setEditedNetwork());
+    },
     ///: BEGIN:ONLY_INCLUDE_IF(keyring-snaps)
     hideShowKeyringSnapRemovalResultModal: () =>
       dispatch(hideKeyringRemovalResultModal()),

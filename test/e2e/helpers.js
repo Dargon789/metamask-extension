@@ -19,8 +19,8 @@ const { Bundler } = require('./bundler');
 const { SMART_CONTRACTS } = require('./seeder/smart-contracts');
 const { setManifestFlags } = require('./set-manifest-flags');
 const {
+  DEFAULT_LOCAL_NODE_ETH_BALANCE_DEC,
   ERC_4337_ACCOUNT,
-  DEFAULT_GANACHE_ETH_BALANCE_DEC,
 } = require('./constants');
 const {
   getServerMochaToBackground,
@@ -124,6 +124,7 @@ async function withFixtures(options, testSuite) {
     useBundler,
     usePaymaster,
     ethConversionInUsd,
+    monConversionInUsd,
     manifestFlags,
   } = options;
 
@@ -204,8 +205,7 @@ async function withFixtures(options, testSuite) {
       const contracts =
         smartContract instanceof Array ? smartContract : [smartContract];
 
-      const hardfork =
-        localNodeOptsNormalized[0].options.hardfork || 'muirGlacier';
+      const hardfork = localNodeOptsNormalized[0].options.hardfork || 'prague';
       for (const contract of contracts) {
         await seeder.deploySmartContract(contract, hardfork);
       }
@@ -261,6 +261,7 @@ async function withFixtures(options, testSuite) {
       {
         chainId: localNodeOptsNormalized[0]?.options.chainId || 1337,
         ethConversionInUsd,
+        monConversionInUsd,
       },
     );
     if ((await detectPort(8000)) !== 8000) {
@@ -435,13 +436,16 @@ async function withFixtures(options, testSuite) {
 
 const WINDOW_TITLES = Object.freeze({
   ExtensionInFullScreenView: 'MetaMask',
+  ExtensionUpdating: 'MetaMask Updating',
   InstalledExtensions: 'Extensions',
   Dialog: 'MetaMask Dialog',
   Phishing: 'MetaMask Phishing Detection',
   ServiceWorkerSettings: 'Inspect with Chrome Developer Tools',
   SnapSimpleKeyringDapp: 'SSK - Simple Snap Keyring',
   TestDApp: 'E2E Test Dapp',
+  TestDappSendIndividualRequest: 'E2E Test Dapp - Send Individual Request',
   MultichainTestDApp: 'Multichain Test Dapp',
+  SolanaTestDApp: 'Solana Test Dapp',
   TestSnaps: 'Test Snaps',
   ERC4337Snap: 'Account Abstraction Snap',
 });
@@ -542,20 +546,15 @@ const PRIVATE_KEY_TWO =
 const ACCOUNT_1 = '0x5cfe73b6021e818b776b421b1c4db2474086a7e1';
 const ACCOUNT_2 = '0x09781764c08de8ca82e156bbf156a3ca217c7950';
 
-const defaultGanacheOptionsForType2Transactions = {
-  // EVM version that supports type 2 transactions (EIP1559)
-  hardfork: 'london',
-};
-
 const multipleGanacheOptions = {
   accounts: [
     {
       secretKey: PRIVATE_KEY,
-      balance: convertETHToHexGwei(DEFAULT_GANACHE_ETH_BALANCE_DEC),
+      balance: convertETHToHexGwei(DEFAULT_LOCAL_NODE_ETH_BALANCE_DEC),
     },
     {
       secretKey: PRIVATE_KEY_TWO,
-      balance: convertETHToHexGwei(DEFAULT_GANACHE_ETH_BALANCE_DEC),
+      balance: convertETHToHexGwei(DEFAULT_LOCAL_NODE_ETH_BALANCE_DEC),
     },
   ],
 };
@@ -571,6 +570,7 @@ const editGasFeeForm = async (driver, gasLimit, gasPrice) => {
 };
 
 const openActionMenuAndStartSendFlow = async (driver) => {
+  console.log('Opening action menu and starting send flow');
   await driver.clickElement('[data-testid="eth-overview-send"]');
 };
 
@@ -938,7 +938,6 @@ module.exports = {
   switchToOrOpenDapp,
   connectToDapp,
   multipleGanacheOptions,
-  defaultGanacheOptionsForType2Transactions,
   sendTransaction,
   sendScreenToConfirmScreen,
   unlockWallet,

@@ -11,6 +11,7 @@ import {
   NetworkControllerStateChangeEvent,
 } from '@metamask/network-controller';
 import {
+  TransactionControllerEstimateGasAction,
   TransactionControllerMessenger,
   TransactionControllerPostTransactionBalanceUpdatedEvent,
   TransactionControllerTransactionApprovedEvent,
@@ -25,23 +26,36 @@ import {
 } from '@metamask/transaction-controller';
 import { SmartTransactionsControllerSmartTransactionEvent } from '@metamask/smart-transactions-controller';
 import { RemoteFeatureFlagControllerGetStateAction } from '@metamask/remote-feature-flag-controller';
-import { KeyringControllerSignEip7702AuthorizationAction } from '@metamask/keyring-controller';
+import {
+  KeyringControllerSignEip7702AuthorizationAction,
+  KeyringControllerSignTypedMessageAction,
+} from '@metamask/keyring-controller';
+import { DelegationControllerSignDelegationAction } from '@metamask/delegation-controller';
 import {
   SwapsControllerSetApproveTxIdAction,
   SwapsControllerSetTradeTxIdAction,
 } from '../../controllers/swaps/swaps.types';
+import {
+  InstitutionalSnapControllerPublishHookAction,
+  InstitutionalSnapControllerBeforeCheckPendingTransactionHookAction,
+} from './accounts/institutional-snap-controller-messenger';
 
 type MessengerActions =
   | ApprovalControllerActions
   | AccountsControllerGetSelectedAccountAction
   | AccountsControllerGetStateAction
+  | DelegationControllerSignDelegationAction
+  | InstitutionalSnapControllerPublishHookAction
+  | InstitutionalSnapControllerBeforeCheckPendingTransactionHookAction
   | KeyringControllerSignEip7702AuthorizationAction
+  | KeyringControllerSignTypedMessageAction
   | NetworkControllerFindNetworkClientIdByChainIdAction
   | NetworkControllerGetEIP1559CompatibilityAction
   | NetworkControllerGetNetworkClientByIdAction
   | RemoteFeatureFlagControllerGetStateAction
   | SwapsControllerSetApproveTxIdAction
-  | SwapsControllerSetTradeTxIdAction;
+  | SwapsControllerSetTradeTxIdAction
+  | TransactionControllerEstimateGasAction;
 
 type MessengerEvents =
   | TransactionControllerTransactionApprovedEvent
@@ -98,15 +112,21 @@ export function getTransactionControllerInitMessenger(
       'SmartTransactionsController:smartTransaction',
     ],
     allowedActions: [
+      'ApprovalController:acceptRequest',
       'ApprovalController:addRequest',
       'ApprovalController:endFlow',
       'ApprovalController:startFlow',
       'ApprovalController:updateRequestState',
-      'ApprovalController:acceptRequest',
+      'DelegationController:signDelegation',
+      'InstitutionalSnapController:beforeCheckPendingTransactionHook',
+      'InstitutionalSnapController:publishHook',
+      'KeyringController:signEip7702Authorization',
+      'KeyringController:signTypedMessage',
       'NetworkController:getEIP1559Compatibility',
       'RemoteFeatureFlagController:getState',
       'SwapsController:setApproveTxId',
       'SwapsController:setTradeTxId',
+      'TransactionController:estimateGas',
     ],
   });
 }

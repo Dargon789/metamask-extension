@@ -22,6 +22,7 @@ const ALLOWED_EVM_BRIDGE_CHAIN_IDS = [
   CHAIN_IDS.ARBITRUM,
   CHAIN_IDS.LINEA_MAINNET,
   CHAIN_IDS.BASE,
+  CHAIN_IDS.SEI,
 ];
 
 export const ALLOWED_BRIDGE_CHAIN_IDS = [
@@ -52,25 +53,27 @@ export const NETWORK_TO_SHORT_NETWORK_NAME_MAP: Record<
   string
 > = {
   [CHAIN_IDS.MAINNET]: 'Ethereum',
+  [toEvmCaipChainId(CHAIN_IDS.MAINNET)]: 'Ethereum',
   [CHAIN_IDS.LINEA_MAINNET]: 'Linea',
-  [CHAIN_IDS.POLYGON]: NETWORK_TO_NAME_MAP[CHAIN_IDS.POLYGON],
-  [CHAIN_IDS.AVALANCHE]: 'Avalanche',
-  [CHAIN_IDS.BSC]: NETWORK_TO_NAME_MAP[CHAIN_IDS.BSC],
-  [CHAIN_IDS.ARBITRUM]: NETWORK_TO_NAME_MAP[CHAIN_IDS.ARBITRUM],
-  [CHAIN_IDS.OPTIMISM]: NETWORK_TO_NAME_MAP[CHAIN_IDS.OPTIMISM],
-  [CHAIN_IDS.ZKSYNC_ERA]: 'ZkSync Era',
-  [CHAIN_IDS.BASE]: 'Base',
-  [toEvmCaipChainId(CHAIN_IDS.BASE)]: 'Base',
   [toEvmCaipChainId(CHAIN_IDS.LINEA_MAINNET)]: 'Linea',
+  [CHAIN_IDS.POLYGON]: NETWORK_TO_NAME_MAP[CHAIN_IDS.POLYGON],
   [toEvmCaipChainId(CHAIN_IDS.POLYGON)]: NETWORK_TO_NAME_MAP[CHAIN_IDS.POLYGON],
+  [CHAIN_IDS.AVALANCHE]: 'Avalanche',
   [toEvmCaipChainId(CHAIN_IDS.AVALANCHE)]: 'Avalanche',
+  [CHAIN_IDS.BSC]: NETWORK_TO_NAME_MAP[CHAIN_IDS.BSC],
   [toEvmCaipChainId(CHAIN_IDS.BSC)]: NETWORK_TO_NAME_MAP[CHAIN_IDS.BSC],
+  [CHAIN_IDS.ARBITRUM]: NETWORK_TO_NAME_MAP[CHAIN_IDS.ARBITRUM],
   [toEvmCaipChainId(CHAIN_IDS.ARBITRUM)]:
     NETWORK_TO_NAME_MAP[CHAIN_IDS.ARBITRUM],
+  [CHAIN_IDS.OPTIMISM]: NETWORK_TO_NAME_MAP[CHAIN_IDS.OPTIMISM],
   [toEvmCaipChainId(CHAIN_IDS.OPTIMISM)]:
     NETWORK_TO_NAME_MAP[CHAIN_IDS.OPTIMISM],
+  [CHAIN_IDS.ZKSYNC_ERA]: 'ZkSync Era',
   [toEvmCaipChainId(CHAIN_IDS.ZKSYNC_ERA)]: 'ZkSync Era',
+  [CHAIN_IDS.BASE]: 'Base',
   [toEvmCaipChainId(CHAIN_IDS.BASE)]: 'Base',
+  [CHAIN_IDS.SEI]: 'Sei',
+  [toEvmCaipChainId(CHAIN_IDS.SEI)]: 'Sei',
   ///: BEGIN:ONLY_INCLUDE_IF(solana-swaps)
   [MultichainNetworks.SOLANA]: 'Solana',
   [MultichainNetworks.SOLANA_TESTNET]: 'Solana Testnet',
@@ -79,13 +82,15 @@ export const NETWORK_TO_SHORT_NETWORK_NAME_MAP: Record<
   ///: BEGIN:ONLY_INCLUDE_IF(bitcoin)
   [MultichainNetworks.BITCOIN]: 'Bitcoin',
   [MultichainNetworks.BITCOIN_TESTNET]: 'Bitcoin Testnet',
+  [MultichainNetworks.BITCOIN_SIGNET]: 'Bitcoin Mutinynet',
   ///: END:ONLY_INCLUDE_IF
 };
 
 export const STATIC_METAMASK_BASE_URL = 'https://static.cx.metamask.io';
 
 export const SOLANA_USDC_ASSET = {
-  address:
+  address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  assetId:
     'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp/token:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   symbol: 'USDC',
   decimals: 6,

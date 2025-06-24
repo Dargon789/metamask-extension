@@ -1,7 +1,6 @@
 import { compose } from 'redux';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-
 import {
   activeTabHasPermissions,
   getUseExternalServices,
@@ -23,16 +22,16 @@ import {
   getNewTokensImportedError,
   hasPendingApprovals,
   getSelectedInternalAccount,
-  getQueuedRequestCount,
   getEditedNetwork,
   selectPendingApprovalsForNavigation,
   ///: BEGIN:ONLY_INCLUDE_IF(solana)
   getIsSolanaSupportEnabled,
   ///: END:ONLY_INCLUDE_IF
+  getShowUpdateModal,
 } from '../../selectors';
 import { getInfuraBlocked } from '../../../shared/modules/selectors/networks';
 import {
-  closeNotificationPopup,
+  attemptCloseNotificationPopup,
   setConnectedStatusPopoverHasBeenShown,
   setDefaultHomeActiveTabName,
   setWeb3ShimUsageAlertDismissed,
@@ -87,14 +86,11 @@ const mapStateToProps = (state) => {
     participateInMetaMetrics,
     firstTimeFlowType,
     completedOnboarding,
+    forgottenPassword,
   } = metamask;
   const selectedAccount = getSelectedInternalAccount(state);
   const { address: selectedAddress } = selectedAccount;
-  const { forgottenPassword } = metamask;
   const totalUnapprovedCount = getTotalUnapprovedCount(state);
-  const queuedRequestCount = getQueuedRequestCount(state);
-  const totalUnapprovedAndQueuedRequestCount =
-    totalUnapprovedCount + queuedRequestCount;
   const swapsEnabled = getSwapsFeatureIsLive(state);
   const pendingApprovals = selectPendingApprovalsForNavigation(state);
 
@@ -149,7 +145,6 @@ const mapStateToProps = (state) => {
     dataCollectionForMarketing,
     selectedAddress,
     totalUnapprovedCount,
-    totalUnapprovedAndQueuedRequestCount,
     participateInMetaMetrics,
     hasApprovalFlows: getApprovalFlows(state)?.length > 0,
     connectedStatusPopoverHasBeenShown,
@@ -183,6 +178,7 @@ const mapStateToProps = (state) => {
     onboardedInThisUISession: appState.onboardedInThisUISession,
     hasAllowedPopupRedirectApprovals,
     showMultiRpcModal: state.metamask.preferences.showMultiRpcModal,
+    showUpdateModal: getShowUpdateModal(state),
   };
 };
 
@@ -190,7 +186,7 @@ const mapDispatchToProps = (dispatch) => {
   return {
     setDataCollectionForMarketing: (val) =>
       dispatch(setDataCollectionForMarketing(val)),
-    closeNotificationPopup: () => closeNotificationPopup(),
+    attemptCloseNotificationPopup: () => attemptCloseNotificationPopup(),
     setConnectedStatusPopoverHasBeenShown: () =>
       dispatch(setConnectedStatusPopoverHasBeenShown()),
     onTabClick: (name) => dispatch(setDefaultHomeActiveTabName(name)),
