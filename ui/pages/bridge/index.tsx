@@ -36,6 +36,7 @@ import { useGasFeeEstimates } from '../../hooks/useGasFeeEstimates';
 import { useBridgeExchangeRates } from '../../hooks/bridge/useBridgeExchangeRates';
 import { useQuoteFetchEvents } from '../../hooks/bridge/useQuoteFetchEvents';
 import { TextVariant } from '../../helpers/constants/design-system';
+import { useTxAlerts } from '../../hooks/bridge/useTxAlerts';
 import PrepareBridgePage from './prepare/prepare-bridge-page';
 import AwaitingSignaturesCancelButton from './awaiting-signatures/awaiting-signatures-cancel-button';
 import AwaitingSignatures from './awaiting-signatures/awaiting-signatures';
@@ -59,6 +60,8 @@ const CrossChainSwap = () => {
     await dispatch(resetBridgeState());
   };
 
+  const isSwap = useIsMultichainSwap();
+
   useEffect(() => {
     dispatch(
       trackUnifiedSwapBridgeEvent(UnifiedSwapBridgeEventName.PageViewed, {}),
@@ -67,7 +70,6 @@ const CrossChainSwap = () => {
     // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.addEventListener('beforeunload', resetControllerAndInputStates);
-
     return () => {
       // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -82,8 +84,8 @@ const CrossChainSwap = () => {
   useBridgeExchangeRates();
   // Emits events related to quote-fetching
   useQuoteFetchEvents();
-
-  const isSwap = useIsMultichainSwap();
+  // Sets tx alerts for the active quote
+  useTxAlerts();
 
   const redirectToDefaultRoute = async () => {
     history.push({
