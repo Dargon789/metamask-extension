@@ -1,10 +1,9 @@
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router-dom';
 import { compose } from 'redux';
+import withRouterHooks from '../../../helpers/higher-order-components/with-router-hooks/with-router-hooks';
 import {
   setIpfsGateway,
   setIsIpfsGatewayEnabled,
-  setParticipateInMetaMetrics,
   setDataCollectionForMarketing,
   setUseCurrencyRateCheck,
   setUseMultiAccountBalanceChecker,
@@ -21,24 +20,30 @@ import {
   setSecurityAlertsEnabled,
   updateDataDeletionTaskStatus,
   setSkipDeepLinkInterstitial,
+  getMarketingConsent,
+  setMarketingConsent,
+  setParticipateInMetaMetrics,
 } from '../../../store/actions';
 import {
   getIsSecurityAlertsEnabled,
   getMetaMetricsDataDeletionId,
   getHDEntropyIndex,
   getPreferences,
-} from '../../../selectors/selectors';
+  getIsSocialLoginFlow,
+  getSocialLoginType,
+  getParticipateInMetaMetrics,
+  getDataCollectionForMarketing,
+} from '../../../selectors';
 import { getNetworkConfigurationsByChainId } from '../../../../shared/modules/selectors/networks';
 import { openBasicFunctionalityModal } from '../../../ducks/app/app';
 import { getIsPrimarySeedPhraseBackedUp } from '../../../ducks/metamask/metamask';
+import { getIsActiveShieldSubscription } from '../../../selectors/subscription';
 import SecurityTab from './security-tab.component';
 
 const mapStateToProps = (state) => {
   const { metamask } = state;
 
   const {
-    participateInMetaMetrics,
-    dataCollectionForMarketing,
     usePhishDetect,
     useTokenDetection,
     ipfsGateway,
@@ -59,10 +64,11 @@ const mapStateToProps = (state) => {
 
   return {
     networkConfigurations,
-    participateInMetaMetrics,
-    dataCollectionForMarketing,
+    participateInMetaMetrics: getParticipateInMetaMetrics(state),
+    dataCollectionForMarketing: getDataCollectionForMarketing(state),
     usePhishDetect,
     useTokenDetection,
+    hasActiveShieldSubscription: getIsActiveShieldSubscription(state),
     ipfsGateway,
     useMultiAccountBalanceChecker,
     useSafeChainsListValidation,
@@ -79,6 +85,8 @@ const mapStateToProps = (state) => {
     hdEntropyIndex: getHDEntropyIndex(state),
     skipDeepLinkInterstitial: Boolean(skipDeepLinkInterstitial),
     isSeedPhraseBackedUp: getIsPrimarySeedPhraseBackedUp(state),
+    socialLoginEnabled: getIsSocialLoginFlow(state),
+    socialLoginType: getSocialLoginType(state),
   };
 };
 
@@ -121,10 +129,12 @@ const mapDispatchToProps = (dispatch) => {
       return updateDataDeletionTaskStatus();
     },
     setSecurityAlertsEnabled: (value) => setSecurityAlertsEnabled(value),
+    getMarketingConsent: () => getMarketingConsent(),
+    setMarketingConsent: (value) => dispatch(setMarketingConsent(value)),
   };
 };
 
 export default compose(
-  withRouter,
+  withRouterHooks,
   connect(mapStateToProps, mapDispatchToProps),
 )(SecurityTab);

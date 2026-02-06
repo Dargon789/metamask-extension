@@ -2,7 +2,11 @@ import { CHAIN_IDS } from '@metamask/transaction-controller';
 import { SolMethod } from '@metamask/keyring-api';
 import { base58 } from 'ethers/lib/utils';
 import { assert } from '@metamask/superstruct';
-import { AllowedBridgeChainIds } from '../../constants/bridge';
+import {
+  KnownCaipNamespace,
+  parseCaipChainId,
+  type CaipChainId,
+} from '@metamask/utils';
 import {
   ScanTokenRequest,
   TokenFeature,
@@ -12,6 +16,7 @@ import {
   MessageScanResponse,
 } from '../../types/security-alerts-api';
 import { MultichainNetworks } from '../../constants/multichain/networks';
+import { decimalToPrefixedHex } from '../conversion.utils';
 
 const DOMAIN = 'https://metamask.io';
 
@@ -135,20 +140,18 @@ export function getTokenFeatureTitleDescriptionIds(
   return { ...tokenFeature, titleId, descriptionId };
 }
 
-export const CHAIN_ID_TO_SECURITY_API_NAME: Record<
-  AllowedBridgeChainIds,
-  string | null
-> = {
+const CHAIN_ID_TO_SECURITY_API_NAME: Record<string, string | null> = {
   [CHAIN_IDS.MAINNET]: 'ethereum',
   [CHAIN_IDS.LINEA_MAINNET]: 'linea',
   [CHAIN_IDS.POLYGON]: 'polygon',
   [CHAIN_IDS.AVALANCHE]: 'avalanche',
   [CHAIN_IDS.BSC]: 'bsc',
   [CHAIN_IDS.ARBITRUM]: 'arbitrum',
-  [CHAIN_IDS.OPTIMISM]: 'optimist',
+  [CHAIN_IDS.OPTIMISM]: 'optimism',
   [CHAIN_IDS.ZKSYNC_ERA]: 'zksync',
   [CHAIN_IDS.BASE]: 'base',
   [CHAIN_IDS.SEI]: 'sei',
+  [CHAIN_IDS.MONAD]: 'monad',
   [MultichainNetworks.SOLANA]: 'solana',
   [MultichainNetworks.BITCOIN]: 'bitcoin',
   [MultichainNetworks.BITCOIN_TESTNET]: null, // not supported
@@ -158,23 +161,35 @@ export const CHAIN_ID_TO_SECURITY_API_NAME: Record<
 };
 
 export function convertChainIdToBlockAidChainName(
-  chainId: AllowedBridgeChainIds,
+  chainId: CaipChainId,
 ): string | null {
-  return CHAIN_ID_TO_SECURITY_API_NAME[chainId] ?? null;
-}
-
-export async function fetchTxAlerts({
-  chainId,
-  trade,
-  accountAddress,
-}: {
-  chainId: AllowedBridgeChainIds;
-  trade: string;
-  accountAddress: string;
-}): Promise<TxAlert | null> {
-  if (!isSecurityAlertsAPIEnabled()) {
+  try {
+    const { namespace, reference } = parseCaipChainId(chainId);
+    const name =
+      CHAIN_ID_TO_SECURITY_API_NAME[
+        namespace === KnownCaipNamespace.Eip155
+          ? decimalToPrefixedHex(reference)
+          : chainId
+      ];
+    return name ?? null;
+  } catch {
     return null;
   }
+}
+
+export async function fetchTxAlerts(
+  params: {
+    signal: AbortSignal;
+    chainId: CaipChainId;
+    trade: string;
+    accountAddress: string;
+  } | null,
+): Promise<TxAlert | null> {
+  if (!isSecurityAlertsAPIEnabled() || !params) {
+    return null;
+  }
+
+  const { chainId, trade, accountAddress, signal } = params;
 
   const chain = convertChainIdToBlockAidChainName(chainId);
 
@@ -186,6 +201,8 @@ export async function fetchTxAlerts({
   const body = {
     method: SolMethod.SignAndSendTransaction,
     encoding: 'base64',
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     account_address: Buffer.from(base58.decode(accountAddress)).toString(
       'base64',
     ),
@@ -203,6 +220,7 @@ export async function fetchTxAlerts({
     headers: {
       'Content-Type': 'application/json',
     },
+    signal,
   });
 
   if (!response.ok) {
@@ -215,12 +233,9 @@ export async function fetchTxAlerts({
 
   assert<MessageScanResponse, unknown>(respBody, MessageScanResponse);
 
-  if (respBody.error_details?.code === 'ResultWithNegativeLamports') {
-    return null;
-  }
-
   if (respBody.status === 'ERROR') {
-    // eslint-disable-next-line camelcase
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
     const { error_details } = respBody;
     return {
       titleId: 'txAlertTitle',

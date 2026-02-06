@@ -35,6 +35,9 @@ class SwapPage {
 
   private readonly bridgeSourceButton = '[data-testid="bridge-source-button"]';
 
+  private readonly bridgeSourceTokenButton =
+    '[data-testid="prepare-swap-page-swap-from"]';
+
   private readonly bridgeDestinationButton =
     '[data-testid="bridge-destination-button"]';
 
@@ -46,23 +49,24 @@ class SwapPage {
   private readonly closeQuotesButton = 'header button';
 
   private readonly destinationTokenButton =
-    '[data-testid="prepare-swap-page-swap-to"]';
+    '[data-testid="bridge-destination-button"]';
 
-  private readonly fromToText =
-    '[data-testid="multichain-token-list-button"] p';
+  private readonly fromToText = '[data-testid="bridge-asset"] p';
 
-  private readonly moreQuotesButton = {
-    tag: 'button',
-    text: 'More quotes',
-  };
+  private readonly moreQuotesButton = '[aria-label="More quotes"]';
 
   private readonly noQuotesAvailableMessage = {
     text: "This trade route isn't available right now. Try changing the amount, network, or token and we'll find the best option",
     tag: 'p',
   };
 
+  private readonly gasIncludedLabel = {
+    text: 'included',
+    tag: 'h6',
+  };
+
   private readonly rateMessage = {
-    text: `Rate includes 0.875% fee`,
+    text: `Includes 0.875% MM fee.`,
     tag: 'p',
   };
 
@@ -72,8 +76,11 @@ class SwapPage {
 
   private readonly submitSwapButton = '[data-testid="bridge-cta-button"]';
 
-  private readonly swapAmount =
-    '[data-testid="prepare-swap-page-from-token-amount"]';
+  private readonly transactionStatusHeader =
+    '[data-testid="swap-smart-transaction-status-header"]';
+
+  private readonly transactionStatusDescription =
+    '[data-testid="swap-smart-transaction-status-description"]';
 
   private readonly swapButton = {
     tag: 'button',
@@ -82,24 +89,36 @@ class SwapPage {
 
   private readonly transactionHeader = '[data-testid="awaiting-swap-header"]';
 
+  private readonly networkFees = '[data-testid="network-fees"]';
+
+  private readonly slippageEditButton = '[data-testid="slippage-edit-button"]';
+
+  private readonly minimumReceived = '[data-testid="minimum-received"]';
+
+  private readonly maxButton = {
+    text: 'Max',
+    tag: 'button',
+  };
+
   constructor(driver: Driver) {
     this.driver = driver;
   }
 
-  async check_pageIsLoaded(): Promise<void> {
+  async waitForMaxButtonToBeDisplayed(): Promise<void> {
+    await this.driver.waitForSelector(this.maxButton);
+  }
+
+  async checkPageIsLoaded(): Promise<void> {
     try {
       await this.driver.waitForMultipleSelectors([
-        this.swapAmount,
+        this.reviewFromAmount,
         this.destinationTokenButton,
       ]);
     } catch (e) {
-      console.log(
-        'Timeout while waiting for Advanced Settings page to be loaded',
-        e,
-      );
+      console.log('Timeout while waiting for Swap page to be loaded', e);
       throw e;
     }
-    console.log('Advanced Settings page is loaded');
+    console.log('Swap page is loaded');
   }
 
   async clickOnMoreQuotes(): Promise<void> {
@@ -131,8 +150,22 @@ class SwapPage {
 
   async enterSwapAmount(amount: string): Promise<void> {
     console.log('Entering swap amount');
-    const stxToggle = await this.driver.findElement(this.swapAmount);
+    const stxToggle = await this.driver.findElement(this.reviewFromAmount);
     stxToggle.sendKeys(amount);
+  }
+
+  async selectSourceToken(sourceToken: string): Promise<void> {
+    console.log('Click source token button');
+    await this.driver.clickElement(this.bridgeSourceTokenButton);
+    // click element wth test-id searchable-item-list-primary-label and text sourceToken
+    await this.driver.waitForSelector({
+      css: '[data-testid="searchable-item-list-primary-label"]',
+      text: sourceToken,
+    });
+    await this.driver.clickElement({
+      css: '[data-testid="searchable-item-list-primary-label"]',
+      text: sourceToken,
+    });
   }
 
   async selectDestinationToken(destinationToken: string): Promise<void> {
@@ -145,24 +178,22 @@ class SwapPage {
   }
 
   async swapProcessingMessageCheck(message: string): Promise<void> {
-    await this.driver.wait(async () => {
-      const confirmedTxs = await this.driver.findElements({
-        css: this.transactionHeader,
-        text: message,
-      });
-      return confirmedTxs.length === 1;
-    }, 10000);
+    await this.driver.waitForSelector({
+      css: this.transactionHeader,
+      text: message,
+    });
+  }
+
+  async checkSwapButtonIsEnabled(): Promise<void> {
+    await this.driver.waitForSelector(this.swapButton, {
+      state: 'enabled',
+    });
   }
 
   async submitSwap(): Promise<void> {
     console.log('Submit Swap');
     await this.driver.clickElement(this.swapButton);
     await this.driver.delay(1500);
-    // console.log('Processing Swap');
-    // await this.swapProcessingMessageCheck('Processing');
-    console.log('Swap Transaction complete');
-    await this.swapProcessingMessageCheck('Transaction complete');
-    await this.driver.clickElement(this.closeButton);
   }
 
   async dismissManualTokenWarning(): Promise<void> {
@@ -176,6 +207,47 @@ class SwapPage {
 
   async checkNoQuotesAvailable(): Promise<void> {
     await this.driver.waitForSelector(this.noQuotesAvailableMessage);
+  }
+
+  async checkQuoteIsDisplayed(): Promise<void> {
+    await this.driver.waitForMultipleSelectors([
+      this.networkFees,
+      this.slippageEditButton,
+      this.minimumReceived,
+    ]);
+  }
+
+  async checkQuoteIsGasIncluded(): Promise<void> {
+    await this.driver.waitForSelector(this.gasIncludedLabel);
+  }
+
+  async waitForTransactionToComplete(): Promise<void> {
+    console.log('Swap Transaction complete');
+    await this.swapProcessingMessageCheck('Transaction complete');
+    await this.driver.clickElement(this.closeButton);
+  }
+
+  async waitForSmartTransactionToComplete(tokenName: string): Promise<void> {
+    console.log('Wait for Smart Transaction to complete');
+
+    await this.driver.waitForSelector({
+      css: this.transactionStatusHeader,
+      text: 'Privately submitting your Swap',
+    });
+
+    await this.driver.waitForSelector(
+      {
+        css: this.transactionStatusHeader,
+        text: 'Swap complete!',
+      },
+      { timeout: 30000 },
+    );
+
+    await this.driver.findElement({
+      css: this.transactionStatusDescription,
+      text: `${tokenName}`,
+    });
+    await this.driver.clickElement(this.closeButton);
   }
 
   async createSolanaSwap(options: SwapSolanaOptions) {
@@ -196,7 +268,7 @@ class SwapPage {
     await this.driver.fill(this.reviewFromAmount, options.amount.toString());
   }
 
-  async reviewSolanaQuote(options: SwapSolanaReviewOptions) {
+  async reviewQuote(options: SwapSolanaReviewOptions) {
     await this.driver.waitForSelector(this.submitSwapButton);
     const fromAmount = await this.driver.findElement(this.reviewFromAmount);
     const fromAmountText = await fromAmount.getAttribute('value');

@@ -8,6 +8,9 @@ import type {
   PolymorphicComponentPropWithRef,
 } from '../box';
 
+/**
+ * @deprecated This type has been deprecated in favor of the one from @metamask/design-system-react
+ */
 export enum IconSize {
   Xs = 'xs',
   Sm = 'sm',
@@ -24,6 +27,7 @@ export enum IconSize {
  *
  * Add an icon: https://metamask.github.io/metamask-storybook/?path=/docs/components-componentlibrary-icon--default-story#adding-a-new-icon
  *
+ * @deprecated This type has been deprecated in favor of the one from @metamask/design-system-react
  */
 
 export enum IconName {
@@ -104,6 +108,7 @@ export enum IconName {
   Details = 'details',
   Diagram = 'diagram',
   DocumentCode = 'document-code',
+  Dollar = 'dollar',
   Download = 'download',
   Draft = 'draft',
   EcoLeaf = 'eco-leaf',
@@ -196,6 +201,7 @@ export enum IconName {
   Plug = 'plug',
   PlusAndMinus = 'plus-and-minus',
   PolicyAlert = 'policy-alert',
+  Popup = 'popup',
   Print = 'print',
   PriorityHigh = 'priority-high',
   PrivacyTip = 'privacy-tip',
@@ -206,7 +212,6 @@ export enum IconName {
   Receive = 'receive',
   Received = 'received',
   Refresh = 'refresh',
-  RemoteMode = 'remote-mode',
   RemoveMinus = 'remove-minus',
   Report = 'report',
   Rocket = 'rocket',
@@ -237,6 +242,7 @@ export enum IconName {
   ShieldLock = 'shield-lock',
   ShoppingBag = 'shopping-bag',
   ShoppingCart = 'shopping-cart',
+  Sidepanel = 'sidepanel',
   SignalCellular = 'signal-cellular',
   Slash = 'slash',
   Sms = 'sms',
@@ -333,9 +339,13 @@ export interface IconStyleUtilityProps extends StyleUtilityProps {
   style?: React.CSSProperties;
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type IconProps<C extends React.ElementType> =
   PolymorphicComponentPropWithRef<C, IconStyleUtilityProps>;
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type IconComponent = <C extends React.ElementType = 'span'>(
   props: IconProps<C>,
 ) => React.ReactElement | null;

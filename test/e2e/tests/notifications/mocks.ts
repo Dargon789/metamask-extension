@@ -32,6 +32,31 @@ type MockResponse = {
   response: unknown;
 };
 
+export type UserStorageAccount = {
+  v: string;
+  a: string;
+  i: string;
+  n: string;
+  nlu: number;
+};
+
+export const notificationsMockAccounts: UserStorageAccount[] = [
+  {
+    v: '1',
+    a: '0xAa4179E7f103701e904D27DF223a39Aa9c27405a'.toLowerCase(),
+    i: '0000-1111',
+    n: 'Hello from account 1',
+    nlu: 1738590287,
+  },
+  {
+    v: '1',
+    a: '0xd2a4aFe5c2fF0a16Bf81F77ba4201A8107AA874b'.toLowerCase(),
+    i: '1111-1111',
+    n: 'Hello from account 2',
+    nlu: 1738590287,
+  },
+];
+
 const mockListNotificationsResponse = getMockListNotificationsResponse();
 mockListNotificationsResponse.response = [
   createMockNotificationEthSent(),
@@ -70,8 +95,15 @@ date.setMonth(date.getMonth() - 1);
 
 export function getMockWalletNotificationItemId(trigger: TRIGGER_TYPES) {
   return (
-    mockListNotificationsResponse.response.find((n) => n.data.kind === trigger)
-      ?.id ?? 'DOES NOT EXIST'
+    mockListNotificationsResponse.response.find((n) => {
+      if (n.notification_type === 'on-chain') {
+        return n.payload.data.kind === trigger;
+      }
+      if (n.notification_type === 'platform') {
+        return n.notification_type === trigger;
+      }
+      return false;
+    })?.id ?? 'DOES NOT EXIST'
   );
 }
 
@@ -98,6 +130,8 @@ export async function mockNotificationServices(
   // Notification Server
   mockAPICall(server, mockFeatureAnnouncementResponse, (r) =>
     r.withQuery({
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       content_type: 'productAnnouncement',
     }),
   );

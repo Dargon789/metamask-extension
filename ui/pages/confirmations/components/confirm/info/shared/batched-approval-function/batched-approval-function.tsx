@@ -1,7 +1,10 @@
 import React from 'react';
 import { BigNumber } from 'bignumber.js';
 import { Hex } from '@metamask/utils';
-import { TransactionMeta } from '@metamask/transaction-controller';
+import {
+  BatchTransactionParams,
+  TransactionMeta,
+} from '@metamask/transaction-controller';
 
 import { DecodedTransactionDataMethod } from '../../../../../../../../shared/types/transaction-decode';
 import { TokenStandard } from '../../../../../../../../shared/constants/transaction';
@@ -17,6 +20,7 @@ import { useI18nContext } from '../../../../../../../hooks/useI18nContext';
 import { Box } from '../../../../../../../components/component-library';
 import { ERC20_DEFAULT_DECIMALS } from '../../../../../utils/token';
 import { useConfirmContext } from '../../../../../context/confirm';
+import { useDappSwapContext } from '../../../../../context/dapp-swap';
 import { isSpendingCapUnlimited } from '../../approve/hooks/use-approve-token-simulation';
 
 export type TranslateFunction = (arg: string) => string;
@@ -51,10 +55,6 @@ const getBatchedApprovalDisplayValue = async (
     return undefined;
   }
 
-  if (tokenData?.standard !== TokenStandard.ERC20 || !amountOrTokenId) {
-    return undefined;
-  }
-
   const isUnlimited = isSpendingCapUnlimited(
     amountOrTokenId?.toNumber() ?? 0,
     Number(tokenData?.decimals ?? 0),
@@ -64,20 +64,37 @@ const getBatchedApprovalDisplayValue = async (
     return { spender, amount: t('unlimited') };
   }
 
-  const tokenAmount = new BigNumber(amountOrTokenId, 10)
-    .shift(
-      tokenData.decimals
-        ? parseInt(tokenData.decimals, 10) * -1
-        : ERC20_DEFAULT_DECIMALS,
-    )
-    .toString();
+  if (!amountOrTokenId) {
+    return undefined;
+  }
 
-  return {
-    spender,
-    amount: `${tokenAmount} ${tokenData.symbol}`,
-  };
+  if (tokenData?.standard === TokenStandard.ERC20) {
+    const tokenAmount = new BigNumber(amountOrTokenId, 10)
+      .shift(
+        tokenData.decimals
+          ? parseInt(tokenData.decimals, 10) * -1
+          : ERC20_DEFAULT_DECIMALS,
+      )
+      .toString();
+
+    return {
+      spender,
+      amount: `${tokenAmount} ${tokenData.symbol}`,
+    };
+  }
+
+  if (tokenData?.standard === TokenStandard.ERC721) {
+    return {
+      spender,
+      tokenId: amountOrTokenId.toString(),
+    };
+  }
+
+  return undefined;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function BatchedApprovalFunction({
   method,
   nestedTransactionIndex,
@@ -86,13 +103,18 @@ export function BatchedApprovalFunction({
   nestedTransactionIndex: number;
 }) {
   const t = useI18nContext();
-
   const { currentConfirmation } = useConfirmContext<TransactionMeta>();
+  const { isQuotedSwapDisplayedInInfo, selectedQuote } = useDappSwapContext();
+
   const { chainId } = currentConfirmation;
-  const nestedTransaction =
+  let transaction =
     currentConfirmation?.nestedTransactions?.[nestedTransactionIndex];
 
-  const { data, to } = nestedTransaction ?? {};
+  if (isQuotedSwapDisplayedInInfo) {
+    transaction = selectedQuote?.approval as BatchTransactionParams;
+  }
+
+  const { data, to } = transaction ?? {};
 
   const { value, pending } = useAsyncResult(
     () => getBatchedApprovalDisplayValue(t as TranslateFunction, data, to),
@@ -119,9 +141,16 @@ export function BatchedApprovalFunction({
             chainId={chainId}
           />
         </ConfirmInfoRow>
-        <ConfirmInfoRow label={t('amount')}>
-          <ConfirmInfoRowText text={value.amount} />
-        </ConfirmInfoRow>
+        {value.amount && (
+          <ConfirmInfoRow label={t('amount')}>
+            <ConfirmInfoRowText text={value.amount} />
+          </ConfirmInfoRow>
+        )}
+        {value.tokenId && (
+          <ConfirmInfoRow label={t('tokenId')}>
+            <ConfirmInfoRowText text={value.tokenId} />
+          </ConfirmInfoRow>
+        )}
       </Box>
     </>
   );

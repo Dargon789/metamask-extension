@@ -1,29 +1,33 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { useHistory } from 'react-router-dom';
-import { createProjectLogger } from '@metamask/utils';
-import { isSolanaChainId } from '@metamask/bridge-controller';
+import { useNavigate } from 'react-router-dom';
+import {
+  formatChainIdToCaip,
+  getQuotesReceivedProperties,
+  isCrossChain,
+  isNonEvmChainId,
+} from '@metamask/bridge-controller';
 import type { QuoteMetadata, QuoteResponse } from '@metamask/bridge-controller';
-import { captureException } from '@sentry/browser';
+import { isHardwareWallet } from '../../../../shared/modules/selectors';
+import { captureException } from '../../../../shared/lib/sentry';
 import {
   AWAITING_SIGNATURES_ROUTE,
   CROSS_CHAIN_SWAP_ROUTE,
   DEFAULT_ROUTE,
   PREPARE_SWAP_ROUTE,
 } from '../../../helpers/constants/routes';
-import { setDefaultHomeActiveTabName } from '../../../store/actions';
 import { submitBridgeTx } from '../../../ducks/bridge-status/actions';
 import { setWasTxDeclined } from '../../../ducks/bridge/actions';
 import {
-  getSmartTransactionsEnabled,
-  isHardwareWallet,
-} from '../../../../shared/modules/selectors';
-import { getShouldUseSnapConfirmation } from '../../../ducks/bridge/selectors';
-import useSnapConfirmation from './useSnapConfirmation';
+  getBridgeQuotes,
+  getFromAccount,
+  getFromTokenBalanceInUsd,
+  getIsStxEnabled,
+  getWarningLabels,
+} from '../../../ducks/bridge/selectors';
+import { useEnableMissingNetwork } from './useEnableMissingNetwork';
 
 const ALLOWANCE_RESET_ERROR = 'Eth USDT allowance reset failed';
 const APPROVAL_TX_ERROR = 'Approve transaction failed';
-
-const debugLog = createProjectLogger('bridge');
 
 export const isAllowanceResetError = (error: unknown): boolean => {
   const errorMessage = (error as Error).message ?? '';
@@ -56,70 +60,96 @@ const isHardwareWalletUserRejection = (error: unknown): boolean => {
 };
 
 export default function useSubmitBridgeTransaction() {
-  const history = useHistory();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const hardwareWalletUsed = useSelector(isHardwareWallet);
-  const shouldShowSnapConfirmation = useSelector(getShouldUseSnapConfirmation);
 
-  // This redirects to the confirmation page if an unapproved snap confirmation exists
-  useSnapConfirmation();
+  const smartTransactionsEnabled = useSelector(getIsStxEnabled);
 
-  const smartTransactionsEnabled = useSelector(getSmartTransactionsEnabled);
+  const fromAccount = useSelector(getFromAccount);
+  const { recommendedQuote } = useSelector(getBridgeQuotes);
+  const warnings = useSelector(getWarningLabels);
+  const fromTokenBalanceInUsd = useSelector(getFromTokenBalanceInUsd);
+  const enableMissingNetwork = useEnableMissingNetwork();
+
   const submitBridgeTransaction = async (
     quoteResponse: QuoteResponse & QuoteMetadata,
   ) => {
-    if (hardwareWalletUsed) {
-      history.push(`${CROSS_CHAIN_SWAP_ROUTE}${AWAITING_SIGNATURES_ROUTE}`);
+    if (!fromAccount) {
+      throw new Error(
+        'Failed to submit bridge transaction: No selected account',
+      );
     }
+
+    // If bridging, enable All Networks view so the user can see their bridging activity
     if (
-      shouldShowSnapConfirmation &&
-      isSolanaChainId(quoteResponse.quote.srcChainId)
+      isCrossChain(
+        quoteResponse.quote.srcChainId,
+        quoteResponse.quote.destChainId,
+      )
     ) {
-      // Move to activity tab before submitting a transaction
-      // This is a temporary solution to avoid the transaction not being shown in the activity tab
-      // We should find a better solution in the future
-      await dispatch(setDefaultHomeActiveTabName('activity'));
-      await dispatch(submitBridgeTx(quoteResponse, false));
-      // The useSnapConfirmation hook redirects to the confirmation page right after
-      // submitting the tx so everything below is unnecessary and we can return early
-      return;
+      enableMissingNetwork(
+        formatChainIdToCaip(quoteResponse.quote.destChainId),
+      );
+    }
+
+    if (hardwareWalletUsed) {
+      navigate(`${CROSS_CHAIN_SWAP_ROUTE}${AWAITING_SIGNATURES_ROUTE}`);
     }
 
     // Execute transaction(s)
     try {
-      if (isSolanaChainId(quoteResponse.quote.srcChainId)) {
-        await dispatch(setDefaultHomeActiveTabName('activity'));
-        history.push({
-          pathname: DEFAULT_ROUTE,
+      // Handle non-EVM source chains (Solana, Bitcoin, Tron)
+      const isNonEvmSource = isNonEvmChainId(quoteResponse.quote.srcChainId);
+
+      if (isNonEvmSource) {
+        // Submit the transaction first, THEN navigate
+        await dispatch(
+          submitBridgeTx(
+            fromAccount.address,
+            quoteResponse,
+            false,
+            getQuotesReceivedProperties(
+              quoteResponse,
+              warnings,
+              true,
+              recommendedQuote,
+              fromTokenBalanceInUsd,
+            ),
+          ),
+        );
+        navigate(`${DEFAULT_ROUTE}?tab=activity`, {
           state: { stayOnHomePage: true },
         });
-        await dispatch(submitBridgeTx(quoteResponse, false));
         return;
       }
+
       await dispatch(
-        await submitBridgeTx(
+        submitBridgeTx(
+          fromAccount.address,
           quoteResponse,
-          isSolanaChainId(quoteResponse.quote.srcChainId)
-            ? false
-            : smartTransactionsEnabled,
+          smartTransactionsEnabled,
+          getQuotesReceivedProperties(
+            quoteResponse,
+            warnings,
+            true,
+            recommendedQuote,
+            fromTokenBalanceInUsd,
+          ),
         ),
       );
     } catch (e) {
-      debugLog('Bridge transaction failed', e);
       captureException(e);
       if (hardwareWalletUsed && isHardwareWalletUserRejection(e)) {
         dispatch(setWasTxDeclined(true));
-        history.push(`${CROSS_CHAIN_SWAP_ROUTE}${PREPARE_SWAP_ROUTE}`);
+        navigate(`${CROSS_CHAIN_SWAP_ROUTE}${PREPARE_SWAP_ROUTE}`);
       } else {
-        await dispatch(setDefaultHomeActiveTabName('activity'));
-        history.push(DEFAULT_ROUTE);
+        navigate(`${DEFAULT_ROUTE}?tab=activity`);
       }
       return;
     }
-    // Route user to activity tab on Home page
-    await dispatch(setDefaultHomeActiveTabName('activity'));
-    history.push({
-      pathname: DEFAULT_ROUTE,
+
+    navigate(`${DEFAULT_ROUTE}?tab=activity`, {
       state: { stayOnHomePage: true },
     });
   };

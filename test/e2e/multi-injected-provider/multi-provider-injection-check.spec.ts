@@ -1,5 +1,5 @@
 import { withFixtures } from '../helpers';
-import FixtureBuilder from '../fixture-builder';
+import FixtureBuilder from '../fixtures/fixture-builder';
 import TestDapp from '../page-objects/pages/test-dapp';
 import { loginWithBalanceValidation } from '../page-objects/flows/login.flow';
 
@@ -7,7 +7,7 @@ describe('Multi injected provider interactions', function () {
   it('should check for multiple providers', async function () {
     await withFixtures(
       {
-        dapp: true,
+        dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
@@ -15,8 +15,8 @@ describe('Multi injected provider interactions', function () {
         await loginWithBalanceValidation(driver);
         const testDapp = new TestDapp(driver);
         await testDapp.openTestDappPage();
-        await testDapp.check_pageIsLoaded();
-        await testDapp.check_providerNumber(2);
+        await testDapp.checkPageIsLoaded();
+        await testDapp.checkProviderNumber(2);
       },
     );
   });

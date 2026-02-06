@@ -3,25 +3,14 @@ import { Driver } from '../../../webdriver/driver';
 class OnboardingCompletePage {
   private driver: Driver;
 
-  private readonly installCompleteMessage = {
-    text: 'Installation is complete!',
-    tag: 'h2',
-  };
-
   private readonly onboardingCompleteDoneButton =
     '[data-testid="onboarding-complete-done"]';
 
-  private readonly pinExtensionDoneButton =
-    '[data-testid="pin-extension-done"]';
-
-  private readonly pinExtensionMessage = {
-    text: 'Pin MetaMask on your browser so it’s accessible and easy to view transaction confirmations.',
-    tag: 'p',
-  };
+  private readonly downloadAppContinueButton =
+    '[data-testid="download-app-continue"]';
 
   private readonly walletReadyMessage = {
     text: 'Your wallet is ready!',
-    tag: 'h2',
   };
 
   private readonly keepSrpSafeMessage = {
@@ -37,11 +26,16 @@ class OnboardingCompletePage {
   private readonly manageDefaultSettingsButton =
     '[data-testid="manage-default-settings"]';
 
+  private readonly downloadAppTitle = {
+    text: 'Scan QR code and download the app',
+    tag: 'h2',
+  };
+
   constructor(driver: Driver) {
     this.driver = driver;
   }
 
-  async check_pageIsLoaded(): Promise<void> {
+  async checkPageIsLoaded(): Promise<void> {
     try {
       await this.driver.waitForMultipleSelectors([
         this.manageDefaultSettingsButton,
@@ -57,7 +51,7 @@ class OnboardingCompletePage {
     console.log('Onboarding wallet creation complete page is loaded');
   }
 
-  async check_pageIsLoaded_backup(): Promise<void> {
+  async checkPageIsLoadedBackup(): Promise<void> {
     try {
       await this.driver.waitForMultipleSelectors([
         this.keepSrpSafeMessage,
@@ -74,19 +68,22 @@ class OnboardingCompletePage {
   }
 
   async clickCreateWalletDoneButton(): Promise<void> {
+    // With sidepanel enabled, clicking done opens a new window instead of
+    // navigating in the current window, so the button doesn't "disappear"
+    // We just click it without waiting for it to disappear
+    await this.driver.clickElement(this.onboardingCompleteDoneButton);
+  }
+
+  async displayDownloadAppPageAndContinue(): Promise<void> {
+    await this.driver.waitForSelector(this.downloadAppTitle);
     await this.driver.clickElementAndWaitToDisappear(
-      this.onboardingCompleteDoneButton,
+      this.downloadAppContinueButton,
     );
   }
 
   async completeOnboarding(): Promise<void> {
     console.log('Complete onboarding');
     await this.clickCreateWalletDoneButton();
-    await this.driver.waitForSelector(this.installCompleteMessage);
-    await this.driver.waitForSelector(this.pinExtensionMessage);
-    await this.driver.clickElementAndWaitToDisappear(
-      this.pinExtensionDoneButton,
-    );
   }
 
   async completeBackup(): Promise<void> {
@@ -100,15 +97,15 @@ class OnboardingCompletePage {
     );
   }
 
-  async check_walletReadyMessageIsDisplayed(): Promise<void> {
+  async checkWalletReadyMessageIsDisplayed(): Promise<void> {
     await this.driver.waitForSelector(this.walletReadyMessage);
   }
 
-  async check_keepSrpSafeMessageIsDisplayed(): Promise<void> {
+  async checkKeepSrpSafeMessageIsDisplayed(): Promise<void> {
     await this.driver.waitForSelector(this.keepSrpSafeMessage);
   }
 
-  async check_remindMeLaterButtonIsDisplayed(): Promise<void> {
+  async checkRemindMeLaterButtonIsDisplayed(): Promise<void> {
     await this.driver.waitForSelector(this.remindMeLaterButton);
   }
 }

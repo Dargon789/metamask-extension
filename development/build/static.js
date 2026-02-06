@@ -123,6 +123,11 @@ function getCopyTargets(
       dest: `images`,
     },
     {
+      src: getPathInsideNodeModules('@rive-app/canvas', 'rive.wasm'),
+      dest: `images/riv_animations/rive.wasm`,
+      pattern: '',
+    },
+    {
       src: getPathInsideNodeModules('@metamask/contract-metadata', 'images/'),
       dest: `images/contract`,
     },
@@ -232,6 +237,21 @@ function getCopyTargets(
             ),
             pattern: '*',
             dest: 'ocap-kernel/',
+          },
+          {
+            src: getPathInsideNodeModules(
+              '@metamask/kernel-ui',
+              'dist/styles.css',
+            ),
+            dest: `devtools/ocap-kernel/kernel-panel.css`,
+          },
+          {
+            src: `./app/devtools/devtools.html`,
+            dest: `devtools/devtools.html`,
+          },
+          {
+            src: `./app/devtools/ocap-kernel/kernel-panel.html`,
+            dest: `devtools/ocap-kernel/kernel-panel.html`,
           },
         ]
       : []),

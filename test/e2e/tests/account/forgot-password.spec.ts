@@ -1,9 +1,7 @@
-import { Mockttp } from 'mockttp';
-import { MockedEndpoint } from '../../mock-e2e';
 import { withFixtures } from '../../helpers';
-import FixtureBuilder from '../../fixture-builder';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { Driver } from '../../webdriver/driver';
-import { E2E_SRP } from '../../default-fixture';
+import { E2E_SRP } from '../../fixtures/default-fixture';
 import { Anvil } from '../../seeder/anvil';
 import { Ganache } from '../../seeder/ganache';
 import HomePage from '../../page-objects/pages/home/homepage';
@@ -13,60 +11,45 @@ import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow'
 
 const newPassword = 'this is the best password ever';
 
-async function seeAuthenticationRequest(mockServer: Mockttp) {
-  return await mockServer
-    .forPost('https://authentication.api.cx.metamask.io/api/v2/srp/login')
-    // the goal is to know when this request happens, not to mock any specific response
-    .thenCallback(() => {
-      return {
-        statusCode: 200,
-      };
-    });
-}
-
 describe('Forgot password', function () {
   it('resets password and then unlock wallet with new password', async function () {
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        testSpecificMock: seeAuthenticationRequest,
+        // to avoid a race condition where some authentication requests are triggered once the wallet is locked
+        ignoredConsoleErrors: [
+          'unable to proceed, wallet is locked',
+          'The snap "npm:@metamask/message-signing-snap" has been terminated during execution', // issue #37342
+          'npm:@metamask/message-signing-snap was stopped and the request was cancelled. This is likely because the Snap crashed.', // issue #37498
+          'Legacy syncing failed for wallet', // issue #37053
+        ],
         title: this.test?.fullTitle(),
       },
       async ({
         driver,
         localNodes,
-        mockedEndpoint,
       }: {
         driver: Driver;
         localNodes: Anvil[] | Ganache[] | undefined[];
-        mockedEndpoint: MockedEndpoint;
       }) => {
         await loginWithBalanceValidation(driver, localNodes[0]);
+        // Giving sometime for network calls to settle before locking metamask
+        await driver.delay(3000);
 
-        // Lock Wallet
-        // We need to wait for this request to happen, before locking the wallet, to avoid the error 'unable to proceed, wallet is locked'
-        // https://github.com/MetaMask/core/blob/main/packages/profile-sync-controller/src/controllers/authentication/AuthenticationController.ts#L263
-        await driver.waitUntil(
-          async () => {
-            const requests = await mockedEndpoint.getSeenRequests();
-            return requests.length > 0;
-          },
-          { interval: 200, timeout: 10000 },
-        );
         const homePage = new HomePage(driver);
-        await homePage.headerNavbar.check_pageIsLoaded();
+        await homePage.headerNavbar.checkPageIsLoaded();
         await homePage.headerNavbar.lockMetaMask();
 
         // Click forgot password button and reset password
         await new LoginPage(driver).gotoResetPasswordPage();
 
         const resetPasswordPage = new ResetPasswordPage(driver);
-        await resetPasswordPage.check_pageIsLoaded();
+        await resetPasswordPage.checkPageIsLoaded();
 
         await resetPasswordPage.resetPassword(E2E_SRP, newPassword);
-        await resetPasswordPage.waitForSeedPhraseInputToNotBeVisible();
-        await homePage.headerNavbar.check_pageIsLoaded();
-
+        await resetPasswordPage.waitForPasswordInputToNotBeVisible();
+        await homePage.headerNavbar.checkPageIsLoaded();
+        await driver.delay(1000); // to avoid a race condition where the wallet is not locked yet
         // Lock wallet again
         await homePage.headerNavbar.lockMetaMask();
 

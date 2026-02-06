@@ -23,6 +23,22 @@ global.chrome = {
   },
 };
 
+// Stub for Sentry global
+global.sentry = {
+  captureException: () => {
+    // no-op
+  },
+  captureFeedback: () => {
+    // no-op
+  },
+  captureMessage: () => {
+    // no-op
+  },
+  lastEventId: () => {
+    // no-op
+  },
+};
+
 nock.disableNetConnect();
 nock.enableNetConnect('localhost');
 if (typeof beforeEach === 'function') {
@@ -118,7 +134,24 @@ window.localStorage = {
 };
 
 // used for native dark/light mode detection
-window.matchMedia = () => true;
+window.matchMedia = (query) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => {
+    // deprecated - no-op
+  },
+  removeListener: () => {
+    // deprecated - no-op
+  },
+  addEventListener: () => {
+    // no-op for tests
+  },
+  removeEventListener: () => {
+    // no-op for tests
+  },
+  dispatchEvent: () => true,
+});
 
 // override @metamask/logo
 window.requestAnimationFrame = () => undefined;
@@ -148,3 +181,21 @@ window.SVGPathElement = window.SVGPathElement || { prototype: {} };
 
 // scrollIntoView is not available in JSDOM
 window.HTMLElement.prototype.scrollIntoView = () => undefined;
+
+// ResizeObserver is not available in JSDOM
+if (typeof window.ResizeObserver === 'undefined') {
+  const ResizeObserver = function () {
+    // no-op for tests
+  };
+  ResizeObserver.prototype.observe = () => {
+    // no-op for tests
+  };
+  ResizeObserver.prototype.unobserve = () => {
+    // no-op for tests
+  };
+  ResizeObserver.prototype.disconnect = () => {
+    // no-op for tests
+  };
+  window.ResizeObserver = ResizeObserver;
+  global.ResizeObserver = ResizeObserver;
+}

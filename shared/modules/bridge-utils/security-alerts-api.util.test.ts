@@ -1,5 +1,4 @@
 import nock from 'nock';
-import { CHAIN_IDS } from '@metamask/transaction-controller';
 import {
   TokenFeature,
   TokenFeatureType,
@@ -16,9 +15,12 @@ import {
 const originalEnv = process.env;
 const BASE_URL = 'https://api.example.com';
 
+let signal: AbortSignal;
+
 describe('Security alerts utils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    signal = new AbortController().signal;
     process.env = { ...originalEnv };
     process.env.SECURITY_ALERTS_API_ENABLED = 'true';
     process.env.SECURITY_ALERTS_API_URL = BASE_URL;
@@ -37,6 +39,8 @@ describe('Security alerts utils', () => {
     it('should correctly add title Id and Description Id', async () => {
       const mockTokenAlert = {
         type: TokenFeatureType.MALICIOUS,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         feature_id: 'UNSTABLE_TOKEN_PRICE',
         description: 'This token is Malicious',
       } as TokenFeature;
@@ -50,6 +54,8 @@ describe('Security alerts utils', () => {
     it('should correctly return title Id and Description Id null if not available', async () => {
       const mockTokenAlert = {
         type: TokenFeatureType.BENIGN,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         feature_id: 'BENIGN_TYPE',
         description: 'This token is Benign',
       } as TokenFeature;
@@ -71,6 +77,7 @@ describe('Security alerts utils', () => {
       process.env.SECURITY_ALERTS_API_ENABLED = 'false';
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -84,6 +91,7 @@ describe('Security alerts utils', () => {
 
       await expect(
         fetchTxAlerts({
+          signal,
           chainId: mockChainId,
           trade: mockTrade,
           accountAddress: mockAccountAddress,
@@ -95,6 +103,7 @@ describe('Security alerts utils', () => {
       const unsupportedChainId = '0x1342134' as never;
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: unsupportedChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -106,6 +115,8 @@ describe('Security alerts utils', () => {
     it('should make API call with correct parameters for Solana', async () => {
       const mockResponse = {
         status: 'SUCCESS',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: {
           code: 'ResultWithNegativeLamports',
           message: 'This is an error',
@@ -118,6 +129,7 @@ describe('Security alerts utils', () => {
         .reply(200, mockResponse);
 
       await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -129,6 +141,8 @@ describe('Security alerts utils', () => {
     it('should return null when API returns ResultWithNegativeLamports error', async () => {
       const mockResponse = {
         status: 'SUCCESS',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: {
           code: 'ResultWithNegativeLamports',
           message: 'This is an error',
@@ -139,6 +153,7 @@ describe('Security alerts utils', () => {
       nock(BASE_URL).post('/solana/message/scan').reply(200, mockResponse);
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -150,6 +165,8 @@ describe('Security alerts utils', () => {
     it('should return error alert when API returns ERROR status', async () => {
       const mockResponse = {
         status: 'ERROR',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: {
           message: 'Insufficient balance',
           code: 'ErrorCode',
@@ -160,6 +177,7 @@ describe('Security alerts utils', () => {
       nock(BASE_URL).post('/solana/message/scan').reply(200, mockResponse);
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -176,12 +194,15 @@ describe('Security alerts utils', () => {
       const mockResponse = {
         status: 'ERROR',
         error: null,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: null,
       };
 
       nock(BASE_URL).post('/solana/message/scan').reply(200, mockResponse);
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -197,6 +218,8 @@ describe('Security alerts utils', () => {
     it('should return null when API returns successful response without errors', async () => {
       const mockResponse = {
         status: 'SUCCESS',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: null,
         error: null,
       };
@@ -204,6 +227,7 @@ describe('Security alerts utils', () => {
       nock(BASE_URL).post('/solana/message/scan').reply(200, mockResponse);
 
       const result = await fetchTxAlerts({
+        signal,
         chainId: mockChainId,
         trade: mockTrade,
         accountAddress: mockAccountAddress,
@@ -217,6 +241,7 @@ describe('Security alerts utils', () => {
 
       await expect(
         fetchTxAlerts({
+          signal,
           chainId: mockChainId,
           trade: mockTrade,
           accountAddress: mockAccountAddress,
@@ -226,30 +251,11 @@ describe('Security alerts utils', () => {
       );
     });
 
-    it('should make API call with correct body structure', async () => {
-      const mockResponse = {
-        status: 'SUCCESS',
-        error_details: null,
-        error: null,
-      };
-
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as unknown as Response);
-
-      await fetchTxAlerts({
-        chainId: mockChainId,
-        trade: mockTrade,
-        accountAddress: mockAccountAddress,
-      });
-
-      // expect(scope.isDone()).toBe(true);
-    });
-
     it('should work with different supported chain IDs', async () => {
       const mockResponse = {
         status: 'SUCCESS',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         error_details: null,
         error: null,
       };
@@ -260,7 +266,8 @@ describe('Security alerts utils', () => {
 
       // Test with Ethereum mainnet
       await fetchTxAlerts({
-        chainId: CHAIN_IDS.MAINNET,
+        signal,
+        chainId: 'eip155:1',
         trade: mockTrade,
         accountAddress: mockAccountAddress,
       });
@@ -278,7 +285,7 @@ describe('Security alerts utils', () => {
     });
 
     it('should return correct chain name for Ethereum mainnet', () => {
-      const result = convertChainIdToBlockAidChainName(CHAIN_IDS.MAINNET);
+      const result = convertChainIdToBlockAidChainName('eip155:1');
       expect(result).toBe('ethereum');
     });
 

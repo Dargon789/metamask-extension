@@ -1,3 +1,5 @@
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+/* eslint-disable @typescript-eslint/naming-convention */
 import {
   SimulationData,
   SimulationErrorCode,
@@ -149,7 +151,7 @@ function useIncompleteAssetEvent(
     [address: string]: UseDisplayNameResponse | undefined;
   },
 ) {
-  const trackEvent = useContext(MetaMetricsContext);
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [processedAssets, setProcessedAssets] = useState<string[]>([]);
 
   for (const change of balanceChanges) {
@@ -210,7 +212,7 @@ function getProperties(
     ),
   );
 
-  const fiatAmounts = changes.map((change) => change.fiatAmount);
+  const fiatAmounts = changes.map((change) => change.usdAmount);
   const totalFiat = calculateTotalFiat(fiatAmounts);
   const totalValue = totalFiat ? Math.abs(totalFiat) : undefined;
 
@@ -251,6 +253,7 @@ function getPetnameType(
     name: '',
     hasPetname: false,
     displayState: TrustSignalDisplayState.Unknown,
+    isAccount: false,
   },
 ) {
   if (balanceChange.asset.standard === TokenStandard.none) {

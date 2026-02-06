@@ -2,7 +2,7 @@ import { strict as assert } from 'assert';
 import { Browser } from 'selenium-webdriver';
 import { Mockttp } from 'mockttp';
 import { getEventPayloads, withFixtures } from '../../helpers';
-import FixtureBuilder from '../../fixture-builder';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import OnboardingMetricsPage from '../../page-objects/pages/onboarding/onboarding-metrics-page';
 import StartOnboardingPage from '../../page-objects/pages/onboarding/start-onboarding-page';
 import { MOCK_META_METRICS_ID, WALLET_PASSWORD } from '../../constants';
@@ -60,28 +60,26 @@ describe('App Installed Events', function () {
 
         if (process.env.SELENIUM_BROWSER === Browser.FIREFOX) {
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
-          await onboardingMetricsPage.check_pageIsLoaded();
-          await onboardingMetricsPage.clickIAgreeButton();
+          await onboardingMetricsPage.checkPageIsLoaded();
+          await onboardingMetricsPage.clickOnContinueButton();
         }
 
         const startOnboardingPage = new StartOnboardingPage(driver);
-        await startOnboardingPage.check_bannerPageIsLoaded();
-        await startOnboardingPage.agreeToTermsOfUse();
-        await startOnboardingPage.check_loginPageIsLoaded();
+        await startOnboardingPage.checkLoginPageIsLoaded();
         await startOnboardingPage.createWalletWithSrp();
 
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-        await onboardingPasswordPage.check_pageIsLoaded();
+        await onboardingPasswordPage.checkPageIsLoaded();
         await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
 
         const secureWalletPage = new SecureWalletPage(driver);
-        await secureWalletPage.check_pageIsLoaded();
+        await secureWalletPage.checkPageIsLoaded();
         await secureWalletPage.revealAndConfirmSRP();
 
         if (process.env.SELENIUM_BROWSER !== Browser.FIREFOX) {
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
-          await onboardingMetricsPage.check_pageIsLoaded();
-          await onboardingMetricsPage.clickIAgreeButton();
+          await onboardingMetricsPage.checkPageIsLoaded();
+          await onboardingMetricsPage.clickOnContinueButton();
         }
 
         const events = await getEventPayloads(driver, mockedEndpoints);
@@ -89,7 +87,11 @@ describe('App Installed Events', function () {
         assert.deepStrictEqual(events[0].properties, {
           category: 'App',
           locale: 'en',
-          chain_id: '0x539',
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          chain_id: '0x1',
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           environment_type: 'background',
         });
       },
@@ -112,28 +114,26 @@ describe('App Installed Events', function () {
 
         if (process.env.SELENIUM_BROWSER === Browser.FIREFOX) {
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
-          await onboardingMetricsPage.check_pageIsLoaded();
-          await onboardingMetricsPage.clickNoThanksButton();
+          await onboardingMetricsPage.checkPageIsLoaded();
+          await onboardingMetricsPage.skipMetricAndContinue();
         }
 
         const startOnboardingPage = new StartOnboardingPage(driver);
-        await startOnboardingPage.check_bannerPageIsLoaded();
-        await startOnboardingPage.agreeToTermsOfUse();
-        await startOnboardingPage.check_loginPageIsLoaded();
+        await startOnboardingPage.checkLoginPageIsLoaded();
         await startOnboardingPage.createWalletWithSrp();
 
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-        await onboardingPasswordPage.check_pageIsLoaded();
+        await onboardingPasswordPage.checkPageIsLoaded();
         await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
 
         const secureWalletPage = new SecureWalletPage(driver);
-        await secureWalletPage.check_pageIsLoaded();
+        await secureWalletPage.checkPageIsLoaded();
         await secureWalletPage.revealAndConfirmSRP();
 
         if (process.env.SELENIUM_BROWSER !== Browser.FIREFOX) {
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
-          await onboardingMetricsPage.check_pageIsLoaded();
-          await onboardingMetricsPage.clickNoThanksButton();
+          await onboardingMetricsPage.checkPageIsLoaded();
+          await onboardingMetricsPage.skipMetricAndContinue();
         }
 
         const mockedRequests = await getEventPayloads(

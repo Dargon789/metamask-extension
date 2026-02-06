@@ -2,7 +2,7 @@ import React from 'react';
 import configureMockStore from 'redux-mock-store';
 import { fireEvent, waitFor } from '@testing-library/react';
 import thunk from 'redux-thunk';
-import { renderWithProvider } from '../../../test/lib/render-helpers';
+import { renderWithProvider } from '../../../test/lib/render-helpers-navigate';
 import mockState from '../../../test/data/mock-state.json';
 import { MetaMetricsContext } from '../../contexts/metametrics';
 import {
@@ -13,6 +13,13 @@ import {
 import { Modal } from '../../components/app/modals';
 import configureStore from '../../store/store';
 import RevealSeedPage from './reveal-seed';
+
+const mockUseParams = jest.fn().mockReturnValue({});
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useParams: () => mockUseParams(),
+}));
 
 const mockSuccessfulSrpReveal = () => {
   return (dispatch) => {
@@ -29,23 +36,12 @@ const mockRequestRevealSeedWords = jest
   .fn()
   .mockImplementation(mockSuccessfulSrpReveal);
 const mockShowModal = jest.fn();
-const mockUseParams = jest
-  .fn()
-  .mockReturnValue({ keyringId: 'ULID01234567890ABCDEFGHIJKLMN' });
 const password = 'password';
 
 jest.mock('../../store/actions.ts', () => ({
   ...jest.requireActual('../../store/actions.ts'),
   requestRevealSeedWords: (userPassword, keyringId) =>
     mockRequestRevealSeedWords(userPassword, keyringId),
-}));
-
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useHistory: () => ({
-    push: jest.fn(),
-  }),
-  useParams: () => mockUseParams(),
 }));
 
 const mockStateWithModal = {
@@ -66,6 +62,11 @@ const mockStateWithModal = {
 
 describe('Reveal Seed Page', () => {
   const mockStore = configureMockStore([thunk])(mockStateWithModal);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseParams.mockReturnValue({});
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -163,9 +164,15 @@ describe('Reveal Seed Page', () => {
       .mockImplementationOnce(mockSuccessfulSrpReveal);
 
     const mockTrackEvent = jest.fn();
+    const mockMetaMetricsContext = {
+      trackEvent: mockTrackEvent,
+      bufferedTrace: jest.fn(),
+      bufferedEndTrace: jest.fn(),
+      onboardingParentContext: { current: null },
+    };
     const { queryByTestId, queryByText, getByText, queryByLabelText } =
       renderWithProvider(
-        <MetaMetricsContext.Provider value={mockTrackEvent}>
+        <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
           <Modal />
           <RevealSeedPage />
         </MetaMetricsContext.Provider>,
@@ -341,8 +348,14 @@ describe('Reveal Seed Page', () => {
       .mockImplementationOnce(mockUnsuccessfulSrpReveal)
       .mockImplementationOnce(mockSuccessfulSrpReveal);
     const mockTrackEvent = jest.fn();
+    const mockMetaMetricsContext = {
+      trackEvent: mockTrackEvent,
+      bufferedTrace: jest.fn(),
+      bufferedEndTrace: jest.fn(),
+      onboardingParentContext: { current: null },
+    };
     const { queryByText } = renderWithProvider(
-      <MetaMetricsContext.Provider value={mockTrackEvent}>
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
         <RevealSeedPage />
       </MetaMetricsContext.Provider>,
       mockStore,
@@ -375,6 +388,7 @@ describe('Reveal Seed Page', () => {
     it('passes the keyringId to the requestRevealSeedWords action', async () => {
       const keyringId = 'ULID01234567890ABCDEFGHIJKLMN';
       mockUseParams.mockReturnValue({ keyringId });
+
       const { queryByTestId, queryByText } = renderWithProvider(
         <RevealSeedPage />,
         mockStore,
@@ -395,8 +409,8 @@ describe('Reveal Seed Page', () => {
     });
 
     it('passes undefined for keyringId if there is no param', async () => {
-      const keyringId = undefined;
-      mockUseParams.mockReturnValue({ keyringId });
+      mockUseParams.mockReturnValue({});
+
       const { queryByTestId, queryByText } = renderWithProvider(
         <RevealSeedPage />,
         mockStore,
@@ -411,7 +425,7 @@ describe('Reveal Seed Page', () => {
       await waitFor(() => {
         expect(mockRequestRevealSeedWords).toHaveBeenCalledWith(
           password,
-          keyringId,
+          undefined,
         );
       });
     });

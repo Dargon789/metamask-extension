@@ -9,14 +9,17 @@ import {
   AccountOverviewEthProps,
 } from './account-overview-eth';
 
-jest.mock('../../../store/actions', () => ({
-  tokenBalancesStartPolling: jest.fn().mockResolvedValue('pollingToken'),
-  tokenBalancesStopPollingByPollingToken: jest.fn(),
-  setTokenNetworkFilter: jest.fn(),
-  updateSlides: jest.fn(),
-  removeSlide: jest.fn(),
-  addImportedTokens: jest.fn(),
-}));
+jest.mock('../../../store/actions', () => {
+  return {
+    ...jest.requireActual('../../../store/actions'),
+    tokenBalancesStartPolling: jest.fn().mockResolvedValue('pollingToken'),
+    tokenBalancesStopPollingByPollingToken: jest.fn(),
+    setTokenNetworkFilter: jest.fn(),
+    updateSlides: jest.fn(),
+    removeSlide: jest.fn(),
+    addImportedTokens: jest.fn(),
+  };
+});
 
 // Mock the dispatch function
 const mockDispatch = jest.fn();
@@ -55,8 +58,6 @@ describe('AccountOverviewEth', () => {
   });
   it('shows all tabs', () => {
     const { queryByTestId } = render({
-      defaultHomeActiveTabName: null,
-      onTabClick: jest.fn(),
       setBasicFunctionalityModalOpen: jest.fn(),
       onSupportLinkClick: jest.fn(),
     });

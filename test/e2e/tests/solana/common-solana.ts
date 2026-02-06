@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-loss-of-precision */
 import * as fs from 'fs/promises';
 import { Mockttp, MockedEndpoint } from 'mockttp';
-import { regularDelayMs, withFixtures } from '../../helpers';
+import { withFixtures } from '../../helpers';
 import { Driver } from '../../webdriver/driver';
-import HeaderNavbar from '../../page-objects/pages/header-navbar';
-import AccountListPage from '../../page-objects/pages/account-list-page';
-import FixtureBuilder from '../../fixture-builder';
-import { ACCOUNT_TYPE } from '../../constants';
-import { loginWithoutBalanceValidation } from '../../page-objects/flows/login.flow';
+import FixtureBuilder from '../../fixtures/fixture-builder';
+import { DAPP_PATH } from '../../constants';
+import {
+  loginWithBalanceValidation,
+  loginWithoutBalanceValidation,
+} from '../../page-objects/flows/login.flow';
 import { mockProtocolSnap } from '../../mock-response-data/snaps/snap-binary-mocks';
+import AccountListPage from '../../page-objects/pages/account-list-page';
+import Homepage from '../../page-objects/pages/home/homepage';
+import NetworkManager from '../../page-objects/pages/network-manager';
 
 const SOLANA_URL_REGEX_MAINNET =
   /^https:\/\/solana-(mainnet|devnet)\.infura\.io\/v3*/u;
@@ -67,7 +71,7 @@ export const commonSolanaAddress =
 
 export const commonSolanaTxConfirmedDetailsFixture = {
   status: 'Confirmed',
-  amount: '0.00708 SOL',
+  amount: '-0.00708 SOL',
   networkFee: '0.000005 SOL',
   fromAddress: 'HH9ZzgQvSVmznKcRfwHuEphuxk7zU5f92CkXFDQfVJcq',
   toAddress: '4tE76eixEgyJDrdykdWJR1XBkzUk4cLMvqjR2xVJUxer',
@@ -168,6 +172,41 @@ export async function mockPriceApiSpotPriceSolanaUsdc(mockServer: Mockttp) {
       return {
         statusCode: 200,
         json: response,
+      };
+    });
+}
+export async function mockPriceApiNative(mockServer: Mockttp) {
+  return await mockServer
+    .forGet('https://price.api.cx.metamask.io/v3/spot-prices')
+    .withQuery({
+      assetIds: 'eip155:1/slip44:60',
+    })
+    .thenCallback(() => {
+      return {
+        statusCode: 200,
+        json: {
+          'eip155:1/slip44:60': {
+            id: 'ethereum',
+            price: 0.999117772642222,
+            marketCap: 120730309.278268,
+            allTimeHigh: 1.24053260919415,
+            allTimeLow: 0.000108596671808063,
+            totalVolume: 9010559.46688706,
+            high1d: 1.04615771175613,
+            low1d: 0.989917959436686,
+            circulatingSupply: 120698129.773088,
+            dilutedMarketCap: 120730309.278268,
+            marketCapPercentChange1d: -3.34335,
+            priceChange1d: -140.536403039107,
+            pricePercentChange1h: -0.127159732673363,
+            pricePercentChange1d: -3.40772116422561,
+            pricePercentChange7d: 0.946312983866069,
+            pricePercentChange14d: -3.47111933351513,
+            pricePercentChange30d: -3.63371831966747,
+            pricePercentChange200d: 153.231041911147,
+            pricePercentChange1y: 54.625598917999,
+          },
+        },
       };
     });
 }
@@ -858,7 +897,7 @@ export async function mockSendSolanaTransaction(mockServer: Mockttp) {
     statusCode: 200,
     json: {
       result:
-        '3nqGKH1ef8WkTgKXZ8q3xKsvjktWmHHhJpZMSdbB6hBqy5dA7aLVSAUjw5okezZjKMHiNg2MF5HAqtpmsesQtnpj',
+        '3AcYfpsSaFYogY4Y4YN77MkhDgVBEgUe1vuEeqKnCMm5udTrFCyw9w17mNM8DUnHnQD2VHRFeipMUb27Q3iqMQJr',
       id: '1337',
       jsonrpc: '2.0',
     },
@@ -868,7 +907,8 @@ export async function mockSendSolanaTransaction(mockServer: Mockttp) {
     .withJsonBodyIncluding({
       method: 'sendTransaction',
     })
-    .thenCallback(() => {
+    .thenCallback(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 seconds delay
       return response;
     });
 }
@@ -1126,8 +1166,8 @@ export async function mockGetTokenAccountsTokenProgram2022Swaps(
 
 export async function mockGetTokenAccountsByOwner(
   mockServer: Mockttp,
-  account: string,
-  programId: string,
+  account: string = '4tE76eixEgyJDrdykdWJR1XBkzUk4cLMvqjR2xVJUxer',
+  programId: string = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 ) {
   return await mockServer
     .forPost(SOLANA_URL_REGEX_MAINNET)
@@ -1257,30 +1297,12 @@ export async function mockGetTokenAccountInfo(mockServer: Mockttp) {
           slot: 317161313,
         },
         value: {
-          data: {
-            parsed: {
-              info: {
-                isNative: false,
-                mint: '2RBko3xoz56aH69isQMUpzZd9NYHahhwC23A5F3Spkin',
-                owner: '3xTPAZxmpwd8GrNEKApaTw6VH4jqJ31WFXUvQzgwhR7c',
-                state: 'initialized',
-                tokenAmount: {
-                  amount: '3610951',
-                  decimals: 6,
-                  uiAmount: 3.610951,
-                  uiAmountString: '3.610951',
-                },
-              },
-              type: 'account',
-            },
-            program: 'spl-token',
-            space: 165,
-          },
+          data: ['', 'base58'],
           executable: false,
-          lamports: 2039280,
-          owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-          rentEpoch: 18446744073709552000,
-          space: 165,
+          lamports: 5312114,
+          owner: '11111111111111111111111111111111',
+          rentEpoch: 18446744073709551615,
+          space: 0,
         },
       },
     },
@@ -1290,15 +1312,18 @@ export async function mockGetTokenAccountInfo(mockServer: Mockttp) {
     .withJsonBodyIncluding({
       method: 'getAccountInfo',
     })
-    .withJsonBodyIncluding({
+    // FIXME: This mock is too generic and will conflict with `mockGetAccountInfoDevnet` sometimes.
+    // It should probably be reworked so it add some filtering constraints to not conflict with the
+    // other mock.
+    /* .withJsonBodyIncluding({
       params: [
-        '4Dt7hvLAzSXGvxvpqFU7cRdQXXhU3orACV6ujY4KPv9D',
+        '4tE76eixEgyJDrdykdWJR1XBkzUk4cLMvqjR2xVJUxer',
         {
           encoding: 'jsonParsed',
           commitment: 'confirmed',
         },
       ],
-    })
+    })*/
     .thenCallback(() => {
       return response;
     });
@@ -1560,33 +1585,41 @@ const featureFlagsWithSnapConfirmation = {
 export async function withSolanaAccountSnap(
   {
     title,
+    numberOfAccounts = 1,
+    withNetworkOnSolana = true,
     showNativeTokenAsMainBalance = true,
     showSnapConfirmation = false,
     mockGetTransactionSuccess,
     mockGetTransactionFailed,
+    mockTokenAccountAccountInfo = true,
     mockZeroBalance,
-    numberOfAccounts = 1,
     mockSwapUSDtoSOL,
     mockSwapSOLtoUSDC,
     mockSwapWithNoQuotes,
     walletConnect = false,
-    dappPaths,
+    dappOptions,
     withProtocolSnap,
     withCustomMocks,
+    withFixtureBuilder,
   }: {
     title?: string;
+    withNetworkOnSolana?: boolean;
     showNativeTokenAsMainBalance?: boolean;
     showSnapConfirmation?: boolean;
     numberOfAccounts?: number;
     mockGetTransactionSuccess?: boolean;
     mockGetTransactionFailed?: boolean;
+    mockTokenAccountAccountInfo?: boolean;
     mockZeroBalance?: boolean;
     sendFailedTransaction?: boolean;
     mockSwapUSDtoSOL?: boolean;
     mockSwapSOLtoUSDC?: boolean;
     mockSwapWithNoQuotes?: boolean;
     walletConnect?: boolean;
-    dappPaths?: string[];
+    dappOptions?: {
+      numberOfTestDapps?: number;
+      customDappPaths?: string[];
+    };
     withProtocolSnap?: boolean;
     withCustomMocks?: (
       mockServer: Mockttp,
@@ -1594,6 +1627,7 @@ export async function withSolanaAccountSnap(
       | Promise<MockedEndpoint[] | MockedEndpoint>
       | MockedEndpoint[]
       | MockedEndpoint;
+    withFixtureBuilder?: (builder: FixtureBuilder) => FixtureBuilder;
   },
   test: (
     driver: Driver,
@@ -1607,25 +1641,37 @@ export async function withSolanaAccountSnap(
     fixtures =
       fixtures.withPreferencesControllerShowNativeTokenAsMainBalanceDisabled();
   }
+  if (withFixtureBuilder) {
+    fixtures = withFixtureBuilder(fixtures).withEnabledNetworks({
+      eip155: {
+        '0x539': true,
+      },
+      solana: {
+        'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': true,
+      },
+    });
+  }
 
   await withFixtures(
     {
       fixtures: fixtures.build(),
       title,
-      dapp: true,
+      dappOptions: dappOptions ?? {
+        numberOfTestDapps: 1,
+        customDappPaths: [DAPP_PATH.TEST_SNAPS],
+      },
       manifestFlags: {
         // This flag is used to enable/disable the remote mode for the carousel
         // component, which will impact to the slides count.
         // - If this flag is not set, the slides count will be 4.
         // - If this flag is set, the slides count will be 5.
         remoteFeatureFlags: {
-          addSolanaAccount: true,
+          solanaAccounts: { enabled: true, minimumVersion: '13.6.0' },
           bridgeConfig: showSnapConfirmation
             ? featureFlagsWithSnapConfirmation
             : featureFlags,
         },
       },
-      dappPaths,
       testSpecificMock: async (mockServer: Mockttp) => {
         const mockList: MockedEndpoint[] = [];
         mockList.push(await simulateSolanaTransaction(mockServer));
@@ -1633,12 +1679,13 @@ export async function withSolanaAccountSnap(
           mockList.push(await mockGetTokenAccountsByOwnerDevnet(mockServer));
           mockList.push(await mockGetAccountInfoDevnet(mockServer));
         } else {
-          mockList.push(
+          console.log('Entra aqui no?');
+          /* mockList.push(
             await mockGetTokenAccountsTokenProgramSwaps(mockServer),
           );
           mockList.push(
             await mockGetTokenAccountsTokenProgram2022Swaps(mockServer),
-          );
+          );*/
         }
         mockList.push(await mockGetMultipleAccounts(mockServer));
         if (mockGetTransactionSuccess) {
@@ -1654,9 +1701,11 @@ export async function withSolanaAccountSnap(
           mockList.push(await mockGetFailedTransaction(mockServer));
         }
 
+        mockList.push(await mockGetSuccessSignaturesForAddress(mockServer));
         mockList.push(
           await mockSolanaBalanceQuote(mockServer, mockZeroBalance),
         );
+
         mockList.push(
           await mockGetMinimumBalanceForRentExemption(mockServer),
           await mockMultiCoinPrice(mockServer),
@@ -1666,7 +1715,13 @@ export async function withSolanaAccountSnap(
           await mockPriceApiExchangeRates(mockServer),
           await mockClientSideDetectionApi(mockServer),
           await mockPhishingDetectionApi(mockServer),
-          await mockGetTokenAccountInfo(mockServer),
+        );
+
+        if (mockTokenAccountAccountInfo) {
+          await mockGetTokenAccountInfo(mockServer);
+        }
+
+        mockList.push(
           await mockTokenApiMainnetTest(mockServer),
           await mockAccountsApi(mockServer),
           await mockGetMultipleAccounts(mockServer),
@@ -1737,24 +1792,29 @@ export async function withSolanaAccountSnap(
       mockServer: Mockttp;
       extensionId: string;
     }) => {
-      await loginWithoutBalanceValidation(driver);
-      const headerComponent = new HeaderNavbar(driver);
-      const accountListPage = new AccountListPage(driver);
-
-      for (let i = 1; i <= numberOfAccounts; i++) {
-        await headerComponent.openAccountMenu();
-        await accountListPage.addAccount({
-          accountType: ACCOUNT_TYPE.Solana,
-          accountName: `Solana ${i}`,
-        });
-        await headerComponent.check_accountLabel(`Solana ${i}`);
+      if (showNativeTokenAsMainBalance) {
+        await loginWithBalanceValidation(driver);
+      } else {
+        await loginWithoutBalanceValidation(driver);
+      }
+      if (withNetworkOnSolana) {
+        // Change network to Solana
+        const networkManager = new NetworkManager(driver);
+        await networkManager.openNetworkManager();
+        await networkManager.selectTab('Popular');
+        await networkManager.selectNetworkByNameWithWait('Solana');
+      }
+      if (numberOfAccounts === 2) {
+        const homepage = new Homepage(driver);
+        await homepage.checkExpectedBalanceIsDisplayed();
+        // create 2nd account
+        await homepage.headerNavbar.openAccountMenu();
+        const accountListPage = new AccountListPage(driver);
+        await accountListPage.checkPageIsLoaded();
+        await accountListPage.addMultichainAccount();
+        await accountListPage.selectAccount('Account 1');
       }
 
-      if (numberOfAccounts > 0) {
-        await headerComponent.check_accountLabel(`Solana ${numberOfAccounts}`);
-      }
-
-      await driver.delay(regularDelayMs); // workaround to avoid flakiness
       await test(driver, mockServer, extensionId);
     },
   );

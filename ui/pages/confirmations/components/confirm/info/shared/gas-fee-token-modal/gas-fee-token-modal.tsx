@@ -35,16 +35,16 @@ import { useI18nContext } from '../../../../../../../hooks/useI18nContext';
 import { updateSelectedGasFeeToken } from '../../../../../../../store/controller-actions/transaction-controller';
 import Tooltip from '../../../../../../../components/ui/tooltip';
 import { useIsGaslessSupported } from '../../../../../hooks/gas/useIsGaslessSupported';
-import { useInsufficientBalanceAlerts } from '../../../../../hooks/alerts/transactions/useInsufficientBalanceAlerts';
+import { useIsInsufficientBalance } from '../../../../../hooks/useIsInsufficientBalance';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function GasFeeTokenModal({ onClose }: { onClose?: () => void }) {
   const t = useI18nContext();
   const { currentConfirmation } = useConfirmContext<TransactionMeta>();
   const { isSmartTransaction } = useIsGaslessSupported();
 
-  const hasInsufficientNative = Boolean(
-    useInsufficientBalanceAlerts({ ignoreGasFeeToken: true }).length,
-  );
+  const hasInsufficientNative = useIsInsufficientBalance();
 
   const {
     id: transactionId,
@@ -161,6 +161,8 @@ export function GasFeeTokenModal({ onClose }: { onClose?: () => void }) {
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 function Title({ noMargin, text }: { noMargin?: boolean; text: string }) {
   return (
     <Text
@@ -175,6 +177,8 @@ function Title({ noMargin, text }: { noMargin?: boolean; text: string }) {
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 function NativeToggle({
   isFuture,
   onChange,
@@ -203,9 +207,7 @@ function NativeToggle({
         <Icon
           name={IconName.Wallet}
           size={IconSize.Sm}
-          color={
-            isFuture ? IconColor.iconAlternativeSoft : IconColor.infoDefault
-          }
+          color={isFuture ? IconColor.iconAlternative : IconColor.infoDefault}
           margin={2}
         />
       </NativeToggleOption>
@@ -218,16 +220,15 @@ function NativeToggle({
       >
         <img
           src="./images/logo/metamask-fox.svg"
-          height={15}
-          style={{
-            margin: 8,
-          }}
+          className="gas-fee-token-native-toggle-option__fox-icon"
         />
       </NativeToggleOption>
     </Box>
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 function NativeToggleOption({
   children,
   isSelected,
