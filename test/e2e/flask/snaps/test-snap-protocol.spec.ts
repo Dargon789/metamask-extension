@@ -1,8 +1,8 @@
 import { openTestSnapClickButtonAndInstall } from '../../page-objects/flows/install-test-snap.flow';
 import { DEFAULT_MULTICHAIN_TEST_DAPP_FIXTURE_OPTIONS } from '../multichain-api/testHelpers';
-import { WINDOW_TITLES } from '../../helpers';
+import { DAPP_ONE_URL, WINDOW_TITLES } from '../../constants';
 import { withSolanaAccountSnap } from '../../tests/solana/common-solana';
-import ConnectAccountConfirmation from '../../page-objects/pages/confirmations/redesign/connect-account-confirmation';
+import ConnectAccountConfirmation from '../../page-objects/pages/confirmations/connect-account-confirmation';
 import TestDappMultichain from '../../page-objects/pages/test-dapp-multichain';
 
 describe('Test Protocol Snaps', function () {
@@ -27,22 +27,23 @@ describe('Test Protocol Snaps', function () {
         await openTestSnapClickButtonAndInstall(
           driver,
           'connectProtocolButton',
+          { url: DAPP_ONE_URL },
         );
 
         const testDapp = new TestDappMultichain(driver);
         await testDapp.openTestDappPage();
-        await testDapp.check_pageIsLoaded();
+        await testDapp.checkPageIsLoaded();
         await testDapp.connectExternallyConnectable(extensionId);
         await testDapp.initCreateSessionScopes([devnetScope]);
 
         const connectAccountConfirmation = new ConnectAccountConfirmation(
           driver,
         );
-        await connectAccountConfirmation.check_pageIsLoaded();
+        await connectAccountConfirmation.checkPageIsLoaded();
         await connectAccountConfirmation.confirmConnect();
 
         await driver.switchToWindowWithTitle(WINDOW_TITLES.MultichainTestDApp);
-        await testDapp.check_pageIsLoaded();
+        await testDapp.checkPageIsLoaded();
         await testDapp.invokeMethodAndCheckResult({
           scope: devnetScope,
           method: 'getBlockHeight',

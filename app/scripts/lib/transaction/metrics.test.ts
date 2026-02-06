@@ -1,3 +1,5 @@
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Provider } from '@metamask/network-controller';
 import {
   TransactionMeta,
@@ -23,7 +25,6 @@ import {
 import {
   MetaMetricsTransactionEventSource,
   MetaMetricsEventCategory,
-  MetaMetricsEventUiCustomization,
   MetaMetricsEventTransactionEstimateType,
 } from '../../../../shared/constants/metametrics';
 import { TRANSACTION_ENVELOPE_TYPE_NAMES } from '../../../../shared/lib/transactions-controller-utils';
@@ -87,7 +88,7 @@ const mockTransactionMetricsRequest = {
   getParticipateInMetrics: jest.fn(),
   getTokenStandardAndDetails: jest.fn(),
   getTransaction: jest.fn(),
-  provider: provider as Provider,
+  provider: provider as unknown as Provider,
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   snapAndHardwareMessenger: jest.fn() as any,
@@ -98,6 +99,10 @@ const mockTransactionMetricsRequest = {
   getIsConfirmationAdvancedDetailsOpen: jest.fn(),
   getHDEntropyIndex: jest.fn(),
   getNetworkRpcUrl: jest.fn(),
+  getFeatureFlags: jest.fn(),
+  getPna25Acknowledged: jest.fn(),
+  getAddressSecurityAlertResponse: jest.fn(),
+  getSecurityAlertsEnabled: jest.fn(),
 } as TransactionMetricsRequest;
 
 describe('Transaction metrics', () => {
@@ -126,6 +131,7 @@ describe('Transaction metrics', () => {
     mockTransactionMeta = {
       id: '1',
       status: TransactionStatus.unapproved,
+      hash: '0x1234567890123456789012345678901234567890',
       txParams: {
         from: fromAccount.address,
         to: '0x1678a085c290ebd122dc42cba69373b5953b831d',
@@ -164,6 +170,7 @@ describe('Transaction metrics', () => {
       account_snap_type: 'snaptype',
       account_snap_version: 'snapversion',
       account_type: undefined,
+      address_alert_response: 'not_applicable',
       api_method: MESSAGE_TYPE.ETH_SEND_TRANSACTION,
       asset_type: AssetType.native,
       chain_id: mockChainId,
@@ -185,7 +192,7 @@ describe('Transaction metrics', () => {
       token_standard: TokenStandard.none,
       transaction_speed_up: false,
       transaction_type: TransactionType.simpleSend,
-      ui_customizations: ['redesigned_confirmation'],
+      ui_customizations: null,
       transaction_advanced_view: undefined,
       transaction_contract_method: [],
       transaction_internal_id: '1',
@@ -266,10 +273,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'gas_estimation_failed',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['gas_estimation_failed'],
           gas_estimation_failed: true,
         },
         sensitiveProperties: expectedSensitiveProperties,
@@ -299,10 +303,7 @@ describe('Transaction metrics', () => {
           ...expectedProperties,
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           ppom_eth_call_count: 5,
           ppom_eth_getCode_count: 3,
         },
@@ -392,10 +393,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
           ppom_eth_call_count: 5,
@@ -412,10 +410,7 @@ describe('Transaction metrics', () => {
         {
           properties: {
             ...expectedProperties,
-            ui_customizations: [
-              'flagged_as_malicious',
-              'redesigned_confirmation',
-            ],
+            ui_customizations: ['flagged_as_malicious'],
             security_alert_reason: BlockaidReason.maliciousDomain,
             security_alert_response: 'Malicious',
             ppom_eth_call_count: 5,
@@ -535,10 +530,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
           ppom_eth_call_count: 5,
@@ -558,10 +550,7 @@ describe('Transaction metrics', () => {
         {
           properties: {
             ...expectedProperties,
-            ui_customizations: [
-              'flagged_as_malicious',
-              'redesigned_confirmation',
-            ],
+            ui_customizations: ['flagged_as_malicious'],
             security_alert_reason: BlockaidReason.maliciousDomain,
             security_alert_response: 'Malicious',
             ppom_eth_call_count: 5,
@@ -738,10 +727,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
           ppom_eth_call_count: 5,
@@ -763,10 +749,7 @@ describe('Transaction metrics', () => {
         {
           properties: {
             ...expectedProperties,
-            ui_customizations: [
-              'flagged_as_malicious',
-              'redesigned_confirmation',
-            ],
+            ui_customizations: ['flagged_as_malicious'],
             security_alert_reason: BlockaidReason.maliciousDomain,
             security_alert_response: 'Malicious',
             ppom_eth_call_count: 5,
@@ -803,9 +786,7 @@ describe('Transaction metrics', () => {
         status: TransactionStatus.confirmed,
         transaction_type: TransactionType.contractInteraction,
         asset_type: AssetType.unknown,
-        ui_customizations: [
-          MetaMetricsEventUiCustomization.RedesignedConfirmation,
-        ],
+        ui_customizations: null,
         is_smart_transaction: undefined,
         transaction_advanced_view: undefined,
         rpc_domain: 'private',
@@ -1010,10 +991,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
           ppom_eth_call_count: 5,
@@ -1034,10 +1012,7 @@ describe('Transaction metrics', () => {
         {
           properties: {
             ...expectedProperties,
-            ui_customizations: [
-              'flagged_as_malicious',
-              'redesigned_confirmation',
-            ],
+            ui_customizations: ['flagged_as_malicious'],
             security_alert_reason: BlockaidReason.maliciousDomain,
             security_alert_response: 'Malicious',
             ppom_eth_call_count: 5,
@@ -1143,10 +1118,7 @@ describe('Transaction metrics', () => {
         persist: true,
         properties: {
           ...expectedProperties,
-          ui_customizations: [
-            'flagged_as_malicious',
-            'redesigned_confirmation',
-          ],
+          ui_customizations: ['flagged_as_malicious'],
           security_alert_reason: BlockaidReason.maliciousDomain,
           security_alert_response: 'Malicious',
           ppom_eth_call_count: 5,
@@ -1163,10 +1135,7 @@ describe('Transaction metrics', () => {
         {
           properties: {
             ...expectedProperties,
-            ui_customizations: [
-              'flagged_as_malicious',
-              'redesigned_confirmation',
-            ],
+            ui_customizations: ['flagged_as_malicious'],
             security_alert_reason: BlockaidReason.maliciousDomain,
             security_alert_response: 'Malicious',
             ppom_eth_call_count: 5,
@@ -1337,6 +1306,7 @@ describe('Transaction metrics', () => {
     it('includes gas_paid_with if selected gas fee token', async () => {
       const transactionMeta = {
         ...mockTransactionMeta,
+        type: 'gas_payment',
         gasFeeTokens: [GAS_FEE_TOKEN_MOCK],
         selectedGasFeeToken: GAS_FEE_TOKEN_MOCK.tokenAddress,
       } as TransactionMeta;
@@ -1352,6 +1322,7 @@ describe('Transaction metrics', () => {
       expect(properties).toStrictEqual(
         expect.objectContaining({
           gas_paid_with: GAS_FEE_TOKEN_MOCK.symbol,
+          transaction_type: 'gas_payment',
         }),
       );
     });
@@ -1400,27 +1371,6 @@ describe('Transaction metrics', () => {
       expect(properties).toStrictEqual(
         expect.objectContaining({
           gas_payment_tokens_available: [GAS_FEE_TOKEN_MOCK.symbol, 'DAI'],
-        }),
-      );
-    });
-
-    it('includes transasction_type as gas_payment', async () => {
-      const transactionMeta = {
-        ...mockTransactionMeta,
-        batchId: '0x123',
-      } as TransactionMeta;
-
-      await fn(mockTransactionMetricsRequest, {
-        transactionMeta,
-      });
-
-      const { properties } = jest.mocked(
-        mockTransactionMetricsRequest.createEventFragment,
-      ).mock.calls[0][0];
-
-      expect(properties).toStrictEqual(
-        expect.objectContaining({
-          transaction_type: 'gas_payment',
         }),
       );
     });
@@ -1483,6 +1433,257 @@ describe('Transaction metrics', () => {
           gas_insufficient_native_asset: false,
         }),
       );
+    });
+
+    it('sets account_type to `error`, if wallet is locked', async () => {
+      jest
+        .mocked(mockTransactionMetricsRequest.getAccountType)
+        .mockRejectedValueOnce(new Error('error'));
+
+      await fn(mockTransactionMetricsRequest, {
+        transactionMeta: mockTransactionMeta,
+      });
+
+      const { properties } = jest.mocked(
+        mockTransactionMetricsRequest.createEventFragment,
+      ).mock.calls[0][0];
+
+      expect(properties).toStrictEqual(
+        expect.objectContaining({
+          account_type: 'error',
+        }),
+      );
+    });
+
+    it('includes swap or bridge specific types', async () => {
+      const transactionMetaForSwap = {
+        ...mockTransactionMeta,
+        type: TransactionType.swap,
+        assetsFiatValues: {
+          sending: '100',
+          receiving: '100',
+        },
+      } as TransactionMeta;
+
+      const transactionMetaForBridge = {
+        ...mockTransactionMeta,
+        type: TransactionType.bridge,
+        assetsFiatValues: {
+          sending: '200',
+          receiving: '200',
+        },
+      } as TransactionMeta;
+
+      await fn(mockTransactionMetricsRequest, {
+        transactionMeta: transactionMetaForSwap,
+      });
+
+      const { properties: propertiesForSwap } = jest.mocked(
+        mockTransactionMetricsRequest.createEventFragment,
+      ).mock.calls[0][0];
+
+      expect(propertiesForSwap).toStrictEqual(
+        expect.objectContaining({
+          transaction_type: 'mm_swap',
+          simulation_sending_assets_total_value: '100',
+          simulation_receiving_assets_total_value: '100',
+        }),
+      );
+
+      await fn(mockTransactionMetricsRequest, {
+        transactionMeta: transactionMetaForBridge,
+      });
+
+      const { properties: propertiesForBridge } = jest.mocked(
+        mockTransactionMetricsRequest.createEventFragment,
+      ).mock.calls[1][0];
+
+      expect(propertiesForBridge).toStrictEqual(
+        expect.objectContaining({
+          transaction_type: 'mm_bridge',
+          simulation_sending_assets_total_value: '200',
+          simulation_receiving_assets_total_value: '200',
+        }),
+      );
+    });
+  });
+
+  describe('transaction hash property', () => {
+    describe('included when', () => {
+      // @ts-expect-error This function is missing from the Mocha type definitions
+      it.each([
+        [TransactionStatus.failed, handleTransactionFailed],
+        [TransactionStatus.dropped, handleTransactionDropped],
+        [
+          TransactionStatus.confirmed,
+          (request: TransactionMetricsRequest, args: TransactionEventPayload) =>
+            handleTransactionConfirmed(
+              request,
+              args.transactionMeta as TransactionMetaEventPayload,
+            ),
+        ],
+      ])(
+        'transaction is %s and metrics opted in and pna25 acknowledged',
+        async (
+          status: TransactionStatus,
+          handler: (
+            request: TransactionMetricsRequest,
+            args: TransactionEventPayload,
+          ) => Promise<void>,
+        ) => {
+          const mockMetricsRequest = {
+            ...mockTransactionMetricsRequest,
+            getFeatureFlags: jest.fn().mockReturnValue({
+              extensionUxPna25: true,
+            }),
+            getPna25Acknowledged: jest.fn().mockReturnValue(true),
+            getParticipateInMetrics: jest.fn().mockReturnValue(true),
+          } as TransactionMetricsRequest;
+
+          const failedTransactionMeta = {
+            ...mockTransactionMeta,
+            status,
+          } as TransactionMeta;
+
+          await handler(mockMetricsRequest, {
+            transactionMeta: failedTransactionMeta,
+          });
+
+          const { properties } = jest.mocked(
+            mockTransactionMetricsRequest.createEventFragment,
+          ).mock.calls[0][0];
+
+          expect(properties).toStrictEqual(
+            expect.objectContaining({
+              transaction_hash: mockTransactionMeta.hash,
+            }),
+          );
+        },
+      );
+    });
+
+    describe('not included when', () => {
+      // @ts-expect-error This function is missing from the Mocha type definitions
+      it.each([
+        [TransactionStatus.unapproved, handleTransactionAdded],
+        [TransactionStatus.approved, handleTransactionApproved],
+        [TransactionStatus.submitted, handleTransactionSubmitted],
+      ])(
+        'transaction is %s and metrics opted in and pna25 acknowledged',
+        async (
+          status: TransactionStatus,
+          handler: (
+            request: TransactionMetricsRequest,
+            args: TransactionEventPayload,
+          ) => Promise<void>,
+        ) => {
+          const transactionMeta = {
+            ...mockTransactionMeta,
+            status,
+          } as TransactionMeta;
+
+          await handler(mockTransactionMetricsRequest, {
+            transactionMeta,
+          });
+
+          const { properties } = jest.mocked(
+            mockTransactionMetricsRequest.createEventFragment,
+          ).mock.calls[0][0];
+
+          expect(properties).not.toStrictEqual(
+            expect.objectContaining({
+              transaction_hash: mockTransactionMeta.hash,
+            }),
+          );
+        },
+      );
+
+      it('metrics not opted in', async () => {
+        const mockMetricsRequest = {
+          ...mockTransactionMetricsRequest,
+          getFeatureFlags: jest.fn().mockReturnValue({
+            extensionUxPna25: true,
+          }),
+          getPna25Acknowledged: jest.fn().mockReturnValue(true),
+          getParticipateInMetrics: jest.fn().mockReturnValue(false),
+        } as TransactionMetricsRequest;
+        const failedTransactionMeta = {
+          ...mockTransactionMeta,
+          status: TransactionStatus.failed,
+        } as TransactionMeta;
+
+        await handleTransactionFailed(mockMetricsRequest, {
+          transactionMeta: failedTransactionMeta as TransactionMetaEventPayload,
+        });
+
+        const { properties } = jest.mocked(
+          mockTransactionMetricsRequest.createEventFragment,
+        ).mock.calls[0][0];
+
+        expect(properties).not.toStrictEqual(
+          expect.objectContaining({
+            transaction_hash: mockTransactionMeta.hash,
+          }),
+        );
+      });
+
+      it('pna25 not acknowledged', async () => {
+        const mockMetricsRequest = {
+          ...mockTransactionMetricsRequest,
+          getFeatureFlags: jest.fn().mockReturnValue({
+            extensionUxPna25: true,
+          }),
+          getPna25Acknowledged: jest.fn().mockReturnValue(false),
+          getParticipateInMetrics: jest.fn().mockReturnValue(true),
+        } as TransactionMetricsRequest;
+        const failedTransactionMeta = {
+          ...mockTransactionMeta,
+          status: TransactionStatus.failed,
+        } as TransactionMeta;
+
+        await handleTransactionFailed(mockMetricsRequest, {
+          transactionMeta: failedTransactionMeta as TransactionMetaEventPayload,
+        });
+
+        const { properties } = jest.mocked(
+          mockTransactionMetricsRequest.createEventFragment,
+        ).mock.calls[0][0];
+
+        expect(properties).not.toStrictEqual(
+          expect.objectContaining({
+            transaction_hash: mockTransactionMeta.hash,
+          }),
+        );
+      });
+
+      it('ff not enabled', async () => {
+        const mockMetricsRequest = {
+          ...mockTransactionMetricsRequest,
+          getFeatureFlags: jest.fn().mockReturnValue({
+            extensionUxPna25: false,
+          }),
+          getPna25Acknowledged: jest.fn().mockReturnValue(true),
+          getParticipateInMetrics: jest.fn().mockReturnValue(true),
+        } as TransactionMetricsRequest;
+        const failedTransactionMeta = {
+          ...mockTransactionMeta,
+          status: TransactionStatus.failed,
+        } as TransactionMeta;
+
+        await handleTransactionFailed(mockMetricsRequest, {
+          transactionMeta: failedTransactionMeta as TransactionMetaEventPayload,
+        });
+
+        const { properties } = jest.mocked(
+          mockTransactionMetricsRequest.createEventFragment,
+        ).mock.calls[0][0];
+
+        expect(properties).not.toStrictEqual(
+          expect.objectContaining({
+            transaction_hash: mockTransactionMeta.hash,
+          }),
+        );
+      });
     });
   });
 });

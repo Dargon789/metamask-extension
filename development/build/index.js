@@ -31,6 +31,7 @@ const createStaticAssetTasks = require('./static');
 const createEtcTasks = require('./etc');
 const {
   getBrowserVersionMap,
+  getBuildTargetFromTask,
   getEnvironment,
   isDevBuild,
   isTestBuild,
@@ -148,8 +149,17 @@ async function defineAndRunBuildTasks() {
       'sentryHooks',
       'sentry',
       'logEncryptedVault',
+      'history', // needed by Sentry and react-router-dom v6 HashRouter
       // Globals used by `react-dom`
       'getSelection',
+      // globals `opera` needs to function
+      'opr',
+      // for @popperjs/core and snap simple keyring site
+      'devicePixelRatio',
+      // for @tanstack/react-virtual
+      'ResizeObserver',
+      'setTimeout',
+      'clearTimeout',
     ];
 
     if (
@@ -188,7 +198,7 @@ async function defineAndRunBuildTasks() {
 
   const browserVersionMap = getBrowserVersionMap(browserPlatforms, version);
 
-  const ignoredFiles = getIgnoredFiles();
+  const ignoredFiles = getIgnoredFiles(entryTask);
 
   const staticTasks = createStaticAssetTasks({
     browserPlatforms,
@@ -268,7 +278,11 @@ async function defineAndRunBuildTasks() {
     composeSeries(
       clean,
       styleTasks.prod,
-      composeParallel(scriptTasks.dist, staticTasks.prod, manifestTasks.prod),
+      composeParallel(
+        scriptTasks.dist,
+        staticTasks.prod,
+        manifestTasks.scriptDist,
+      ),
       zip,
     ),
   );
@@ -455,10 +469,11 @@ testDev: Create an unoptimized, live-reloading build for debugging e2e tests.`,
 /**
  * Gets the files to be ignored by the current build, if any.
  *
+ * @param target - The build target.
  * @returns {string[] | null} The array of files to be ignored by the current
  * build, or `null` if no files are to be ignored.
  */
-function getIgnoredFiles() {
+function getIgnoredFiles(target) {
   const buildConfig = loadBuildTypesConfig();
   const cwd = process.cwd();
 
@@ -489,5 +504,13 @@ function getIgnoredFiles() {
 Please fix builds.yml or specify a compatible set of features.`);
   }
 
-  return ignoredPaths;
+  const buildTarget = getBuildTargetFromTask(target);
+
+  if (isDevBuild(buildTarget) || isTestBuild(buildTarget)) {
+    return ignoredPaths;
+  }
+
+  // For all production build tasks exclude test files.
+  const testPaths = globby(['./test', './app/scripts/fixtures']);
+  return [...ignoredPaths, ...testPaths];
 }

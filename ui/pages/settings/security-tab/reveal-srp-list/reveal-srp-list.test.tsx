@@ -2,17 +2,15 @@ import React from 'react';
 import { fireEvent } from '@testing-library/react';
 import configureStore, { MetaMaskReduxState } from '../../../../store/store';
 import mockState from '../../../../../test/data/mock-state.json';
-import { renderWithProvider } from '../../../../../test/lib/render-helpers';
+import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import { ONBOARDING_REVIEW_SRP_ROUTE } from '../../../../helpers/constants/routes';
 import { FirstTimeFlowType } from '../../../../../shared/constants/onboarding';
 import { RevealSrpList } from './reveal-srp-list';
 
-const mockHistoryPush = jest.fn();
+const mockUseNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useHistory: () => ({
-    push: mockHistoryPush,
-  }),
+  useNavigate: () => mockUseNavigate,
 }));
 
 const mockKeyringId = mockState.metamask.keyrings[0].metadata.id;
@@ -22,7 +20,7 @@ const render = (newState: Partial<MetaMaskReduxState> = {}) => {
     ...mockState,
     metamask: {
       ...mockState.metamask,
-      ...newState.metamask,
+      ...(newState.metamask || {}),
     },
   });
 
@@ -64,8 +62,8 @@ describe('RevealSrpList', () => {
 
     fireEvent.click(srpListItem);
 
-    expect(mockHistoryPush).toHaveBeenCalledWith(
-      `${ONBOARDING_REVIEW_SRP_ROUTE}/?isFromReminder=true`,
+    expect(mockUseNavigate).toHaveBeenCalledWith(
+      `${ONBOARDING_REVIEW_SRP_ROUTE}/?isFromReminder=true&isFromSettingsSecurity=true`,
     );
   });
 

@@ -1,8 +1,9 @@
 import { TestDappSolana } from '../../page-objects/pages/test-dapp-solana';
-import { largeDelayMs, veryLargeDelayMs, WINDOW_TITLES } from '../../helpers';
+import { WINDOW_TITLES } from '../../constants';
+import { largeDelayMs, veryLargeDelayMs } from '../../helpers';
 import { withSolanaAccountSnap } from '../../tests/solana/common-solana';
 import {
-  acccount1,
+  account1,
   assertSignedMessageIsValid,
   clickConfirmButton,
   connectSolanaTestDapp,
@@ -22,6 +23,7 @@ describe('Solana Wallet Standard - Sign Message', function () {
           const testDapp = new TestDappSolana(driver);
           await testDapp.openTestDappPage();
           await connectSolanaTestDapp(driver, testDapp);
+          await testDapp.checkPageIsLoaded();
 
           const signMessageTest = await testDapp.getSignMessageTest();
           await signMessageTest.setMessage(messageToSign);
@@ -40,7 +42,7 @@ describe('Solana Wallet Standard - Sign Message', function () {
           assertSignedMessageIsValid({
             signedMessageBase64: signedMessage[0],
             originalMessageString: messageToSign,
-            publicKeyBase58: acccount1,
+            publicKeyBase58: account1,
           });
         },
       );

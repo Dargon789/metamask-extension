@@ -65,7 +65,6 @@ const UPDATE_DELAY = 1000 * 2; // 2 Seconds
 
 export type NameDetailsProps = {
   onClose: () => void;
-  sourcePriority?: string[];
   type: NameType;
   value: string;
   variation: string;
@@ -166,6 +165,10 @@ function useProposedNames(value: string, type: NameType, variation: string) {
   const dispatch = useDispatch();
   const { proposedNames } = useName(value, type, variation);
 
+  // Track latest proposed names without resetting polling interval.
+  const proposedNamesRef = useRef(proposedNames);
+  proposedNamesRef.current = proposedNames;
+
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateInterval = useRef<any>();
@@ -192,11 +195,11 @@ function useProposedNames(value: string, type: NameType, variation: string) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       )) as any as UpdateProposedNamesResult;
 
-      if (!initialSources) {
-        setInitialSources(
-          getInitialSources(result?.results ?? {}, proposedNames),
-        );
-      }
+      setInitialSources(
+        (previous) =>
+          previous ??
+          getInitialSources(result?.results ?? {}, proposedNamesRef.current),
+      );
     };
 
     reset();
@@ -206,11 +209,13 @@ function useProposedNames(value: string, type: NameType, variation: string) {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     updateInterval.current = setInterval(update, UPDATE_DELAY);
     return reset;
-  }, [value, type, variation, dispatch, initialSources, setInitialSources]);
+  }, [value, type, variation, dispatch]);
 
   return { proposedNames, initialSources };
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function NameDetails({
   onClose,
   type,
@@ -227,6 +232,7 @@ export default function NameDetails({
     name: displayName,
     hasPetname: hasSavedPetname,
     displayState,
+    subtitle,
   } = useDisplayName({
     value,
     type,
@@ -249,13 +255,16 @@ export default function NameDetails({
     variation,
   );
 
-  const [copiedAddress, handleCopyAddress] = useCopyToClipboard();
+  // useCopyToClipboard analysis: Copies the public address of the name
+  const [copiedAddress, handleCopyAddress] = useCopyToClipboard({
+    clearDelayMs: null,
+  });
 
   useEffect(() => {
     setName(savedPetname ?? '');
     setSelectedSourceId(savedSourceId ?? undefined);
     setSelectedSourceName(
-      savedSourceId ? savedPetname ?? undefined : undefined,
+      savedSourceId ? (savedPetname ?? undefined) : undefined,
     );
   }, [savedPetname, savedSourceId, setName, setSelectedSourceId]);
 
@@ -297,7 +306,16 @@ export default function NameDetails({
     );
 
     onClose();
-  }, [name, selectedSourceId, onClose, trackPetnamesSaveEvent, variation]);
+  }, [
+    dispatch,
+    name,
+    onClose,
+    selectedSourceId,
+    trackPetnamesSaveEvent,
+    type,
+    value,
+    variation,
+  ]);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -312,7 +330,7 @@ export default function NameDetails({
         setSelectedSourceName(undefined);
       }
     },
-    [setName, selectedSourceId, setSelectedSourceId, setSelectedSourceName],
+    [selectedSourceName],
   );
 
   const handleProposedNameClick = useCallback(
@@ -378,11 +396,33 @@ export default function NameDetails({
         <ModalContent>
           <ModalHeader onClose={handleClose}>{title}</ModalHeader>
           <ModalBody className="name-details__modal-body">
-            <div
-              style={{ textAlign: 'center', marginBottom: 16, marginTop: 8 }}
+            <Box
+              display={Display.Flex}
+              alignItems={AlignItems.center}
+              justifyContent={JustifyContent.center}
+              marginBottom={4}
+              marginTop={2}
+              style={{
+                textAlign: 'center',
+              }}
             >
-              <NameDisplay value={value} type={type} variation={variation} />
-            </div>
+              <NameDisplay
+                value={value}
+                type={type}
+                variation={variation}
+                showFullName
+              />
+              {subtitle && (
+                <Text
+                  as="span"
+                  variant={TextVariant.bodySm}
+                  color={TextColor.textAlternative}
+                  style={{ marginLeft: 4 }}
+                >
+                  {subtitle}
+                </Text>
+              )}
+            </Box>
             <Text marginBottom={4} justifyContent={JustifyContent.spaceBetween}>
               {instructions}
             </Text>

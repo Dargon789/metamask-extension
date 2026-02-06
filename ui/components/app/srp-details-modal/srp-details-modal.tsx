@@ -5,6 +5,7 @@ import {
   Display,
   TextAlign,
   TextVariant,
+  TextColor,
 } from '../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
@@ -18,6 +19,8 @@ import {
   ButtonPrimarySize,
 } from '../../component-library';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function SRPDetailsModal({ onClose }: { onClose: () => void }) {
   const t = useI18nContext();
 
@@ -31,13 +34,19 @@ export default function SRPDetailsModal({ onClose }: { onClose: () => void }) {
       <ModalOverlay />
       <ModalContent alignItems={AlignItems.center}>
         <ModalHeader onClose={onClose}>
-          <Text variant={TextVariant.headingMd} textAlign={TextAlign.Center}>
+          <Text variant={TextVariant.headingSm} textAlign={TextAlign.Center}>
             {t('srpDetailsTitle')}
           </Text>
         </ModalHeader>
         <Box paddingLeft={4} paddingRight={4}>
-          <Text variant={TextVariant.bodyMd}>{t('srpDetailsDescription')}</Text>
-          <Text variant={TextVariant.bodyMd} marginTop={4}>
+          <Text variant={TextVariant.bodyMd} color={TextColor.textAlternative}>
+            {t('srpDetailsDescription')}
+          </Text>
+          <Text
+            variant={TextVariant.bodyMd}
+            marginTop={4}
+            color={TextColor.textAlternative}
+          >
             {t('srpDetailsOwnsAccessListTitle')}
           </Text>
           <Box
@@ -46,13 +55,25 @@ export default function SRPDetailsModal({ onClose }: { onClose: () => void }) {
             paddingLeft={6}
             style={{ listStyleType: 'disc' }}
           >
-            <Text as="li" variant={TextVariant.bodyMd}>
+            <Text
+              as="li"
+              variant={TextVariant.bodyMd}
+              color={TextColor.textAlternative}
+            >
               {t('srpDetailsOwnsAccessListItemOne')}
             </Text>
-            <Text as="li" variant={TextVariant.bodyMd}>
+            <Text
+              as="li"
+              variant={TextVariant.bodyMd}
+              color={TextColor.textAlternative}
+            >
               {t('srpDetailsOwnsAccessListItemTwo')}
             </Text>
-            <Text as="li" variant={TextVariant.bodyMd}>
+            <Text
+              as="li"
+              variant={TextVariant.bodyMd}
+              color={TextColor.textAlternative}
+            >
               {t('srpDetailsOwnsAccessListItemThree')}
             </Text>
           </Box>

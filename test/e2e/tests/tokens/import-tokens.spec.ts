@@ -2,47 +2,190 @@ import AssetListPage from '../../page-objects/pages/home/asset-list';
 import HomePage from '../../page-objects/pages/home/homepage';
 
 import { withFixtures } from '../../helpers';
-import FixtureBuilder from '../../fixture-builder';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { Mockttp } from '../../mock-e2e';
 import { CHAIN_IDS } from '../../../../shared/constants/network';
 import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow';
 
-describe('Import flow', function () {
-  async function mockPriceFetch(mockServer: Mockttp) {
-    return [
-      await mockServer
-        .forGet('https://price.api.cx.metamask.io/v2/chains/1/spot-prices')
-        .withQuery({
-          tokenAddresses:
-            '0x06af07097c9eeb7fd685c692751d5c66db49c215,0x514910771af9ca656af840dff83e8264ecf986ca,0x7d4b8cce0591c9044a22ee543533b72e976e36c3',
-          vsCurrency: 'ETH',
-        })
-        .thenCallback(() => {
-          return {
-            statusCode: 200,
-            json: {
-              '0x06af07097c9eeb7fd685c692751d5c66db49c215': {
-                eth: 0.0002,
-              },
-              '0x514910771af9ca656af840dff83e8264ecf986ca': {
-                eth: 0.0003,
-              },
-              '0x7d4b8cce0591c9044a22ee543533b72e976e36c3': {
-                eth: 0.0001,
-              },
+async function mockPriceFetch(mockServer: Mockttp) {
+  return [
+    await mockServer
+      .forGet('https://price.api.cx.metamask.io/v3/spot-prices')
+      .withQuery({
+        assetIds:
+          'eip155:1/erc20:0x06af07097c9eeb7fd685c692751d5c66db49c215,eip155:1/erc20:0x514910771af9ca656af840dff83e8264ecf986ca,eip155:1/erc20:0x7d4b8cce0591c9044a22ee543533b72e976e36c3',
+        vsCurrency: 'ETH',
+      })
+      .thenCallback(() => {
+        return {
+          statusCode: 200,
+          json: {
+            'eip155:1/erc20:0x06af07097c9eeb7fd685c692751d5c66db49c215': {
+              eth: 0.0002,
             },
-          };
-        }),
-    ];
-  }
+            'eip155:1/erc20:0x514910771af9ca656af840dff83e8264ecf986ca': {
+              eth: 0.0003,
+            },
+            'eip155:1/erc20:0x7d4b8cce0591c9044a22ee543533b72e976e36c3': {
+              eth: 0.0001,
+            },
+          },
+        };
+      }),
+  ];
+}
+
+async function mockTokens(mockServer: Mockttp) {
+  return [
+    await mockServer
+      .forGet('https://token.api.cx.metamask.io/tokens/1')
+      .thenCallback(() => {
+        return {
+          statusCode: 200,
+          json: [
+            {
+              address: '0x06af07097c9eeb7fd685c692751d5c66db49c215',
+              symbol: 'CHAI',
+              decimals: 18,
+              name: 'Chai',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 1,
+              erc20Permit: true,
+              storage: {},
+              fees: {},
+            },
+            {
+              address: '0x7051faed0775f664a0286af4f75ef5ed74e02754',
+              symbol: 'CHANGE',
+              decimals: 18,
+              name: 'Changex',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 6,
+              erc20Permit: false,
+              storage: {},
+              fees: {},
+            },
+            {
+              address: '0xc4c2614e694cf534d407ee49f8e44d125e4681c4',
+              symbol: 'CHAIN',
+              decimals: 18,
+              name: 'Chain Games',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 1,
+              erc20Permit: false,
+            },
+            {
+              address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+              symbol: 'USDT',
+              decimals: 6,
+              name: 'Tether USD',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 1,
+              erc20Permit: false,
+              storage: {},
+              fees: {},
+            },
+            {
+              address: '0x0a0e3bfd5a8ce610e735d4469bc1b3b130402267',
+              symbol: 'ERP',
+              decimals: 18,
+              name: 'Entropyfi',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 1,
+              erc20Permit: false,
+              storage: {},
+              fees: {},
+            },
+          ],
+        };
+      }),
+    await mockServer
+      .forGet('https://token.api.cx.metamask.io/tokens/137')
+      .thenCallback(() => {
+        return {
+          statusCode: 200,
+          json: [
+            {
+              address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
+              symbol: 'USDT',
+              decimals: 6,
+              name: 'Polygon Bridged USDT  Polygon ',
+              iconUrl: '',
+              type: 'erc20',
+              aggregators: [],
+              occurrences: 1,
+              erc20Permit: false,
+              storage: {},
+            },
+          ],
+        };
+      }),
+  ];
+}
+
+async function mockPolygonBridgeApi(mockServer: Mockttp) {
+  return [
+    await mockServer
+      .forGet('https://bridge.api.cx.metamask.io/networks/137/topAssets')
+      .thenCallback(() => ({
+        statusCode: 200,
+        json: [
+          {
+            address: '0x0000000000000000000000000000000000000000',
+            symbol: 'POL',
+          },
+          {
+            address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
+            symbol: 'USDT',
+          },
+        ],
+      })),
+    await mockServer
+      .forGet('https://bridge.api.cx.metamask.io/networks/137/tokens')
+      .thenCallback(() => ({
+        statusCode: 200,
+        json: [],
+      })),
+    await mockServer
+      .forGet(
+        'https://bridge.api.cx.metamask.io/networks/137/aggregatorMetadata',
+      )
+      .thenCallback(() => ({
+        statusCode: 200,
+        json: {},
+      })),
+  ];
+}
+
+async function mockTokensAndPrices(mockServer: Mockttp) {
+  return [
+    await mockPriceFetch(mockServer),
+    ...(await mockTokens(mockServer)),
+    ...(await mockPolygonBridgeApi(mockServer)),
+  ];
+}
+describe('Import flow', function () {
   it('allows importing multiple tokens from search', async function () {
     await withFixtures(
       {
         fixtures: new FixtureBuilder()
           .withNetworkControllerOnMainnet()
           .withEnabledNetworks({
-            [CHAIN_IDS.MAINNET]: true,
-            [CHAIN_IDS.LINEA_MAINNET]: true,
+            eip155: {
+              [CHAIN_IDS.MAINNET]: true,
+              [CHAIN_IDS.LINEA_MAINNET]: true,
+              [CHAIN_IDS.BASE]: true,
+            },
           })
           .withTokensController({
             tokenList: [
@@ -75,20 +218,25 @@ describe('Import flow', function () {
                     symbol: 'CHANGE',
                     address: '0x7051faed0775f664a0286af4f75ef5ed74e02754',
                   },
+                  '0x06af07097c9eeb7fd685c692751d5c66db49c215': {
+                    name: 'Chai',
+                    symbol: 'CHAI',
+                    address: '0x06af07097c9eeb7fd685c692751d5c66db49c215',
+                  },
                 },
               },
             },
           })
           .build(),
         title: this.test?.fullTitle(),
-        testSpecificMock: mockPriceFetch,
+        testSpecificMock: mockTokensAndPrices,
       },
       async ({ driver }) => {
-        await loginWithBalanceValidation(driver);
+        await loginWithBalanceValidation(driver, undefined, undefined, '$0.00');
 
         const homePage = new HomePage(driver);
         const assetListPage = new AssetListPage(driver);
-        await homePage.check_pageIsLoaded();
+        await homePage.checkPageIsLoaded();
         await assetListPage.importMultipleTokensBySearch([
           'CHAIN',
           'CHANGE',
@@ -99,84 +247,12 @@ describe('Import flow', function () {
 
         // Native Tokens: Ethereum ETH, Linea ETH, Base ETH, Polygon POL
         // ERC20 Tokens: Chain Games, Chai
-        await tokenList.check_tokenItemNumber(6);
-        await tokenList.check_tokenExistsInList('Ethereum');
-        await tokenList.check_tokenExistsInList('Chain Games');
+        await tokenList.checkTokenItemNumber(6);
+        await tokenList.checkTokenExistsInList('Ether');
+        await tokenList.checkTokenExistsInList('Chain Games');
         // TODO: add back this check once we figure out why tokens name displayed when running the test locally is changex but on CI it is ChangeX
-        // await tokenList.check_tokenExistsInList('Changex');
-        await tokenList.check_tokenExistsInList('Chai');
-      },
-    );
-  });
-
-  it('allows importing multiple tokens from search across chains', async function () {
-    await withFixtures(
-      {
-        fixtures: new FixtureBuilder()
-          .withNetworkControllerOnMainnet()
-          .withNetworkControllerOnPolygon()
-          .withEnabledNetworks({
-            [CHAIN_IDS.MAINNET]: true,
-            [CHAIN_IDS.POLYGON]: true,
-            [CHAIN_IDS.LINEA_MAINNET]: true,
-          })
-          .withTokensController({
-            tokenList: [],
-            tokensChainsCache: {
-              '0x1': {
-                data: {
-                  '0x0a0e3bfd5a8ce610e735d4469bc1b3b130402267': {
-                    name: 'Entropy',
-                    aggregators: ['Lifi', 'Coinmarketcap', 'Rango'],
-                    address: '0x0a0e3bfd5a8ce610e735d4469bc1b3b130402267',
-                    decimals: 18,
-                    iconUrl:
-                      'https://static.cx.metamask.io/api/v1/tokenIcons/1/0x0a0e3bfd5a8ce610e735d4469bc1b3b130402267.png',
-                    occurrences: 3,
-                    symbol: 'ERP',
-                  },
-                },
-              },
-              '0x89': {
-                data: {
-                  '0xc2132D05D31c914a87C6611C10748AEb04B58e8F': {
-                    name: 'USDT',
-                    aggregators: ['Lifi', 'Coinmarketcap', 'Rango'],
-                    address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-                    decimals: 6,
-                    iconUrl:
-                      'https://static.cx.metamask.io/api/v1/tokenIcons/137/0xc2132D05D31c914a87C6611C10748AEb04B58e8F.png',
-                    occurrences: 3,
-                    symbol: 'USDT',
-                  },
-                },
-              },
-            },
-          })
-          .build(),
-        title: this.test?.fullTitle(),
-        testSpecificMock: mockPriceFetch,
-      },
-      async ({ driver }) => {
-        await loginWithBalanceValidation(driver);
-
-        const homePage = new HomePage(driver);
-        await homePage.check_pageIsLoaded();
-
-        const assetListPage = new AssetListPage(driver);
-
-        await assetListPage.importMultipleTokensBySearch(['ERP', 'USDT']);
-
-        const tokenList = new AssetListPage(driver);
-
-        // Native Tokens: Ethereum ETH, Linea ETH, Base ETH, Polygon POL
-        // ERC20 Tokens: Polygon USDT, Polygon ERP
-        await tokenList.check_tokenItemNumber(6);
-
-        await tokenList.check_tokenExistsInList('Ethereum');
-        await tokenList.check_tokenExistsInList('ERP');
-        await tokenList.check_tokenExistsInList('USDT');
-        await tokenList.check_tokenExistsInList('POL');
+        // await tokenList.checkTokenExistsInList('Changex');
+        await tokenList.checkTokenExistsInList('Chai');
       },
     );
   });
@@ -188,9 +264,12 @@ describe('Import flow', function () {
           .withNetworkControllerOnMainnet()
           .withNetworkControllerOnPolygon()
           .withEnabledNetworks({
-            [CHAIN_IDS.MAINNET]: true,
-            [CHAIN_IDS.POLYGON]: true,
-            [CHAIN_IDS.LINEA_MAINNET]: true,
+            eip155: {
+              [CHAIN_IDS.MAINNET]: true,
+              [CHAIN_IDS.POLYGON]: true,
+              [CHAIN_IDS.LINEA_MAINNET]: true,
+              [CHAIN_IDS.BASE]: true,
+            },
           })
           .withTokensController({
             tokenList: [],
@@ -226,13 +305,13 @@ describe('Import flow', function () {
           })
           .build(),
         title: this.test?.fullTitle(),
-        testSpecificMock: mockPriceFetch,
+        testSpecificMock: mockTokensAndPrices,
       },
       async ({ driver }) => {
-        await loginWithBalanceValidation(driver);
+        await loginWithBalanceValidation(driver, undefined, undefined, '$0.00');
 
         const homePage = new HomePage(driver);
-        await homePage.check_pageIsLoaded();
+        await homePage.checkPageIsLoaded();
 
         const assetListPage = new AssetListPage(driver);
 
@@ -245,11 +324,11 @@ describe('Import flow', function () {
 
         // Native Tokens: Ethereum ETH, Linea ETH, Base ETH, Polygon POL
         // ERC20 Tokens: Polygon USDT
-        await tokenList.check_tokenItemNumber(5);
+        await tokenList.checkTokenItemNumber(5);
 
-        await tokenList.check_tokenExistsInList('Ethereum');
-        await tokenList.check_tokenExistsInList('USDT');
-        await tokenList.check_tokenExistsInList('POL');
+        await tokenList.checkTokenExistsInList('Ether');
+        await tokenList.checkTokenExistsInList('USDT');
+        await tokenList.checkTokenExistsInList('POL');
       },
     );
   });

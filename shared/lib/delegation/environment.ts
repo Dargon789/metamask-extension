@@ -1,13 +1,21 @@
 import { DELEGATOR_CONTRACTS } from '@metamask/delegation-deployments';
-import type { Hex } from './utils';
+import type { Hex } from '@metamask/utils';
 
 /**
  * A version agnostic blob of contract addresses required for the DeleGator system to function.
  */
 export type DeleGatorEnvironment = {
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   DelegationManager: Hex;
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   EIP7702StatelessDeleGatorImpl: Hex;
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   EntryPoint: Hex;
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   SimpleFactory: Hex;
   implementations: {
     [implementation: string]: Hex;
@@ -69,7 +77,10 @@ export function getDeleGatorEnvironment(
       OwnershipTransferEnforcer: c.OwnershipTransferEnforcer,
       RedeemerEnforcer: c.RedeemerEnforcer,
       SpecificActionERC20TransferBatchEnforcer:
-        c.SpecificActionERC20TransferBatchEnforcer,
+        // hardcoding a new deployment address that introduces support for value
+        // in the specific action, until we have a new versioned deployment
+        '0x6649b61c873F6F9686A1E1ae9ee98aC380c7bA13',
+      // c.SpecificActionERC20TransferBatchEnforcer,
       ERC20PeriodTransferEnforcer: c.ERC20PeriodTransferEnforcer,
       NativeTokenPeriodTransferEnforcer: c.NativeTokenPeriodTransferEnforcer,
       ExactCalldataBatchEnforcer: c.ExactCalldataBatchEnforcer,

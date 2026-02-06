@@ -1,21 +1,25 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import configureMockStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
-import { ONBOARDING_CREATE_PASSWORD_ROUTE } from '../../../helpers/constants/routes';
-import { renderWithProvider } from '../../../../test/jest';
+import {
+  ONBOARDING_CREATE_PASSWORD_ROUTE,
+  ONBOARDING_WELCOME_ROUTE,
+} from '../../../helpers/constants/routes';
+import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate';
 import initializedMockState from '../../../../test/data/mock-state.json';
 import { FirstTimeFlowType } from '../../../../shared/constants/onboarding';
-import CreationSuccessful from './account-not-found';
+import * as Actions from '../../../store/actions';
+import AccountNotFound from './account-not-found';
 
-const mockHistoryPush = jest.fn();
+const mockUseNavigate = jest.fn();
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useHistory: () => ({
-    push: mockHistoryPush,
-  }),
-}));
+jest.mock('react-router-dom', () => {
+  return {
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockUseNavigate,
+  };
+});
 
 describe('Account Not Found Seedless Onboarding View', () => {
   afterEach(() => {
@@ -26,20 +30,18 @@ describe('Account Not Found Seedless Onboarding View', () => {
     jest.resetAllMocks();
   });
 
-  it('should display the correct content', () => {
-    const importFirstTimeFlowState = {
-      ...initializedMockState,
-      metamask: {
-        ...initializedMockState.metamask,
-        firstTimeFlowType: FirstTimeFlowType.seedless,
-      },
-    };
-    const customMockStore = configureMockStore([thunk])(
-      importFirstTimeFlowState,
-    );
+  const mockState = {
+    ...initializedMockState,
+    metamask: {
+      ...initializedMockState.metamask,
+      firstTimeFlowType: FirstTimeFlowType.socialImport,
+    },
+  };
+  const customMockStore = configureMockStore([thunk])(mockState);
 
+  it('should display the correct content', () => {
     const { getByText } = renderWithProvider(
-      <CreationSuccessful />,
+      <AccountNotFound />,
       customMockStore,
     );
 
@@ -50,12 +52,60 @@ describe('Account Not Found Seedless Onboarding View', () => {
     expect(loginButton.nodeName).toBe('BUTTON');
   });
 
-  it('should navigate to the create-password route when the button is clicked', () => {
-    const { getByText } = renderWithProvider(<CreationSuccessful />);
+  it('should navigate to the create-password route when the button is clicked', async () => {
+    const { getByText } = renderWithProvider(
+      <AccountNotFound />,
+      customMockStore,
+    );
+
     const loginButton = getByText('Yes, create a new wallet');
     fireEvent.click(loginButton);
-    expect(mockHistoryPush).toHaveBeenCalledWith(
-      ONBOARDING_CREATE_PASSWORD_ROUTE,
+
+    await waitFor(() => {
+      expect(mockUseNavigate).toHaveBeenCalledWith(
+        ONBOARDING_CREATE_PASSWORD_ROUTE,
+        {
+          replace: true,
+        },
+      );
+    });
+  });
+
+  it('should navigate to the welcome page when the firstTimeFlowType is not socialCreate', () => {
+    const store = configureMockStore([thunk])({
+      ...mockState,
+      metamask: {
+        ...mockState.metamask,
+        firstTimeFlowType: FirstTimeFlowType.socialImport,
+      },
+    });
+
+    renderWithProvider(<AccountNotFound />, store);
+
+    expect(mockUseNavigate).toHaveBeenCalledWith(ONBOARDING_WELCOME_ROUTE, {
+      replace: true,
+    });
+  });
+
+  it('should reset login state and navigate to the welcome page when the button is clicked', async () => {
+    const resetOnboardingSpy = jest
+      .spyOn(Actions, 'resetOnboarding')
+      .mockReturnValue(jest.fn().mockResolvedValueOnce(null));
+
+    const { getByTestId } = renderWithProvider(
+      <AccountNotFound />,
+      customMockStore,
     );
+    const loginButton = getByTestId(
+      'account-exist-login-with-different-method',
+    );
+    fireEvent.click(loginButton);
+
+    await waitFor(() => {
+      expect(mockUseNavigate).toHaveBeenCalledWith(ONBOARDING_WELCOME_ROUTE, {
+        replace: true,
+      });
+      expect(resetOnboardingSpy).toHaveBeenCalled();
+    });
   });
 });

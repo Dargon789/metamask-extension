@@ -1,23 +1,29 @@
-const { withFixtures, unlockWallet, WINDOW_TITLES } = require('../helpers');
-const FixtureBuilder = require('../fixture-builder');
+const { withFixtures } = require('../helpers');
+const {
+  loginWithBalanceValidation,
+} = require('../page-objects/flows/login.flow');
+const { DAPP_PATH, DAPP_URL, WINDOW_TITLES } = require('../constants');
+const FixtureBuilder = require('../fixtures/fixture-builder');
 const {
   mockNotificationSnap,
 } = require('../mock-response-data/snaps/snap-binary-mocks');
-const { TEST_SNAPS_WEBSITE_URL } = require('./enums');
 
 describe('Test Snap Management', function () {
   it('tests install disable enable and removal of a snap', async function () {
     await withFixtures(
       {
+        dappOptions: {
+          customDappPaths: [DAPP_PATH.TEST_SNAPS],
+        },
         fixtures: new FixtureBuilder().build(),
         testSpecificMock: mockNotificationSnap,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
-        await unlockWallet(driver);
+        await loginWithBalanceValidation(driver);
 
         // open a new tab and navigate to test snaps page and connect
-        await driver.openNewPage(TEST_SNAPS_WEBSITE_URL);
+        await driver.openNewPage(DAPP_URL);
 
         // wait for page to load
         await driver.waitForSelector({
@@ -110,28 +116,29 @@ describe('Test Snap Management', function () {
 
         // click the back arrow to return to the main extension page
         await driver.clickElement('[aria-label="Back"]');
-
-        // click account options menu button
+        await driver.clickElement('[aria-label="Back"]');
 
         // we click on the notification icon on top of the account menu button
         // because the notification overlays the icon and this can cause ElementClickInterceptedError
+
         await driver.clickElement(
-          '.notification-list-item__unread-dot__wrapper',
+          '[data-testid="account-options-menu-button"]',
         );
+
         await driver.findElement({
           css: '[data-testid="global-menu-notification-count"]',
           text: '1',
         });
 
-        // this click will close the menu
-        await driver.clickElement(
-          '[data-testid="account-options-menu-button"]',
-        );
+        await driver.clickElement({
+          css: '[data-testid="global-menu-notification-count"]',
+          text: '1',
+        });
 
         // go into the notifications snap page
         await driver.clickElement({
           text: 'Notifications Example Snap',
-          tag: 'p',
+          tag: 'span',
         });
 
         // try to remove snap

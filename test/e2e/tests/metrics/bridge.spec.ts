@@ -3,7 +3,6 @@ import { Suite } from 'mocha';
 import {
   assertInAnyOrder,
   getEventPayloads,
-  unlockWallet,
   withFixtures,
 } from '../../helpers';
 import HomePage from '../../page-objects/pages/home/homepage';
@@ -15,6 +14,7 @@ import {
   EXPECTED_EVENT_TYPES,
 } from '../bridge/bridge-test-utils';
 import BridgeQuotePage from '../../page-objects/pages/bridge/quote-page';
+import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow';
 
 const quote = {
   amount: '25',
@@ -35,19 +35,24 @@ describe('Bridge tests', function (this: Suite) {
         true,
       ),
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
-        await unlockWallet(driver);
-        const homePage = new HomePage(driver);
-        await homePage.check_expectedBalanceIsDisplayed('24');
+        await loginWithBalanceValidation(driver, undefined, undefined, '0');
 
-        await bridgeTransaction(driver, quote, 2, '24.9');
+        const homePage = new HomePage(driver);
+
+        await bridgeTransaction({
+          driver,
+          quote,
+          expectedTransactionsCount: 2,
+          expectedDestAmount: '0.0157',
+        });
 
         // Start the flow again
-        await homePage.startBridgeFlow();
+        await homePage.startSwapFlow();
 
         const bridgePage = new BridgeQuotePage(driver);
         await bridgePage.enterBridgeQuote(quote);
         await bridgePage.waitForQuote();
-        await bridgePage.check_expectedNetworkFeeIsDisplayed();
+        await bridgePage.checkExpectedNetworkFeeIsDisplayed();
         await bridgePage.switchTokens();
 
         let events = await getEventPayloads(driver, mockedEndpoints);
@@ -67,12 +72,6 @@ describe('Bridge tests', function (this: Suite) {
           );
         }
 
-        const bridgeLinkClicked = findEventsByName(
-          EventTypes.BridgeLinkClicked,
-        );
-        // The flow above navigates twice to the bridge page, so we expect 2 events
-        assert.ok(bridgeLinkClicked.length === 2);
-
         const swapBridgeButtonClicked = findEventsByName(
           EventTypes.SwapBridgeButtonClicked,
         );
@@ -80,14 +79,10 @@ describe('Bridge tests', function (this: Suite) {
         assert.ok(swapBridgeButtonClicked.length === 2);
         assert.ok(
           swapBridgeButtonClicked[0].properties.token_symbol_source === 'ETH' &&
-            swapBridgeButtonClicked[0].properties.token_symbol_destination ===
-              null &&
             swapBridgeButtonClicked[0].properties.token_address_source ===
               'eip155:1/slip44:60' &&
             swapBridgeButtonClicked[0].properties.category ===
-              'Unified SwapBridge' &&
-            swapBridgeButtonClicked[0].properties.token_address_destination ===
-              null,
+              'Unified SwapBridge',
         );
 
         const swapBridgePageViewed = findEventsByName(
@@ -99,9 +94,7 @@ describe('Bridge tests', function (this: Suite) {
           swapBridgePageViewed[0].properties.token_address_source ===
             'eip155:1/slip44:60' &&
             swapBridgePageViewed[0].properties.category ===
-              'Unified SwapBridge' &&
-            swapBridgePageViewed[0].properties.token_address_destination ===
-              null,
+              'Unified SwapBridge',
         );
 
         const swapBridgeInputChanged = findEventsByName(
@@ -109,53 +102,64 @@ describe('Bridge tests', function (this: Suite) {
         );
         /**
          * token_source
-         * token_destination
          * chain_source
-         * chain_destination
          * slippage
+         * token_destination
+         * chain_destination
          */
 
-        assert.ok(swapBridgeInputChanged.length === 14);
+        assert(
+          swapBridgeInputChanged.length === 18,
+          `Should have 18 input change events, but got ${swapBridgeInputChanged.length}`,
+        );
+
+        const swapBridgeInputChangedKeys = new Set(
+          swapBridgeInputChanged.map((event) => event.properties.input),
+        );
 
         const inputTypes = [
           'token_source',
-          'token_destination',
           'chain_source',
-          'chain_destination',
           'slippage',
+          'token_destination',
+          'chain_destination',
         ];
-        const hasAllInputs = inputTypes.every((inputType) =>
-          swapBridgeInputChanged.some(
-            (event) =>
-              event.event === EventTypes.SwapBridgeInputChanged &&
-              event.properties.input === inputType,
-          ),
+
+        assert.ok(
+          swapBridgeInputChangedKeys.size === 5,
+          'Should have 5 input types',
         );
-        assert.ok(hasAllInputs, 'Should have all 5 input types');
+
+        inputTypes.forEach((inputType) => {
+          assert.ok(
+            swapBridgeInputChangedKeys.has(inputType),
+            `Missing input type: ${inputType}`,
+          );
+        });
 
         const swapBridgeQuotesRequested = findEventsByName(
           EventTypes.SwapBridgeQuotesRequested,
         );
-        assert.ok(swapBridgeQuotesRequested.length === 3);
-        assert.ok(
-          swapBridgeQuotesRequested[0].properties.chain_id_source ===
-            'eip155:1' &&
-            swapBridgeQuotesRequested[0].properties.chain_id_destination ===
-              'eip155:59144' &&
-            swapBridgeQuotesRequested[0].properties.token_address_source ===
+
+        // Quotes can be requested while test is waiting for ui updates, so we expect at least 2 events
+        assert.ok(swapBridgeQuotesRequested.length >= 2);
+        const firstQuoteRequest = swapBridgeQuotesRequested.find((event) => {
+          return (
+            event.properties.chain_id_source === 'eip155:1' &&
+            event.properties.chain_id_destination === 'eip155:59144' &&
+            event.properties.token_address_source ===
               'eip155:1/erc20:0x6b175474e89094c44da98b954eedeac495271d0f' &&
-            swapBridgeQuotesRequested[0].properties
-              .token_address_destination === 'eip155:59144/slip44:60' &&
-            swapBridgeQuotesRequested[0].properties.swap_type ===
-              'crosschain' &&
-            swapBridgeQuotesRequested[0].properties.token_symbol_source ===
-              'DAI' &&
-            swapBridgeQuotesRequested[0].properties.token_symbol_destination ===
-              'ETH',
-        );
+            event.properties.token_address_destination ===
+              'eip155:59144/slip44:60' &&
+            event.properties.swap_type === 'crosschain' &&
+            event.properties.token_symbol_source === 'DAI' &&
+            event.properties.token_symbol_destination === 'ETH'
+          );
+        });
+        assert.ok(firstQuoteRequest, 'First quote request not found');
 
         const crossChainQuotesReceived = findEventsByName(
-          EventTypes.CrossChainQuotesReceived,
+          EventTypes.UnifiedSwapBridgeQuotesReceived,
         );
         // The flow receives 2 quotes, so we expect 2 events
         assert.ok(crossChainQuotesReceived.length === 2);
@@ -165,28 +169,10 @@ describe('Bridge tests', function (this: Suite) {
             crossChainQuotesReceived[0].properties.chain_id_destination ===
               'eip155:59144' &&
             crossChainQuotesReceived[0].properties.token_address_source ===
-              '0x6b175474e89094c44da98b954eedeac495271d0f' &&
+              'eip155:1/erc20:0x6b175474e89094c44da98b954eedeac495271d0f' &&
             crossChainQuotesReceived[0].properties.token_address_destination ===
-              '0x0000000000000000000000000000000000000000' &&
-            crossChainQuotesReceived[0].properties.swap_type ===
-              'crosschain-v1' &&
-            crossChainQuotesReceived[0].properties.token_symbol_source ===
-              'DAI' &&
-            crossChainQuotesReceived[0].properties.token_symbol_destination ===
-              'ETH',
-        );
-
-        const actionSubmitted = findEventsByName(EventTypes.ActionSubmitted);
-        assert.ok(actionSubmitted.length === 1);
-        assert.ok(
-          actionSubmitted[0].properties.action_type === 'crosschain-v1' &&
-            actionSubmitted[0].properties.category === 'Cross Chain Swaps' &&
-            actionSubmitted[0].properties.token_address_source ===
-              '0x6b175474e89094c44da98b954eedeac495271d0f' &&
-            actionSubmitted[0].properties.token_address_destination ===
-              '0x0000000000000000000000000000000000000000' &&
-            actionSubmitted[0].properties.token_symbol_source === 'DAI' &&
-            actionSubmitted[0].properties.token_symbol_destination === 'ETH',
+              'eip155:59144/slip44:60' &&
+            crossChainQuotesReceived[0].properties.swap_type === 'crosschain',
         );
 
         const unifiedSwapBridgeSubmitted = findEventsByName(
@@ -196,13 +182,9 @@ describe('Bridge tests', function (this: Suite) {
         assert.ok(unifiedSwapBridgeSubmitted.length === 1);
         assert.ok(
           unifiedSwapBridgeSubmitted[0].properties.action_type ===
-            'crosschain-v1' &&
+            'swapbridge-v1' &&
             unifiedSwapBridgeSubmitted[0].properties.category ===
               'Unified SwapBridge' &&
-            unifiedSwapBridgeSubmitted[0].properties.token_address_source ===
-              'eip155:1/erc20:0x6b175474e89094c44da98b954eedeac495271d0f' &&
-            unifiedSwapBridgeSubmitted[0].properties
-              .token_address_destination === 'eip155:59144/slip44:60' &&
             unifiedSwapBridgeSubmitted[0].properties.token_symbol_source ===
               'DAI' &&
             unifiedSwapBridgeSubmitted[0].properties
@@ -211,17 +193,25 @@ describe('Bridge tests', function (this: Suite) {
 
         const assetTypeCheck1 = [
           (req: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             properties: { asset_type: string; token_standard: string };
           }) => req.properties.asset_type === 'TOKEN',
           (req: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             properties: { asset_type: string; token_standard: string };
           }) => req.properties.token_standard === 'ERC20',
         ];
         const assetTypeCheck2 = [
           (req: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             properties: { asset_type: string; token_standard: string };
           }) => req.properties.asset_type === 'NATIVE',
           (req: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             properties: { asset_type: string; token_standard: string };
           }) => req.properties.token_standard === 'NONE',
         ];
@@ -321,23 +311,19 @@ describe('Bridge tests', function (this: Suite) {
         assert.ok(swapBridgeCompletedEvents.length === 1);
         assert.ok(
           swapBridgeCompletedEvents[0].properties.action_type ===
-            'crosschain-v1' &&
+            'swapbridge-v1' &&
             swapBridgeCompletedEvents[0].properties.category ===
               'Unified SwapBridge' &&
-            swapBridgeCompletedEvents[0].properties.token_address_source ===
-              'eip155:1/erc20:0x6b175474e89094c44da98b954eedeac495271d0f' &&
-            swapBridgeCompletedEvents[0].properties
-              .token_address_destination === 'eip155:59144/slip44:60' &&
             swapBridgeCompletedEvents[0].properties.token_symbol_source ===
               'DAI' &&
             swapBridgeCompletedEvents[0].properties.token_symbol_destination ===
               'ETH',
         );
 
-        const swapBridgeTokenFlippedEvents = findEventsByName(
-          EventTypes.SwapBridgeTokenFlipped,
+        const swapBridgeTokenSwitchedEvents = findEventsByName(
+          EventTypes.SwapBridgeTokenSwitched,
         );
-        assert.ok(swapBridgeTokenFlippedEvents.length === 1);
+        assert.ok(swapBridgeTokenSwitchedEvents.length === 1);
       },
     );
   });

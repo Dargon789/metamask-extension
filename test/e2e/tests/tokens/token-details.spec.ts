@@ -2,7 +2,7 @@ import { Mockttp } from 'mockttp';
 import { Context } from 'mocha';
 import { CHAIN_IDS } from '../../../../shared/constants/network';
 import { formatCurrency } from '../../../../ui/helpers/utils/confirm-tx.util';
-import FixtureBuilder from '../../fixture-builder';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { withFixtures } from '../../helpers';
 import { Driver } from '../../webdriver/driver';
 import HomePage from '../../page-objects/pages/home/homepage';
@@ -33,7 +33,7 @@ describe('Token Details', function () {
         ...fixtures,
         title: (this as Context).test?.fullTitle(),
         testSpecificMock: async (mockServer: Mockttp) => [
-          await mockEmptyPrices(mockServer, chainId),
+          await mockEmptyPrices(mockServer),
           await mockEmptyHistoricalPrices(mockServer, tokenAddress, chainId),
         ],
       },
@@ -42,7 +42,7 @@ describe('Token Details', function () {
 
         const homePage = new HomePage(driver);
         const assetListPage = new AssetListPage(driver);
-        await homePage.check_pageIsLoaded();
+        await homePage.checkPageIsLoaded();
         await assetListPage.importCustomTokenByChain(
           chainId,
           tokenAddress,
@@ -50,7 +50,7 @@ describe('Token Details', function () {
         );
         await assetListPage.dismissTokenImportedMessage();
         await assetListPage.openTokenDetails(symbol);
-        await assetListPage.check_tokenSymbolAndAddressDetails(
+        await assetListPage.checkTokenSymbolAndAddressDetails(
           symbol,
           tokenAddress,
         );
@@ -67,14 +67,26 @@ describe('Token Details', function () {
       marketCap: 12,
     };
 
+    const expectedPrice = formatCurrency(
+      `${marketData.price * ethConversionInUsd}`,
+      'USD',
+    );
+
+    const expectedMarketCap = '$120.00K';
+
     await withFixtures(
       {
         ...fixtures,
         title: (this as Context).test?.fullTitle(),
         ethConversionInUsd,
         testSpecificMock: async (mockServer: Mockttp) => [
-          await mockSpotPrices(mockServer, chainId, {
-            [tokenAddress.toLowerCase()]: marketData,
+          await mockSpotPrices(mockServer, {
+            'eip155:1/slip44:60': {
+              price: 10000,
+              marketCap: 382623505141,
+              pricePercentChange1d: 0,
+            },
+            [`eip155:1/erc20:${tokenAddress.toLowerCase()}`]: marketData,
           }),
           await mockHistoricalPrices(mockServer, {
             address: tokenAddress,
@@ -92,7 +104,7 @@ describe('Token Details', function () {
 
         const homePage = new HomePage(driver);
         const assetListPage = new AssetListPage(driver);
-        await homePage.check_pageIsLoaded();
+        await homePage.checkPageIsLoaded();
         await assetListPage.importCustomTokenByChain(
           chainId,
           tokenAddress,
@@ -100,25 +112,47 @@ describe('Token Details', function () {
         );
         await assetListPage.dismissTokenImportedMessage();
         await assetListPage.openTokenDetails(symbol);
-        await assetListPage.check_tokenSymbolAndAddressDetails(
+        await assetListPage.checkTokenSymbolAndAddressDetails(
           symbol,
           tokenAddress,
         );
 
-        const expectedPrice = formatCurrency(
-          `${marketData.price * ethConversionInUsd}`,
-          'USD',
-        );
-        const expectedMarketCap = `${
-          marketData.marketCap * ethConversionInUsd
-        }.00`;
-
-        await assetListPage.check_tokenPriceAndMarketCap(
+        await assetListPage.checkTokenPriceAndMarketCap(
           expectedPrice,
           expectedMarketCap,
         );
 
-        await assetListPage.check_priceChartIsShown();
+        await assetListPage.checkPriceChartIsShown();
+      },
+    );
+  });
+
+  it('shows details for a N token with prices available', async function () {
+    await withFixtures(
+      {
+        ...fixtures,
+        title: (this as Context).test?.fullTitle(),
+        testSpecificMock: async (mockServer: Mockttp) => [
+          await mockSpotPrices(mockServer, {
+            'eip155:1/slip44:60': {
+              price: 1700,
+              marketCap: 382623505141,
+              pricePercentChange1d: 0,
+            },
+          }),
+        ],
+      },
+      async ({ driver }: { driver: Driver }) => {
+        await loginWithBalanceValidation(driver);
+
+        const homePage = new HomePage(driver);
+        await homePage.checkPageIsLoaded();
+
+        const assetListPage = new AssetListPage(driver);
+        await assetListPage.openTokenDetails('Ethereum');
+
+        // check display of price in details
+        await assetListPage.checkTokenPrice('$1,700.00');
       },
     );
   });

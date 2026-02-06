@@ -12,10 +12,12 @@ export type EnvironmentType =
   | 'popup'
   | 'notification'
   | 'fullscreen'
-  | 'background';
+  | 'background'
+  | 'sidepanel';
 export const ENVIRONMENT_TYPE_POPUP = 'popup';
 export const ENVIRONMENT_TYPE_NOTIFICATION = 'notification';
 export const ENVIRONMENT_TYPE_FULLSCREEN = 'fullscreen';
+export const ENVIRONMENT_TYPE_SIDEPANEL = 'sidepanel';
 export const ENVIRONMENT_TYPE_BACKGROUND = 'background';
 
 export const PLATFORM_BRAVE = 'Brave';
@@ -23,6 +25,39 @@ export const PLATFORM_CHROME = 'Chrome';
 export const PLATFORM_EDGE = 'Edge';
 export const PLATFORM_FIREFOX = 'Firefox';
 export const PLATFORM_OPERA = 'Opera';
+
+/**
+ * Object containing all platform constants for type-safe usage.
+ */
+export const PLATFORM = {
+  BRAVE: PLATFORM_BRAVE,
+  CHROME: PLATFORM_CHROME,
+  EDGE: PLATFORM_EDGE,
+  FIREFOX: PLATFORM_FIREFOX,
+  OPERA: PLATFORM_OPERA,
+} as const;
+
+export type Platform = (typeof PLATFORM)[keyof typeof PLATFORM];
+
+/**
+ * The type of installation of the extension.
+ * - 'normal' means installed from official store (Chrome Web Store, Firefox Add-ons, etc.)
+ * - 'development' means loaded unpacked in developer mode
+ * - 'sideload' means installed by other software
+ * - 'admin' means installed by admin policy (enterprise)
+ * - 'other' means other installation type
+ * - 'unknown' means the value hasn't been fetched yet or fetch failed
+ */
+export const INSTALL_TYPE = {
+  ADMIN: 'admin',
+  DEVELOPMENT: 'development',
+  NORMAL: 'normal',
+  SIDELOAD: 'sideload',
+  OTHER: 'other',
+  UNKNOWN: 'unknown',
+} as const;
+
+export type InstallType = (typeof INSTALL_TYPE)[keyof typeof INSTALL_TYPE];
 
 export const MESSAGE_TYPE = {
   ADD_ETHEREUM_CHAIN: 'wallet_addEthereumChain',
@@ -60,16 +95,22 @@ export const MESSAGE_TYPE = {
   SNAP_DIALOG_CONFIRMATION: DIALOG_APPROVAL_TYPES.confirmation,
   SNAP_DIALOG_PROMPT: DIALOG_APPROVAL_TYPES.prompt,
   SNAP_DIALOG_DEFAULT: DIALOG_APPROVAL_TYPES.default,
+  HYPERLIQUID_REFERRAL_CONSENT: 'hyperliquid_referral_consent',
+  ASTERDEX_REFERRAL_CONSENT: 'asterdex_referral_consent',
 } as const;
 
 export type MessageType = (typeof MESSAGE_TYPE)[keyof typeof MESSAGE_TYPE];
+
+// Custom ApprovalTypes for DeFi referral consent
+export const HYPERLIQUID_APPROVAL_TYPE =
+  MESSAGE_TYPE.HYPERLIQUID_REFERRAL_CONSENT;
+export const ASTERDEX_APPROVAL_TYPE = MESSAGE_TYPE.ASTERDEX_REFERRAL_CONSENT;
 
 ///: BEGIN:ONLY_INCLUDE_IF(keyring-snaps)
 export const SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES = {
   confirmAccountCreation: 'snap_manageAccounts:confirmAccountCreation',
   confirmAccountRemoval: 'snap_manageAccounts:confirmAccountRemoval',
   showSnapAccountRedirect: 'snap_manageAccounts:showSnapAccountRedirect',
-  showNameSnapAccount: 'snap_manageAccounts:showNameSnapAccount',
 };
 ///: END:ONLY_INCLUDE_IF
 
@@ -78,17 +119,11 @@ export const SMART_TRANSACTION_CONFIRMATION_TYPES = {
     'smartTransaction:showSmartTransactionStatusPage',
 };
 
-/**
- * Custom messages to send and be received by the extension
- */
-export const EXTENSION_MESSAGES = {
-  READY: 'METAMASK_EXTENSION_READY',
-} as const;
-
 export const POLLING_TOKEN_ENVIRONMENT_TYPES = {
   [ENVIRONMENT_TYPE_POPUP]: 'popupGasPollTokens',
   [ENVIRONMENT_TYPE_NOTIFICATION]: 'notificationGasPollTokens',
   [ENVIRONMENT_TYPE_FULLSCREEN]: 'fullScreenGasPollTokens',
+  [ENVIRONMENT_TYPE_SIDEPANEL]: 'sidePanelGasPollTokens',
   [ENVIRONMENT_TYPE_BACKGROUND]: 'none',
 } as const;
 
@@ -128,3 +163,5 @@ export const TRACE_ENABLED_SIGN_METHODS = [
   MESSAGE_TYPE.ETH_SIGN_TYPED_DATA_V4,
   MESSAGE_TYPE.PERSONAL_SIGN,
 ];
+
+export const DOWNLOAD_MOBILE_APP_SLIDE_ID = 'downloadMobileApp';

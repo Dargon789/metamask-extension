@@ -13,6 +13,7 @@ import TokenCell from '../../../components/app/assets/token-cell';
 import { getPreferences } from '../../../selectors';
 import { TokenWithFiatAmount } from '../../../components/app/assets/types';
 import { useSafeChains } from '../../settings/networks-tab/networks-form/use-safe-chains';
+import { getTokenAvatarUrl } from '../../../components/app/assets/util/getTokenAvatarUrl';
 
 export const PositionTypeLabels = {
   supply: 'supplied',
@@ -78,8 +79,8 @@ const DefiDetailsList = React.memo(
         title: token.symbol,
         symbol: token.name,
         tokenFiatAmount: token.marketValue,
-        image: token.iconUrl,
-        primary: token.marketValue?.toString() || '0',
+        image: getTokenAvatarUrl(token),
+        balance: token.balance.toString(),
         secondary: token.balance,
         string: token.balance.toString(),
         decimals: 10,
@@ -117,7 +118,7 @@ const DefiDetailsList = React.memo(
                     <Text
                       variant={TextVariant.bodyMdMedium}
                       paddingLeft={4}
-                      color={TextColor.textAlternativeSoft}
+                      color={TextColor.textAlternative}
                       data-testid={`defi-details-list-${positionType}-position`}
                     >
                       {label}

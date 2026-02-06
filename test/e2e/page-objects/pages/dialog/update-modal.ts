@@ -1,4 +1,5 @@
 import { Driver } from '../../../webdriver/driver';
+import { regularDelayMs } from '../../../helpers';
 
 class UpdateModal {
   private driver: Driver;
@@ -19,7 +20,7 @@ class UpdateModal {
     this.driver = driver;
   }
 
-  async check_pageIsLoaded() {
+  async checkPageIsLoaded() {
     try {
       await this.driver.waitForSelector(this.updateModal);
     } catch (e) {
@@ -29,17 +30,19 @@ class UpdateModal {
     console.log('Update modal is loaded');
   }
 
-  async check_pageIsNotPresent() {
+  async checkPageIsNotPresent() {
     console.log('Checking if update modal is not present');
-    const isPresent = await this.driver.isElementPresent(this.updateModal);
-    if (isPresent) {
-      throw new Error('Update modal should not be present');
-    }
+    await this.driver.assertElementNotPresent(this.updateModal, {
+      waitAtLeastGuard: regularDelayMs,
+    });
   }
 
   async confirm() {
     console.log('Click to confirm the update modal');
-    await this.driver.clickElementAndWaitForWindowToClose(this.submitButton);
+    await this.driver.clickElement(this.submitButton);
+    // delay needed to mitigate a race condition where the tab is closed and re-opened after confirming, causing a brief disconnect with webdriver
+    await this.driver.delay(3000);
+    await this.driver.waitUntilXWindowHandles(1);
   }
 
   async close() {

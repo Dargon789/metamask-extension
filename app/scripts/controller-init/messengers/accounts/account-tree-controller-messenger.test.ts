@@ -1,14 +1,26 @@
-import { Messenger, RestrictedMessenger } from '@metamask/base-controller';
-import { getAccountTreeControllerMessenger } from './account-tree-controller-messenger';
+import { Messenger } from '@metamask/messenger';
+import { getRootMessenger } from '../../../lib/messenger';
+import {
+  getAccountTreeControllerInitMessenger,
+  getAccountTreeControllerMessenger,
+} from './account-tree-controller-messenger';
 
-describe('getAccountWalletControllerMessenger', () => {
+describe('getAccountTreeControllerMessenger', () => {
   it('returns a restricted messenger', () => {
-    const messenger = new Messenger<never, never>();
-    const accountWalletControllerMessenger =
+    const messenger = getRootMessenger<never, never>();
+    const accountTreeControllerMessenger =
       getAccountTreeControllerMessenger(messenger);
 
-    expect(accountWalletControllerMessenger).toBeInstanceOf(
-      RestrictedMessenger,
-    );
+    expect(accountTreeControllerMessenger).toBeInstanceOf(Messenger);
+  });
+});
+
+describe('getAccountTreeControllerInitMessenger', () => {
+  it('returns a restricted messenger', () => {
+    const messenger = getRootMessenger<never, never>();
+    const accountTreeControllerInitMessenger =
+      getAccountTreeControllerInitMessenger(messenger);
+
+    expect(accountTreeControllerInitMessenger).toBeInstanceOf(Messenger);
   });
 });

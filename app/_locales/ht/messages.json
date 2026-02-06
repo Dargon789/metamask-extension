@@ -147,9 +147,6 @@
   "etherscanView": {
     "message": "Gade kont sou Etherscan"
   },
-  "expandView": {
-    "message": "Elaji Wè"
-  },
   "failed": {
     "message": "Tonbe"
   },
@@ -273,9 +270,6 @@
     "message": "Ou dwe chwazi yon dosye pou enpòte.",
     "description": "User is important an account and needs to add a file to continue"
   },
-  "negativeETH": {
-    "message": "Pa ka voye kantite lajan negatif ETH."
-  },
   "networks": {
     "message": "Rezo"
   },
@@ -358,10 +352,10 @@
     "message": "Rejte Tout"
   },
   "rejectTxsDescription": {
-    "message": "Ou se sou rejte $ 1 yon anpil nan tranzaksyon yo."
+    "message": "Ou se sou rejte $1 yon anpil nan tranzaksyon yo."
   },
   "rejectTxsN": {
-    "message": "Rejete $ 1 tranzaksyon"
+    "message": "Rejete $1 tranzaksyon"
   },
   "rejected": {
     "message": "Rejete"
