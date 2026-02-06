@@ -37,7 +37,11 @@ fi
 # Insert exported environment variables
 awk -F '=' '/^\s*export / {gsub(/^export /, ""); print $1}' bundle.sh | while read -r var; do
     if [[ -n "${!var}" ]]; then
-        sed "${SED_OPTS[@]}" "s|^\(\s*export ${var}=\).*|\1\"${!var}\"|" bundle.sh
+        val="${!var}"
+        # Escape for sed replacement string with | delimiter
+        # Also escape double quotes for the shell script
+        escaped_val=$(printf '%s\n' "$val" | sed 's/[&|\\]/\\&/g; s/"/\\"/g')
+        sed "${SED_OPTS[@]}" "s|^(\s*export ${var}=).*|\1\"${escaped_val}\"|" bundle.sh
     fi
 done
 
