@@ -298,7 +298,7 @@ function renderSimpleDirectoryTree(node: { [key: string]: any }, prefix: string)
 
   dirs.forEach(dir => {
     // Escape underscores in directory names to prevent unwanted formatting
-    const escapedDir = dir.replace(/_/g, '\\_');
+    const escapedDir = dir.replace(/([\\`*_{}[_]()#+.!|])/g, '\\$1');
     // Add directory with trailing slash
     result += `${prefix}- 📁 ${escapedDir}/\n`;
 
