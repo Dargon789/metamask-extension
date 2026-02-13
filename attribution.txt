@@ -18669,7 +18669,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ******************************
 
 extension-port-stream
-5.0.2 <git+https://git@github.com/MetaMask/extension-port-stream>
+5.0.3 <git+https://git@github.com/MetaMask/extension-port-stream>
 ISC License
 
 Copyright (c) 2020 MetaMask
