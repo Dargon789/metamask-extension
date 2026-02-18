@@ -18907,7 +18907,7 @@ SOFTWARE.
 ******************************
 
 fast-xml-parser
-5.3.4 <https://github.com/NaturalIntelligence/fast-xml-parser>
+5.3.6 <https://github.com/NaturalIntelligence/fast-xml-parser>
 MIT License
 
 Copyright (c) 2017 Amit Kumar Gupta
