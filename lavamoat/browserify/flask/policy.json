@@ -3235,6 +3235,31 @@
         "timeoutManager": true
       }
     },
+    "@tanstack/react-query>@tanstack/query-core": {
+      "globals": {
+        "AbortController": true,
+        "addEventListener": false,
+        "clearInterval": true,
+        "clearTimeout": true,
+        "console": true,
+        "document": false,
+        "navigator": true,
+        "removeEventListener": true,
+        "setInterval": true,
+        "setTimeout": true
+      }
+    },
+    "@tanstack/react-query": {
+      "globals": {
+        "ReactQueryClientContext": "write"
+      },
+      "packages": {
+        "@tanstack/react-query>@tanstack/query-core": true,
+        "react": true,
+        "react-dom": true,
+        "@tanstack/react-query>use-sync-external-store": true
+      }
+    },
     "@tanstack/react-virtual": {
       "globals": {
         "document": true,
@@ -6317,6 +6342,17 @@
         "react-focus-lock>use-sidecar>detect-node-es": true,
         "react": true,
         "tslib": true
+      }
+    },
+    "@tanstack/react-query>use-sync-external-store": {
+      "globals": {
+        "__REACT_DEVTOOLS_GLOBAL_HOOK__": false,
+        "console.error": true,
+        "document": false,
+        "document.createElement": true
+      },
+      "packages": {
+        "react": true
       }
     },
     "@storybook/react>util-deprecate": {
