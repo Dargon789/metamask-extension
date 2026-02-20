@@ -8,45 +8,45 @@ import {
   size,
   sum,
 } from 'lodash';
-import { bufferToHex, keccak } from 'ethereumjs-util';
+import { keccak256 } from 'ethereum-cryptography/keccak';
 import { v4 as uuidv4 } from 'uuid';
-import { NameControllerState, NameType } from '@metamask/name-controller';
-import { AccountsControllerState } from '@metamask/accounts-controller';
+import { NameType } from '@metamask/name-controller';
 import {
+  bytesToHex,
   getErrorMessage,
-  Hex,
+  type Hex,
   isErrorWithMessage,
   isErrorWithStack,
 } from '@metamask/utils';
-import {
+import type {
   NetworkClientId,
   NetworkControllerGetNetworkClientByIdAction,
   NetworkControllerGetStateAction,
   NetworkControllerNetworkDidChangeEvent,
-  NetworkState,
 } from '@metamask/network-controller';
-import { Browser } from 'webextension-polyfill';
-import {
-  Nft,
-  NftControllerState,
-  TokensControllerState,
-} from '@metamask/assets-controllers';
-import { captureException as sentryCaptureException } from '@sentry/browser';
+import type { Browser } from 'webextension-polyfill';
+import type { Nft } from '@metamask/assets-controllers';
 import {
   BaseController,
-  ControllerGetStateAction,
-  ControllerStateChangeEvent,
-  RestrictedControllerMessenger,
+  type ControllerGetStateAction,
+  type ControllerStateChangeEvent,
+  type StateMetadata,
 } from '@metamask/base-controller';
-import { AddressBookControllerState } from '@metamask/address-book-controller';
-import { ENVIRONMENT_TYPE_BACKGROUND } from '../../../shared/constants/app';
+import type { Messenger } from '@metamask/messenger';
+import type { Json } from '@metamask/utils';
+import {
+  ENVIRONMENT_TYPE_BACKGROUND,
+  PLATFORM_FIREFOX,
+} from '../../../shared/constants/app';
 import {
   METAMETRICS_ANONYMOUS_ID,
   METAMETRICS_BACKGROUND_PAGE_OBJECT,
   MetaMetricsEventCategory,
   MetaMetricsEventName,
-  MetaMetricsEventFragment,
   MetaMetricsUserTrait,
+} from '../../../shared/constants/metametrics';
+import type {
+  MetaMetricsEventFragment,
   MetaMetricsUserTraits,
   SegmentEventPayload,
   MetaMetricsContext,
@@ -60,20 +60,34 @@ import {
 import { SECOND } from '../../../shared/constants/time';
 import { isManifestV3 } from '../../../shared/modules/mv3.utils';
 import { METAMETRICS_FINALIZE_EVENT_FRAGMENT_ALARM } from '../../../shared/constants/alarms';
-import { checkAlarmExists, generateRandomId, isValidDate } from '../lib/util';
+import {
+  checkAlarmExists,
+  generateRandomId,
+  getInstallType,
+  getPlatform,
+  isValidDate,
+} from '../lib/util';
 import {
   AnonymousTransactionMetaMetricsEvent,
   TransactionMetaMetricsEvent,
 } from '../../../shared/constants/transaction';
-import { LedgerTransportTypes } from '../../../shared/constants/hardware-wallets';
 import Analytics from '../lib/segment/analytics';
+import {
+  trace,
+  endTrace,
+  type TraceRequest,
+  type EndTraceRequest,
+  type TraceCallback,
+} from '../../../shared/lib/trace';
 
 ///: BEGIN:ONLY_INCLUDE_IF(build-main)
 import { ENVIRONMENT } from '../../../development/build/constants';
 ///: END:ONLY_INCLUDE_IF
 
+import { KeyringType } from '../../../shared/constants/keyring';
+import type { captureException } from '../../../shared/lib/sentry';
+import type { FlattenedBackgroundStateProxy } from '../../../shared/types';
 import type {
-  PreferencesControllerState,
   PreferencesControllerGetStateAction,
   PreferencesControllerStateChangeEvent,
 } from './preferences-controller';
@@ -144,36 +158,46 @@ const exceptionsToFilter: Record<string, boolean> = {
  */
 type SegmentEventType = 'identify' | 'track' | 'page';
 
-// TODO: Complete MetaMaskState by adding the full state definition and relocate it after the background is converted to TypeScript.
-export type MetaMaskState = {
-  ledgerTransportType: LedgerTransportTypes;
-  networkConfigurationsByChainId: NetworkState['networkConfigurationsByChainId'];
-  internalAccounts: AccountsControllerState['internalAccounts'];
-  allNfts: NftControllerState['allNfts'];
-  allTokens: TokensControllerState['allTokens'];
-  theme: string;
-  participateInMetaMetrics: boolean;
-  dataCollectionForMarketing: boolean;
-  ShowNativeTokenAsMainBalance: boolean;
-  useNftDetection: PreferencesControllerState['useNftDetection'];
-  openSeaEnabled: PreferencesControllerState['openSeaEnabled'];
-  securityAlertsEnabled: PreferencesControllerState['securityAlertsEnabled'];
-  useTokenDetection: PreferencesControllerState['useTokenDetection'];
-  tokenSortConfig: PreferencesControllerState['preferences']['tokenSortConfig'];
-  names: NameControllerState['names'];
-  security_providers: string[];
-  addressBook: AddressBookControllerState['addressBook'];
-  currentCurrency: string;
-  preferences: {
-    privacyMode: PreferencesControllerState['preferences']['privacyMode'];
-  };
-  ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-  custodyAccountDetails: {
-    [address: string]: {
-      custodianName: string;
-    };
-  };
-  ///: END:ONLY_INCLUDE_IF
+/**
+ * Represents a buffered trace that is stored before user consent.
+ * Simplified for JSON serialization - doesn't include callback functions.
+ */
+type BufferedTrace = {
+  type: 'start' | 'end';
+  request: Record<string, Json>;
+  parentTraceName?: string;
+};
+
+export type MetaMaskState = Pick<
+  FlattenedBackgroundStateProxy,
+  | 'ledgerTransportType'
+  | 'networkConfigurationsByChainId'
+  | 'internalAccounts'
+  | 'allNfts'
+  | 'allTokens'
+  | 'theme'
+  | 'participateInMetaMetrics'
+  | 'dataCollectionForMarketing'
+  | 'useNftDetection'
+  | 'openSeaEnabled'
+  | 'securityAlertsEnabled'
+  | 'useTokenDetection'
+  | 'names'
+  | 'addressBook'
+  | 'currentCurrency'
+  | 'srpSessionData'
+  | 'keyrings'
+  | 'multichainNetworkConfigurationsByChainId'
+  // TODO: Remove as this is no longer a top-level property of the flattened background state object.
+  // | 'security_providers'
+> & {
+  preferences: Pick<
+    FlattenedBackgroundStateProxy['preferences'],
+    | 'privacyMode'
+    | 'tokenNetworkFilter'
+    | 'showNativeTokenAsMainBalance'
+    | 'tokenSortConfig'
+  >;
 };
 
 /**
@@ -183,46 +207,66 @@ export type MetaMaskState = {
  * using the `persist` flag; and if they can be sent to Sentry or not, using
  * the `anonymous` flag.
  */
-const controllerMetadata = {
+const controllerMetadata: StateMetadata<MetaMetricsControllerState> = {
   metaMetricsId: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: true,
+    includeInDebugSnapshot: true,
+    usedInUi: true,
   },
   participateInMetaMetrics: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: true,
+    includeInDebugSnapshot: true,
+    usedInUi: true,
   },
   latestNonAnonymousEventTimestamp: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: true,
+    includeInDebugSnapshot: true,
+    usedInUi: true,
   },
   fragments: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: true,
   },
   eventsBeforeMetricsOptIn: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: false,
+  },
+  tracesBeforeMetricsOptIn: {
+    includeInStateLogs: true,
+    persist: true,
+    includeInDebugSnapshot: false,
+    usedInUi: false,
   },
   traits: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: false,
-  },
-  previousUserTraits: {
-    persist: true,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: false,
   },
   dataCollectionForMarketing: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: true,
   },
   marketingCampaignCookieId: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: true,
+    includeInDebugSnapshot: true,
+    usedInUi: false,
   },
   segmentApiCalls: {
+    includeInStateLogs: true,
     persist: true,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: false,
   },
 };
 
@@ -235,8 +279,8 @@ const controllerMetadata = {
  * @property latestNonAnonymousEventTimestamp - The timestamp at which last non anonymous event is tracked.
  * @property fragments - Object keyed by UUID with stored fragments as values.
  * @property eventsBeforeMetricsOptIn - Array of queued events added before a user opts into metrics.
+ * @property tracesBeforeMetricsOptIn - Array of queued traces added before a user opts into metrics.
  * @property traits - Traits that are not derived from other state keys.
- * @property previousUserTraits - The user traits the last time they were computed.
  * @property dataCollectionForMarketing - Flag to determine if data collection for marketing is enabled.
  * @property marketingCampaignCookieId - The marketing campaign cookie id.
  * @property segmentApiCalls - Object keyed by messageId with segment event type and payload as values.
@@ -247,8 +291,8 @@ export type MetaMetricsControllerState = {
   latestNonAnonymousEventTimestamp: number;
   fragments: Record<string, MetaMetricsEventFragment>;
   eventsBeforeMetricsOptIn: MetaMetricsEventPayload[];
+  tracesBeforeMetricsOptIn: BufferedTrace[];
   traits: MetaMetricsUserTraits;
-  previousUserTraits?: MetaMetricsUserTraits;
   dataCollectionForMarketing: boolean | null;
   marketingCampaignCookieId: string | null;
   segmentApiCalls: Record<
@@ -268,10 +312,53 @@ export type MetaMetricsControllerGetStateAction = ControllerGetStateAction<
   MetaMetricsControllerState
 >;
 
+export type MetaMetricsControllerTrackEventAction = {
+  type: `${typeof controllerName}:trackEvent`;
+  handler: MetaMetricsController['trackEvent'];
+};
+
+export type MetaMetricsControllerGetMetaMetricsIdAction = {
+  type: `${typeof controllerName}:getMetaMetricsId`;
+  handler: MetaMetricsController['getMetaMetricsId'];
+};
+
+export type MetaMetricsControllerCreateEventFragmentAction = {
+  type: `${typeof controllerName}:createEventFragment`;
+  handler: MetaMetricsController['createEventFragment'];
+};
+
+export type MetaMetricsControllerGetEventFragmentByIdAction = {
+  type: `${typeof controllerName}:getEventFragmentById`;
+  handler: MetaMetricsController['getEventFragmentById'];
+};
+
+export type MetaMetricsControllerUpdateEventFragmentAction = {
+  type: `${typeof controllerName}:updateEventFragment`;
+  handler: MetaMetricsController['updateEventFragment'];
+};
+
+export type MetaMetricsControllerDeleteEventFragmentAction = {
+  type: `${typeof controllerName}:deleteEventFragment`;
+  handler: MetaMetricsController['deleteEventFragment'];
+};
+
+export type MetaMetricsControllerFinalizeEventFragmentAction = {
+  type: `${typeof controllerName}:finalizeEventFragment`;
+  handler: MetaMetricsController['finalizeEventFragment'];
+};
+
 /**
  * Actions exposed by the {@link MetaMetricsController}.
  */
-export type MetaMetricsControllerActions = MetaMetricsControllerGetStateAction;
+export type MetaMetricsControllerActions =
+  | MetaMetricsControllerGetStateAction
+  | MetaMetricsControllerTrackEventAction
+  | MetaMetricsControllerGetMetaMetricsIdAction
+  | MetaMetricsControllerCreateEventFragmentAction
+  | MetaMetricsControllerGetEventFragmentByIdAction
+  | MetaMetricsControllerUpdateEventFragmentAction
+  | MetaMetricsControllerDeleteEventFragmentAction
+  | MetaMetricsControllerFinalizeEventFragmentAction;
 
 /**
  * Event emitted when the state of the {@link MetaMetricsController} changes.
@@ -301,17 +388,13 @@ export type AllowedEvents =
 /**
  * Messenger type for the {@link MetaMetricsController}.
  */
-export type MetaMetricsControllerMessenger = RestrictedControllerMessenger<
+export type MetaMetricsControllerMessenger = Messenger<
   typeof controllerName,
   MetaMetricsControllerActions | AllowedActions,
-  MetaMetricsControllerEvents | AllowedEvents,
-  AllowedActions['type'],
-  AllowedEvents['type']
+  MetaMetricsControllerEvents | AllowedEvents
 >;
 
-type CaptureException =
-  | typeof sentryCaptureException
-  | ((err: unknown) => void);
+type CaptureException = typeof captureException | ((err: unknown) => void);
 
 export type MetaMetricsControllerOptions = {
   state?: Partial<MetaMetricsControllerState>;
@@ -334,8 +417,8 @@ export const getDefaultMetaMetricsControllerState =
     marketingCampaignCookieId: null,
     latestNonAnonymousEventTimestamp: 0,
     eventsBeforeMetricsOptIn: [],
+    tracesBeforeMetricsOptIn: [],
     traits: {},
-    previousUserTraits: {},
     fragments: {},
     segmentApiCalls: {},
   });
@@ -351,15 +434,13 @@ export default class MetaMetricsController extends BaseController<
 
   locale: string;
 
+  previousUserTraits?: MetaMetricsUserTraits;
+
   version: MetaMetricsControllerOptions['version'];
 
   #extension: MetaMetricsControllerOptions['extension'];
 
   #environment: MetaMetricsControllerOptions['environment'];
-
-  ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-  #selectedAddress: PreferencesControllerState['selectedAddress'];
-  ///: END:ONLY_INCLUDE_IF
 
   #segment: MetaMetricsControllerOptions['segment'];
 
@@ -402,7 +483,7 @@ export default class MetaMetricsController extends BaseController<
       }
     };
     this.chainId = this.#getCurrentChainId();
-    const preferencesControllerState = this.messagingSystem.call(
+    const preferencesControllerState = this.messenger.call(
       'PreferencesController:getState',
     );
     this.locale = preferencesControllerState.currentLocale.replace('_', '-');
@@ -411,20 +492,51 @@ export default class MetaMetricsController extends BaseController<
     this.#extension = extension;
     this.#environment = environment;
 
-    ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-    this.#selectedAddress = preferencesControllerState.selectedAddress;
-    ///: END:ONLY_INCLUDE_IF
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:trackEvent',
+      this.trackEvent.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:getMetaMetricsId',
+      this.getMetaMetricsId.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:createEventFragment',
+      this.createEventFragment.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:getEventFragmentById',
+      this.getEventFragmentById.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:updateEventFragment',
+      this.updateEventFragment.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:deleteEventFragment',
+      this.deleteEventFragment.bind(this),
+    );
+
+    this.messenger.registerActionHandler(
+      'MetaMetricsController:finalizeEventFragment',
+      this.finalizeEventFragment.bind(this),
+    );
 
     const abandonedFragments = omitBy(state.fragments, 'persist');
 
-    this.messagingSystem.subscribe(
+    this.messenger.subscribe(
       'PreferencesController:stateChange',
       ({ currentLocale }) => {
         this.locale = currentLocale?.replace('_', '-');
       },
     );
 
-    this.messagingSystem.subscribe(
+    this.messenger.subscribe(
       'NetworkController:networkDidChange',
       ({ selectedNetworkClientId }) => {
         this.chainId = this.#getCurrentChainId(selectedNetworkClientId);
@@ -444,6 +556,8 @@ export default class MetaMetricsController extends BaseController<
 
     // Code below submits any pending segmentApiCalls to Segment if/when the controller is re-instantiated
     if (isManifestV3) {
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       Object.values(state.segmentApiCalls || {}).forEach(
         ({ eventType, payload }) => {
           try {
@@ -497,12 +611,13 @@ export default class MetaMetricsController extends BaseController<
    */
   #getCurrentChainId(networkClientId?: NetworkClientId): Hex {
     const selectedNetworkClientId =
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       networkClientId ||
-      this.messagingSystem.call('NetworkController:getState')
-        .selectedNetworkClientId;
+      this.messenger.call('NetworkController:getState').selectedNetworkClientId;
     const {
       configuration: { chainId },
-    } = this.messagingSystem.call(
+    } = this.messenger.call(
       'NetworkController:getNetworkClientById',
       selectedNetworkClientId,
     );
@@ -522,8 +637,8 @@ export default class MetaMetricsController extends BaseController<
   }
 
   generateMetaMetricsId(): string {
-    return bufferToHex(
-      keccak(
+    return bytesToHex(
+      keccak256(
         Buffer.from(
           String(Date.now()) +
             String(Math.round(Math.random() * Number.MAX_SAFE_INTEGER)),
@@ -540,15 +655,17 @@ export default class MetaMetricsController extends BaseController<
   createEventFragment(
     options: Omit<MetaMetricsEventFragment, 'id'>,
   ): MetaMetricsEventFragment {
-    if (!options.successEvent || !options.category) {
+    if (!options.successEvent) {
       throw new Error(
-        `Must specify success event and category. Success event was: ${
+        `Must specify success event. Success event was: ${
           options.event
-        }. Category was: ${options.category}. Payload keys were: ${Object.keys(
-          options,
-        )}. ${
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        }. Payload keys were: ${Object.keys(options)}. ${
           typeof options.properties === 'object'
-            ? `Payload property keys were: ${Object.keys(options.properties)}`
+            ? // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+              `Payload property keys were: ${Object.keys(options.properties)}`
             : ''
         }`,
       );
@@ -583,8 +700,7 @@ export default class MetaMetricsController extends BaseController<
       : {};
 
     this.update((state) => {
-      // @ts-expect-error this is caused by a bug in Immer, not being able to handle recursive types like Json
-      state.fragments[id] = merge(additionalFragmentProps, fragment);
+      state.fragments[id] = merge({}, additionalFragmentProps, fragment);
     });
 
     if (fragment.initialEvent) {
@@ -753,7 +869,6 @@ export default class MetaMetricsController extends BaseController<
    */
   identify(userTraits: Partial<MetaMetricsUserTraits>): void {
     const { metaMetricsId, participateInMetaMetrics } = this.state;
-
     if (!participateInMetaMetrics || !metaMetricsId || !userTraits) {
       return;
     }
@@ -771,6 +886,7 @@ export default class MetaMetricsController extends BaseController<
 
   // It sets an uninstall URL ("Sorry to see you go!" page),
   // which is opened if a user uninstalls the extension.
+  // This method should only be called after the user has made a decision about MetaMetrics participation.
   updateExtensionUninstallUrl(
     participateInMetaMetrics: boolean,
     metaMetricsId: string,
@@ -778,19 +894,22 @@ export default class MetaMetricsController extends BaseController<
     const query: {
       mmi?: string;
       env?: string;
-      av?: string;
-    } = {};
+      av: string;
+    } = {
+      av: this.version,
+    };
     if (participateInMetaMetrics) {
       // We only want to track these things if a user opted into metrics.
       query.mmi = Buffer.from(metaMetricsId).toString('base64');
       query.env = this.#environment;
-      query.av = this.version;
     }
     const queryString = new URLSearchParams(query);
 
     // this.extension not currently defined in tests
     if (this.#extension && this.#extension.runtime) {
       this.#extension.runtime.setUninstallURL(
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         `${EXTENSION_UNINSTALL_URL}?${queryString}`,
       );
     }
@@ -803,14 +922,13 @@ export default class MetaMetricsController extends BaseController<
    * @returns The string of the new metametrics id, or null
    */
   async setParticipateInMetaMetrics(
-    participateInMetaMetrics: boolean,
+    participateInMetaMetrics: boolean | null,
   ): Promise<string | null> {
     const { metaMetricsId: existingMetaMetricsId } = this.state;
 
-    const metaMetricsId =
-      participateInMetaMetrics && !existingMetaMetricsId
-        ? this.generateMetaMetricsId()
-        : existingMetaMetricsId;
+    // regardless of the Opt In/Out status, we want to generate metaMetricsId if it doesn't exist
+    // this is to assign the id to the `Metrics Opt Out` event (in which participateInMetaMetrics is null/false)
+    const metaMetricsId = existingMetaMetricsId ?? this.generateMetaMetricsId();
 
     this.update((state) => {
       state.participateInMetaMetrics = participateInMetaMetrics;
@@ -820,6 +938,8 @@ export default class MetaMetricsController extends BaseController<
     if (participateInMetaMetrics) {
       this.trackEventsAfterMetricsOptIn();
       this.clearEventsAfterMetricsOptIn();
+      this.trackTracesAfterMetricsOptIn();
+      this.clearTracesAfterMetricsOptIn();
     } else if (this.state.marketingCampaignCookieId) {
       this.setMarketingCampaignCookieId(null);
     }
@@ -827,7 +947,8 @@ export default class MetaMetricsController extends BaseController<
     ///: BEGIN:ONLY_INCLUDE_IF(build-main)
     if (
       this.#environment !== ENVIRONMENT.DEVELOPMENT &&
-      metaMetricsId !== null
+      metaMetricsId !== null &&
+      participateInMetaMetrics !== null
     ) {
       this.updateExtensionUninstallUrl(participateInMetaMetrics, metaMetricsId);
     }
@@ -892,7 +1013,11 @@ export default class MetaMetricsController extends BaseController<
         properties: {
           params,
           locale: this.locale,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           chain_id: this.chainId,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           environment_type: environmentType,
         },
         context: this.#buildContext(referrer, page),
@@ -932,8 +1057,25 @@ export default class MetaMetricsController extends BaseController<
     payload: MetaMetricsEventPayload,
     options?: MetaMetricsEventOptions,
   ): Promise<void> {
-    if (!this.state.participateInMetaMetrics && !options?.isOptIn) {
+    const { useExternalServices } = this.messenger.call(
+      'PreferencesController:getState',
+    );
+    const isBasicFunctionalityDisabled = !useExternalServices;
+    if (isBasicFunctionalityDisabled) {
+      // If basic functionality is disabled, we block all events
       return;
+    }
+
+    const { participateInMetaMetrics, metaMetricsId } = this.state;
+    if (!participateInMetaMetrics && !options?.isOptIn) {
+      return;
+    }
+
+    const isMetricsOptOutEvent =
+      payload.event === MetaMetricsEventName.MetricsOptOut;
+    if (isMetricsOptOutEvent && options?.isOptIn) {
+      // For the `Metrics Opt Out` event, we want to track it with the user's `metaMetricsId`
+      options.metaMetricsId = metaMetricsId ?? undefined;
     }
 
     // We might track multiple events if sensitiveProperties is included, this array will hold
@@ -988,15 +1130,17 @@ export default class MetaMetricsController extends BaseController<
    */
   #validatePayload(payload: MetaMetricsEventPayload): void {
     // event and category are required fields for all payloads
-    if (!payload.event || !payload.category) {
+    if (!payload.event) {
       throw new Error(
-        `Must specify event and category. Event was: ${
+        `Must specify event. Event was: ${
           payload.event
-        }. Category was: ${payload.category}. Payload keys were: ${Object.keys(
-          payload,
-        )}. ${
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        }. Payload keys were: ${Object.keys(payload)}. ${
           typeof payload.properties === 'object'
-            ? `Payload property keys were: ${Object.keys(payload.properties)}`
+            ? // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31893
+              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+              `Payload property keys were: ${Object.keys(payload.properties)}`
             : ''
         }`,
       );
@@ -1030,6 +1174,90 @@ export default class MetaMetricsController extends BaseController<
     this.update((state) => {
       state.eventsBeforeMetricsOptIn.push(event);
     });
+  }
+
+  // Track all queued traces after a user opted into metrics.
+  trackTracesAfterMetricsOptIn(): void {
+    const { tracesBeforeMetricsOptIn } = this.state;
+    tracesBeforeMetricsOptIn.forEach((bufferedTrace) => {
+      if (bufferedTrace.type === 'start') {
+        trace(bufferedTrace.request as TraceRequest);
+      } else if (bufferedTrace.type === 'end') {
+        endTrace(bufferedTrace.request as EndTraceRequest);
+      }
+    });
+  }
+
+  // Once we track queued traces after a user opts into metrics, we want to clear the trace queue.
+  clearTracesAfterMetricsOptIn(): void {
+    this.update((state) => {
+      state.tracesBeforeMetricsOptIn = [];
+    });
+  }
+
+  // It adds a trace into a queue, which is only tracked if a user opts into metrics.
+  addTraceBeforeMetricsOptIn(traceData: BufferedTrace): void {
+    this.update((state) => {
+      state.tracesBeforeMetricsOptIn.push(traceData);
+    });
+  }
+
+  /**
+   * Buffered trace method that checks consent and either buffers or executes immediately
+   *
+   * @param request - The trace request
+   * @param fn - Optional callback function to trace
+   * @returns The result of the trace callback or undefined if buffered
+   */
+  bufferedTrace<TraceResultType>(
+    request: TraceRequest,
+    fn?: TraceCallback<TraceResultType>,
+  ): TraceResultType | undefined {
+    if (this.state.participateInMetaMetrics) {
+      return fn ? trace(request, fn) : (trace(request) as TraceResultType);
+    }
+
+    // Extract parent trace name if parentContext exists
+    let parentTraceName: string | undefined;
+    if (request.parentContext && typeof request.parentContext === 'object') {
+      const parentSpan = request.parentContext as { _name?: string };
+      parentTraceName = parentSpan?._name;
+    }
+
+    this.addTraceBeforeMetricsOptIn({
+      type: 'start',
+      request: {
+        ...request,
+        parentContext: undefined as unknown as Json, // Remove original parentContext to avoid invalid references
+        // Use Date.now() as performance.timeOrigin is only valid for measuring durations within
+        // the same session; it won't produce valid event times for Sentry if buffered and flushed later
+        startTime: request.startTime ?? Date.now(),
+      },
+      parentTraceName, // Store the parent trace name for later reconnection
+    });
+
+    return undefined;
+  }
+
+  /**
+   * Buffered end trace method that checks consent and either buffers or executes immediately
+   *
+   * @param request - The end trace request
+   */
+  bufferedEndTrace(request: EndTraceRequest): void {
+    if (this.state.participateInMetaMetrics) {
+      endTrace(request);
+    } else {
+      this.addTraceBeforeMetricsOptIn({
+        type: 'end',
+        request: {
+          ...request,
+          // Use Date.now() as performance.timeOrigin is only valid for measuring durations within
+          // the same session; it won't produce valid event times for Sentry if buffered and flushed later
+          timestamp: request.timestamp ?? Date.now(),
+        },
+      });
+    }
   }
 
   // Add or update traits for tracking.
@@ -1066,23 +1294,10 @@ export default class MetaMetricsController extends BaseController<
     referrer: MetaMetricsContext['referrer'],
     page: MetaMetricsContext['page'] = METAMETRICS_BACKGROUND_PAGE_OBJECT,
   ): MetaMetricsContext {
-    ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-    const mmiProps: {
-      extensionId?: string;
-    } = {};
-
-    if (this.#extension?.runtime?.id) {
-      mmiProps.extensionId = this.#extension.runtime.id;
-    }
-    ///: END:ONLY_INCLUDE_IF
-
     return {
       app: {
         name: 'MetaMask Extension',
         version: this.version,
-        ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-        ...mmiProps,
-        ///: END:ONLY_INCLUDE_IF
       },
       userAgent: window.navigator.userAgent,
       page,
@@ -1112,22 +1327,25 @@ export default class MetaMetricsController extends BaseController<
       page,
       referrer,
       environmentType = ENVIRONMENT_TYPE_BACKGROUND,
+      timestamp,
     } = rawPayload;
 
-    ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-    const mmiProps: {
-      extensionId?: string;
-      accountAddress?: string;
-    } = {};
-
-    if (this.#extension?.runtime?.id) {
-      mmiProps.extensionId = this.#extension.runtime.id;
+    let chainId;
+    if (
+      properties &&
+      'chain_id_caip' in properties &&
+      typeof properties.chain_id_caip === 'string'
+    ) {
+      chainId = null;
+    } else if (
+      properties &&
+      'chain_id' in properties &&
+      typeof properties.chain_id === 'string'
+    ) {
+      chainId = properties.chain_id;
+    } else {
+      chainId = this.chainId;
     }
-
-    if (this.#selectedAddress) {
-      mmiProps.accountAddress = this.#selectedAddress;
-    }
-    ///: END:ONLY_INCLUDE_IF
 
     return {
       event,
@@ -1145,18 +1363,15 @@ export default class MetaMetricsController extends BaseController<
         currency,
         category,
         locale: this.locale,
-        chain_id:
-          properties &&
-          'chain_id' in properties &&
-          typeof properties.chain_id === 'string'
-            ? properties.chain_id
-            : this.chainId,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        chain_id: chainId,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         environment_type: environmentType,
-        ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-        ...mmiProps,
-        ///: END:ONLY_INCLUDE_IF
       },
       context: this.#buildContext(referrer, page),
+      timestamp,
     };
   }
 
@@ -1170,21 +1385,20 @@ export default class MetaMetricsController extends BaseController<
   _buildUserTraitsObject(
     metamaskState: MetaMaskState,
   ): Partial<MetaMetricsUserTraits> | null {
-    ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-    const mmiAccountAddress =
-      metamaskState.custodyAccountDetails &&
-      Object.keys(metamaskState.custodyAccountDetails).length
-        ? Object.keys(metamaskState.custodyAccountDetails)[0]
-        : null;
-    ///: END:ONLY_INCLUDE_IF
-    const { traits, previousUserTraits } = this.state;
+    const { traits } = this.state;
+    const storageKindTrait = traits[MetaMetricsUserTrait.StorageKind];
 
     const currentTraits = {
       [MetaMetricsUserTrait.AddressBookEntries]: sum(
         Object.values(metamaskState.addressBook).map(size),
       ),
       [MetaMetricsUserTrait.InstallDateExt]:
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         traits[MetaMetricsUserTrait.InstallDateExt] || '',
+      ...(storageKindTrait
+        ? { [MetaMetricsUserTrait.StorageKind]: storageKindTrait }
+        : {}),
       [MetaMetricsUserTrait.LedgerConnectionType]:
         metamaskState.ledgerTransportType,
       [MetaMetricsUserTrait.NetworksAdded]: Object.values(
@@ -1195,6 +1409,15 @@ export default class MetaMetricsController extends BaseController<
       )
         .filter(({ nativeCurrency }) => !nativeCurrency)
         .map(({ chainId }) => chainId),
+      // caip-2 formatted
+      [MetaMetricsUserTrait.ChainIdList]: [
+        ...Object.keys(metamaskState.networkConfigurationsByChainId).map(
+          (hexChainId) => `eip155:${parseInt(hexChainId, 16)}`,
+        ),
+        ...Object.keys(
+          metamaskState?.multichainNetworkConfigurationsByChainId || {},
+        ), // the state here is already caip-2 formatted
+      ],
       [MetaMetricsUserTrait.NftAutodetectionEnabled]:
         metamaskState.useNftDetection,
       [MetaMetricsUserTrait.NumberOfAccounts]: Object.values(
@@ -1208,19 +1431,17 @@ export default class MetaMetricsController extends BaseController<
       [MetaMetricsUserTrait.NumberOfTokens]: this.#getNumberOfTokens(
         metamaskState.allTokens,
       ),
+      [MetaMetricsUserTrait.NumberOfHDEntropies]:
+        this.#getNumberOfHDEntropies(metamaskState) ??
+        this.previousUserTraits?.number_of_hd_entropies,
       [MetaMetricsUserTrait.OpenSeaApiEnabled]: metamaskState.openSeaEnabled,
       [MetaMetricsUserTrait.ThreeBoxEnabled]: false, // deprecated, hard-coded as false
       [MetaMetricsUserTrait.Theme]: metamaskState.theme || 'default',
       [MetaMetricsUserTrait.TokenDetectionEnabled]:
         metamaskState.useTokenDetection,
       [MetaMetricsUserTrait.ShowNativeTokenAsMainBalance]:
-        metamaskState.ShowNativeTokenAsMainBalance,
+        metamaskState.preferences.showNativeTokenAsMainBalance,
       [MetaMetricsUserTrait.CurrentCurrency]: metamaskState.currentCurrency,
-      ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-      [MetaMetricsUserTrait.MmiExtensionId]: this.#extension?.runtime?.id,
-      [MetaMetricsUserTrait.MmiAccountAddress]: mmiAccountAddress ?? null,
-      [MetaMetricsUserTrait.MmiIsCustodian]: Boolean(mmiAccountAddress),
-      ///: END:ONLY_INCLUDE_IF
       [MetaMetricsUserTrait.SecurityProviders]:
         metamaskState.securityAlertsEnabled ? ['blockaid'] : [],
       [MetaMetricsUserTrait.PetnameAddressCount]:
@@ -1230,27 +1451,38 @@ export default class MetaMetricsController extends BaseController<
       [MetaMetricsUserTrait.HasMarketingConsent]:
         metamaskState.dataCollectionForMarketing,
       [MetaMetricsUserTrait.TokenSortPreference]:
-        metamaskState.tokenSortConfig?.key || '',
+        metamaskState.preferences.tokenSortConfig?.key || '',
       [MetaMetricsUserTrait.PrivacyModeEnabled]:
         metamaskState.preferences.privacyMode,
+      [MetaMetricsUserTrait.NetworkFilterPreference]: Object.keys(
+        metamaskState.preferences.tokenNetworkFilter || {},
+      ),
+      [MetaMetricsUserTrait.ProfileId]: Object.entries(
+        metamaskState.srpSessionData || {},
+      )?.[0]?.[1]?.profile?.profileId,
+      [MetaMetricsUserTrait.Platform]: getPlatform(),
+      [MetaMetricsUserTrait.InstallType]: getInstallType(),
     };
 
-    if (!previousUserTraits) {
-      this.update((state) => {
-        state.previousUserTraits = currentTraits;
-      });
+    if (!this.previousUserTraits && metamaskState.participateInMetaMetrics) {
+      this.previousUserTraits = currentTraits;
       return currentTraits;
     }
 
-    if (previousUserTraits && !isEqual(previousUserTraits, currentTraits)) {
+    if (
+      this.previousUserTraits &&
+      !isEqual(this.previousUserTraits, currentTraits)
+    ) {
       const updates = pickBy(currentTraits, (v, k) => {
-        // @ts-expect-error It's okay that `k` may not be a key of `previousUserTraits`, because we assume `isEqual` can handle it
-        const previous = previousUserTraits[k];
+        // @ts-expect-error It's okay that `k` may not be a key of `this.previousUserTraits`, because we assume `isEqual` can handle it
+        const previous = this.previousUserTraits[k];
         return !isEqual(previous, v);
       });
-      this.update((state) => {
-        state.previousUserTraits = currentTraits;
-      });
+
+      if (metamaskState.participateInMetaMetrics) {
+        this.previousUserTraits = currentTraits;
+      }
+
       return updates;
     }
 
@@ -1266,27 +1498,21 @@ export default class MetaMetricsController extends BaseController<
   #buildValidTraits(
     userTraits: Partial<MetaMetricsUserTraits>,
   ): MetaMetricsUserTraits {
-    return Object.entries(userTraits).reduce(
-      (validTraits: MetaMetricsUserTraits, [key, value]) => {
-        if (this.#isValidTraitDate(value)) {
-          return {
-            ...validTraits,
-            [key]: value.toISOString(),
-          };
-        } else if (this.#isValidTrait(value)) {
-          return {
-            ...validTraits,
-            [key]: value,
-          };
-        }
+    const validTraits: Record<string, string> = {};
 
+    for (const [key, value] of Object.entries(userTraits)) {
+      if (this.#isValidTraitDate(value)) {
+        validTraits[key] = value.toISOString();
+      } else if (this.#isValidTrait(value)) {
+        (validTraits as Record<string, typeof value>)[key] = value;
+      } else {
         console.warn(
           `MetaMetricsController: "${key}" value is not a valid trait type`,
         );
-        return validTraits;
-      },
-      {},
-    );
+      }
+    }
+
+    return validTraits;
   }
 
   /**
@@ -1325,6 +1551,19 @@ export default class MetaMetricsController extends BaseController<
     return Object.values(allTokens).reduce((result, accountsByChain) => {
       return result + sum(Object.values(accountsByChain).map(size));
     }, 0);
+  }
+
+  /**
+   * Returns the number of HD Entropies the user has.
+   *
+   * @param metamaskState
+   */
+  #getNumberOfHDEntropies(metamaskState: MetaMaskState): number {
+    return (
+      metamaskState.keyrings?.filter(
+        (keyring) => keyring.type === KeyringType.hdKeyTree,
+      ).length ?? 0
+    );
   }
 
   /**
@@ -1416,6 +1655,8 @@ export default class MetaMetricsController extends BaseController<
       metaMetricsId: metaMetricsIdOverride,
       matomoEvent,
       flushImmediately,
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     } = options || {};
     let idType: 'userId' | 'anonymousId' = 'userId';
     let idValue = this.state.metaMetricsId;
@@ -1481,27 +1722,51 @@ export default class MetaMetricsController extends BaseController<
     });
   }
 
-  /*
+  /**
    * Method below submits the request to analytics SDK.
    * It will also add event to controller store
    * and pass a callback to remove it from store once request is submitted to segment
    * Saving segmentApiCalls in controller store in MV3 ensures that events are tracked
    * even if service worker terminates before events are submitted to segment.
+   *
+   * @param eventType - The type of event to track
+   * @param payload - The payload to track
+   * @param callback - The callback to call when the event is submitted
    */
   #submitSegmentAPICall(
     eventType: SegmentEventType,
     payload: Partial<SegmentEventPayload>,
     callback?: (result: unknown) => unknown,
   ): void {
-    const {
-      metaMetricsId,
-      participateInMetaMetrics,
-      latestNonAnonymousEventTimestamp,
-    } = this.state;
-    if (!participateInMetaMetrics || !metaMetricsId) {
+    const { useExternalServices } = this.messenger.call(
+      'PreferencesController:getState',
+    );
+    const isBasicFunctionalityDisabled = !useExternalServices;
+    if (isBasicFunctionalityDisabled) {
+      // If basic functionality is disabled, we block all events
       return;
     }
 
+    const {
+      metaMetricsId,
+      latestNonAnonymousEventTimestamp,
+      participateInMetaMetrics,
+    } = this.state;
+
+    const userOptedOut = !participateInMetaMetrics || !metaMetricsId;
+    const isMetricsOptOutEvent =
+      payload.event === MetaMetricsEventName.MetricsOptOut;
+    const isFireFox = getPlatform() === PLATFORM_FIREFOX;
+    const shouldTrackMetricsOptOutEvent = isMetricsOptOutEvent && !isFireFox;
+
+    // Block events when user opted out. Exception: MetricsOptOut events are still sent on
+    // non-Firefox browsers to record the opt-out action (Firefox privacy policies prohibit this).
+    if (userOptedOut && !shouldTrackMetricsOptOutEvent) {
+      return;
+    }
+
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const messageId = payload.messageId || generateRandomId();
     let timestamp = new Date();
     if (payload.timestamp) {

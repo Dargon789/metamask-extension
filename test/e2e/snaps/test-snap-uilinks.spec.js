@@ -1,26 +1,46 @@
+const { emptyHtmlPage } = require('../mock-e2e');
+const { withFixtures } = require('../helpers');
 const {
-  defaultGanacheOptions,
-  withFixtures,
-  unlockWallet,
-  WINDOW_TITLES,
-} = require('../helpers');
-const FixtureBuilder = require('../fixture-builder');
-const { TEST_SNAPS_WEBSITE_URL } = require('./enums');
+  loginWithBalanceValidation,
+} = require('../page-objects/flows/login.flow');
+const { DAPP_PATH, DAPP_URL, WINDOW_TITLES } = require('../constants');
+const FixtureBuilder = require('../fixtures/fixture-builder');
+const {
+  mockDialogSnap,
+} = require('../mock-response-data/snaps/snap-binary-mocks');
+
+async function mockSnapsWebsite(mockServer) {
+  return await mockServer
+    .forGet('https://snaps.metamask.io/')
+    .thenCallback(() => {
+      return {
+        statusCode: 200,
+        body: emptyHtmlPage(),
+      };
+    });
+}
+
+async function mockSnapBinaryAndWebsite(mockServer) {
+  return [await mockDialogSnap(mockServer), await mockSnapsWebsite(mockServer)];
+}
 
 describe('Test Snap UI Links', function () {
   it('test link in confirmation snap_dialog type', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
+        dappOptions: {
+          customDappPaths: [DAPP_PATH.TEST_SNAPS],
+        },
         failOnConsoleError: false,
+        fixtures: new FixtureBuilder().build(),
+        testSpecificMock: mockSnapBinaryAndWebsite,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
-        await unlockWallet(driver);
+        await loginWithBalanceValidation(driver);
 
         // navigate to test snaps page
-        await driver.openNewPage(TEST_SNAPS_WEBSITE_URL);
+        await driver.openNewPage(DAPP_URL);
 
         // wait for page to load
         await driver.waitForSelector({
@@ -114,12 +134,12 @@ describe('Test Snap UI Links', function () {
         });
 
         // switch to new tab
-        await driver.switchToWindowWithTitle('MetaMask Snaps Directory');
+        await driver.switchToWindowWithTitle('E2E Test Page');
 
         // check that the correct page has been opened
         await driver.waitForSelector({
-          text: 'Most Popular',
-          tag: 'h2',
+          testId: 'empty-page-body',
+          text: 'Empty page by MetaMask',
         });
 
         // switch back to metamask window

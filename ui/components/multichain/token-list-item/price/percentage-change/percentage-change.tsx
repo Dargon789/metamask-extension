@@ -1,6 +1,8 @@
 import React from 'react';
+import { CaipAssetType } from '@metamask/utils';
 import { Box, Text } from '../../../../component-library';
 import {
+  AlignItems,
   Display,
   TextColor,
   TextVariant,
@@ -17,10 +19,9 @@ export const PercentageChange = ({
   address,
 }: {
   value: number | null | undefined;
-  address: `0x${string}`;
+  address: `0x${string}` | CaipAssetType;
 }) => {
-  let color = TextColor.textDefault;
-
+  let color = TextColor.textAlternative;
   if (isValidAmount(value)) {
     if ((value as number) === 0) {
       color = TextColor.textDefault;
@@ -34,7 +35,7 @@ export const PercentageChange = ({
   const formattedValue = formatValue(value, false);
 
   return (
-    <Box display={Display.Flex}>
+    <Box display={Display.Flex} alignItems={AlignItems.center} gap={1}>
       <Text
         variant={TextVariant.bodySmMedium}
         color={color}

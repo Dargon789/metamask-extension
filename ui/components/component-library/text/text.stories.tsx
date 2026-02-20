@@ -6,6 +6,7 @@ import {
   BorderColor,
   FontWeight,
   FontStyle,
+  FontFamily,
   TextColor,
   TextAlign,
   OverflowWrap,
@@ -16,14 +17,14 @@ import {
   Color,
 } from '../../../helpers/constants/design-system';
 
-import { Box } from '..';
+import { Box } from '../box';
 
 import README from './README.mdx';
 import { Text } from './text';
 import { TextDirection } from './text.types';
 
 export default {
-  title: 'Components/ComponentLibrary/Text',
+  title: 'Components/ComponentLibrary/Text (deprecated)',
   component: Text,
   parameters: {
     docs: {
@@ -142,6 +143,26 @@ export const FontStyleStory: StoryFn<typeof Text> = (args) => (
 );
 
 FontStyleStory.storyName = 'Font Style';
+
+export const FontFamilyStory: StoryFn<typeof Text> = (args) => (
+  <Box
+    display={Display.Flex}
+    flexDirection={FlexDirection.Column}
+    gap={4}
+  >
+    <Text {...args} fontFamily={FontFamily.Default}>
+      Default Font (Geist) - The quick brown fox jumps over the lazy dog
+    </Text>
+    <Text {...args} fontFamily={FontFamily.Accent}>
+      Accent Font (MMSans) - The quick brown fox jumps over the lazy dog
+    </Text>
+    <Text {...args} fontFamily={FontFamily.Hero}>
+      Hero Font (MMPoly) - The quick brown fox jumps over the lazy dog
+    </Text>
+  </Box>
+);
+
+FontFamilyStory.storyName = 'Font Family';
 
 export const TextTransformStory: StoryFn<typeof Text> = (args) => (
   <>
@@ -286,29 +307,3 @@ export const Strong: StoryFn<typeof Text> = (args) => (
     </Text>
   </>
 );
-
-export const IsBrandEvolution = (args) => (
-  <>
-    {Object.values(TextVariant).map((variant) => {
-      // Wrap TextVariant.inherit in a span to show it's inherited styles
-      if (variant === TextVariant.inherit) {
-        return (
-          <Text as="span" {...args}>
-            <Text {...args} variant={variant} key={variant}>
-              {args.children || variant}
-            </Text>
-          </Text>
-        );
-      }
-      return (
-        <Text {...args} variant={variant} key={variant}>
-          {args.children || variant}
-        </Text>
-      );
-    })}
-  </>
-);
-
-IsBrandEvolution.args = {
-  isBrandEvolution: true,
-};

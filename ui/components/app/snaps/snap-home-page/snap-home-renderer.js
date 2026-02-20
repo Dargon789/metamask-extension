@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Text } from '../../../component-library';
 import { SnapUIRenderer } from '../snap-ui-renderer';
@@ -38,7 +38,7 @@ export const SnapHomeRenderer = ({ snapId }) => {
   const unapprovedConfirmations = useSelector(
     getMemoizedUnapprovedConfirmations,
   );
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const { data, error, loading } = useSnapHome({ snapId });
 
@@ -58,22 +58,22 @@ export const SnapHomeRenderer = ({ snapId }) => {
     );
 
     if (templatedSnapApproval) {
-      history.push(`${CONFIRMATION_V_NEXT_ROUTE}/${templatedSnapApproval.id}`);
+      navigate(`${CONFIRMATION_V_NEXT_ROUTE}/${templatedSnapApproval.id}`);
     } else if (snapApproval) {
-      history.push(`${CONFIRM_TRANSACTION_ROUTE}/${snapApproval.id}`);
+      navigate(`${CONFIRM_TRANSACTION_ROUTE}/${snapApproval.id}`);
     }
-  }, [unapprovedTemplatedConfirmations, unapprovedConfirmations, history]);
+  }, [unapprovedTemplatedConfirmations, unapprovedConfirmations, navigate]);
 
-  return (
-    <Box
-      height={BlockSize.Full}
-      width={BlockSize.Full}
-      backgroundColor={BackgroundColor.backgroundAlternative}
-      style={{
-        overflowY: 'auto',
-      }}
-    >
-      {error && (
+  if (error) {
+    return (
+      <Box
+        height={BlockSize.Full}
+        width={BlockSize.Full}
+        backgroundColor={BackgroundColor.backgroundAlternative}
+        style={{
+          overflowY: 'auto',
+        }}
+      >
         <Box height={BlockSize.Full} padding={4}>
           <SnapDelineator snapName={snapName} type={DelineatorType.Error}>
             <Text variant={TextVariant.bodySm} marginBottom={4}>
@@ -82,18 +82,17 @@ export const SnapHomeRenderer = ({ snapId }) => {
             <Copyable text={error.message} />
           </SnapDelineator>
         </Box>
-      )}
-      {(interfaceId || loading) && (
-        <SnapUIRenderer
-          snapId={snapId}
-          interfaceId={interfaceId}
-          isLoading={loading}
-          useDelineator={false}
-          useFooter
-          contentBackgroundColor={BackgroundColor.backgroundAlternative}
-        />
-      )}
-    </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <SnapUIRenderer
+      snapId={snapId}
+      interfaceId={interfaceId}
+      isLoading={loading}
+      useFooter
+    />
   );
 };
 

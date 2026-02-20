@@ -10,10 +10,16 @@ import {
   Token,
   TokensControllerState,
 } from '@metamask/assets-controllers';
-import { InternalAccount } from '@metamask/keyring-api';
+import { InternalAccount } from '@metamask/keyring-internal-api';
 import { Browser } from 'webextension-polyfill';
-import { ControllerMessenger } from '@metamask/base-controller';
+import { deriveStateFromMetadata } from '@metamask/base-controller';
+import {
+  MOCK_ANY_NAMESPACE,
+  Messenger,
+  MockAnyNamespace,
+} from '@metamask/messenger';
 import { merge } from 'lodash';
+import { ThemeType } from '../../../shared/constants/preferences';
 import { ENVIRONMENT_TYPE_BACKGROUND } from '../../../shared/constants/app';
 import { createSegmentMock } from '../lib/segment';
 import {
@@ -23,6 +29,7 @@ import {
   MetaMetricsUserTraits,
 } from '../../../shared/constants/metametrics';
 import { CHAIN_IDS } from '../../../shared/constants/network';
+import { KeyringType } from '../../../shared/constants/keyring';
 import { LedgerTransportTypes } from '../../../shared/constants/hardware-wallets';
 import * as Utils from '../lib/util';
 import { mockNetworkState } from '../../../test/stub/networks';
@@ -34,6 +41,7 @@ import MetaMetricsController, {
 } from './metametrics-controller';
 import {
   getDefaultPreferencesControllerState,
+  Preferences,
   PreferencesControllerState,
 } from './preferences-controller';
 
@@ -55,16 +63,32 @@ const MOCK_EXTENSION = {
 } as unknown as Browser;
 
 const MOCK_TRAITS = {
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_boolean: true,
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_string: 'abc',
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_number: 123,
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_bool_array: [true, true, false],
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_string_array: ['test', 'test', 'test'],
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_boolean_array: [1, 2, 3],
 } as MetaMetricsUserTraits;
 
 const MOCK_INVALID_TRAITS = {
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_null: null,
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   test_array_multi_types: [true, 'a', 1],
 } as MetaMetricsUserTraits;
 
@@ -72,7 +96,6 @@ const DEFAULT_TEST_CONTEXT = {
   app: {
     name: 'MetaMask Extension',
     version: VERSION,
-    extensionId: MOCK_EXTENSION_ID,
   },
   page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
   referrer: undefined,
@@ -81,14 +104,17 @@ const DEFAULT_TEST_CONTEXT = {
 };
 
 const DEFAULT_SHARED_PROPERTIES = {
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   chain_id: DEFAULT_CHAIN_ID,
   locale: LOCALE.replace('_', '-'),
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   environment_type: 'background',
 };
 
 const DEFAULT_EVENT_PROPERTIES = {
   category: 'Unit Test',
-  extensionId: MOCK_EXTENSION_ID,
   ...DEFAULT_SHARED_PROPERTIES,
 };
 
@@ -103,7 +129,11 @@ const SAMPLE_TX_SUBMITTED_PARTIAL_FRAGMENT = {
   successEvent: 'Transaction Finalized',
   persist: true,
   properties: {
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     simulation_response: 'no_balance_change',
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     test_stored_prop: 1,
   },
 };
@@ -209,19 +239,13 @@ describe('MetaMetricsController', function () {
   });
 
   describe('createEventFragment', function () {
-    it('should throw an error if the param is missing successEvent or category', async function () {
+    it('should throw an error if the param is missing successEvent', async function () {
       await withController(async ({ controller }) => {
         await expect(() => {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-expect-error because we are testing the error case
-          controller.createEventFragment({ event: 'test' });
-        }).toThrow(/Must specify success event and category\./u);
-
-        await expect(() => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error because we are testing the error case
           controller.createEventFragment({ category: 'test' });
-        }).toThrow(/Must specify success event and category\./u);
+        }).toThrow(/Must specify success event\./u);
       });
     });
 
@@ -309,6 +333,7 @@ describe('MetaMetricsController', function () {
           });
 
           const expectedFragment = merge(
+            {},
             SAMPLE_TX_SUBMITTED_PARTIAL_FRAGMENT,
             SAMPLE_PERSISTED_EVENT_NO_ID,
             {
@@ -485,6 +510,8 @@ describe('MetaMetricsController', function () {
         },
         ({ controller }) => {
           controller.identify({
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             test_date: new Date().toISOString(),
           } as MetaMetricsUserTraits);
           expect(spy).toHaveBeenCalledTimes(1);
@@ -492,6 +519,8 @@ describe('MetaMetricsController', function () {
             {
               userId: TEST_META_METRICS_ID,
               traits: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 test_date: new Date().toISOString(),
               },
               messageId: Utils.generateRandomId(),
@@ -627,6 +656,8 @@ describe('MetaMetricsController', function () {
             event: 'Fake Event',
             category: 'Unit Test',
             properties: {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
           });
@@ -651,6 +682,8 @@ describe('MetaMetricsController', function () {
               event: 'Fake Event',
               category: 'Unit Test',
               properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
             },
@@ -664,6 +697,8 @@ describe('MetaMetricsController', function () {
               context: DEFAULT_TEST_CONTEXT,
               properties: {
                 ...DEFAULT_EVENT_PROPERTIES,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
               messageId: Utils.generateRandomId(),
@@ -691,6 +726,8 @@ describe('MetaMetricsController', function () {
               event: 'Fake Event',
               category: 'Unit Test',
               properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
             },
@@ -704,6 +741,8 @@ describe('MetaMetricsController', function () {
               context: DEFAULT_TEST_CONTEXT,
               properties: {
                 ...DEFAULT_EVENT_PROPERTIES,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
               messageId: Utils.generateRandomId(),
@@ -723,6 +762,8 @@ describe('MetaMetricsController', function () {
             event: 'Fake Event',
             category: 'Unit Test',
             properties: {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
           },
@@ -736,7 +777,11 @@ describe('MetaMetricsController', function () {
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               legacy_event: true,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
             messageId: Utils.generateRandomId(),
@@ -754,6 +799,8 @@ describe('MetaMetricsController', function () {
           event: 'Fake Event',
           category: 'Unit Test',
           properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             chain_id: '1',
           },
         });
@@ -763,12 +810,48 @@ describe('MetaMetricsController', function () {
             event: 'Fake Event',
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
             context: DEFAULT_TEST_CONTEXT,
             userId: TEST_META_METRICS_ID,
             messageId: Utils.generateRandomId(),
             timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should use custom timestamp when provided in event payload', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        const customTimestamp = '2024-01-15T00:00:00.000Z';
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          timestamp: customTimestamp,
+          properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            chain_id: '1',
+          },
+        });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              chain_id: '1',
+            },
+            context: DEFAULT_TEST_CONTEXT,
+            userId: TEST_META_METRICS_ID,
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(customTimestamp),
           },
           spy.mock.calls[0][1],
         );
@@ -789,19 +872,13 @@ describe('MetaMetricsController', function () {
       });
     });
 
-    it('should throw if event or category not provided', async function () {
+    it('should throw if event not provided', async function () {
       await withController(({ controller }) => {
         expect(() => {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-expect-error because we are testing the error case
-          controller.trackEvent({ event: 'test' });
-        }).toThrow(/Must specify event and category\./u);
-
-        expect(() => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error because we are testing the error case
           controller.trackEvent({ category: 'test' });
-        }).toThrow(/Must specify event and category\./u);
+        }).toThrow(/Must specify event\./u);
       });
     });
 
@@ -1127,6 +1204,8 @@ describe('MetaMetricsController', function () {
           event: 'Fake Event',
           category: 'Unit Test',
           properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             chain_id: 'bar',
           },
           actionId: '0x001',
@@ -1139,6 +1218,8 @@ describe('MetaMetricsController', function () {
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: 'bar',
             },
             messageId: '0x001',
@@ -1194,6 +1275,8 @@ describe('MetaMetricsController', function () {
           event: 'Fake Event',
           category: 'Unit Test',
           properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             chain_id: 'bar',
           },
           uniqueIdentifier: 'transaction-submitted-0000',
@@ -1206,6 +1289,8 @@ describe('MetaMetricsController', function () {
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: 'bar',
             },
             messageId: 'transaction-submitted-0000',
@@ -1262,6 +1347,8 @@ describe('MetaMetricsController', function () {
         controller.trackEvent({
           event: 'Fake Event',
           category: 'Unit Test',
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           properties: { chain_id: 'bar' },
           actionId: '0x001',
           uniqueIdentifier: 'transaction-submitted-0000',
@@ -1274,6 +1361,8 @@ describe('MetaMetricsController', function () {
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: 'bar',
             },
             messageId: 'transaction-submitted-0000-0x001',
@@ -1357,6 +1446,10 @@ describe('MetaMetricsController', function () {
       };
 
       await withController(({ controller }) => {
+        controller.updateTraits({
+          [MetaMetricsUserTrait.StorageKind]: 'split',
+        });
+
         const traits = controller._buildUserTraitsObject({
           addressBook: {
             [CHAIN_IDS.MAINNET]: {
@@ -1412,14 +1505,28 @@ describe('MetaMetricsController', function () {
             },
             selectedAccount: 'mock1',
           },
+          multichainNetworkConfigurationsByChainId: {
+            'bip122:000000000019d6689c085ae165831e93': {
+              chainId: 'bip122:000000000019d6689c085ae165831e93',
+              isEvm: false,
+              name: 'Bitcoin Mainnet',
+              nativeCurrency:
+                'bip122:000000000019d6689c085ae165831e93/slip44:0',
+            },
+            'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': {
+              chainId: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+              isEvm: false,
+              name: 'Solana Mainnet',
+              nativeCurrency:
+                'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp/token:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            },
+          },
           ledgerTransportType: LedgerTransportTypes.webhid,
           openSeaEnabled: true,
           useNftDetection: false,
           securityAlertsEnabled: true,
-          theme: 'default',
+          theme: 'default' as ThemeType,
           useTokenDetection: true,
-          ShowNativeTokenAsMainBalance: true,
-          security_providers: [],
           names: {
             [NameType.ETHEREUM_ADDRESS]: {
               '0x123': {
@@ -1445,23 +1552,34 @@ describe('MetaMetricsController', function () {
               },
             },
           },
-          tokenSortConfig: {
-            key: 'token-sort-key',
-            order: 'dsc',
-            sortCallback: 'stringNumeric',
-          },
           participateInMetaMetrics: true,
           currentCurrency: 'usd',
           dataCollectionForMarketing: false,
-          preferences: { privacyMode: true },
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          custodyAccountDetails: {},
-          ///: END:ONLY_INCLUDE_IF
+          preferences: {
+            privacyMode: true,
+            tokenNetworkFilter: {},
+            tokenSortConfig: {
+              key: 'token-sort-key',
+              order: 'dsc',
+              sortCallback: 'stringNumeric',
+            },
+            showNativeTokenAsMainBalance: true,
+          } as Preferences,
+          srpSessionData: undefined,
+          keyrings: [],
         });
 
         expect(traits).toStrictEqual({
           [MetaMetricsUserTrait.AddressBookEntries]: 3,
+          [MetaMetricsUserTrait.ChainIdList]: [
+            'eip155:1',
+            'eip155:5',
+            'eip155:175',
+            'bip122:000000000019d6689c085ae165831e93',
+            'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+          ],
           [MetaMetricsUserTrait.InstallDateExt]: '',
+          [MetaMetricsUserTrait.StorageKind]: 'split',
           [MetaMetricsUserTrait.LedgerConnectionType]:
             LedgerTransportTypes.webhid,
           [MetaMetricsUserTrait.NetworksAdded]: [
@@ -1475,6 +1593,7 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.NumberOfNftCollections]: 3,
           [MetaMetricsUserTrait.NumberOfNfts]: 4,
           [MetaMetricsUserTrait.NumberOfTokens]: 5,
+          [MetaMetricsUserTrait.NumberOfHDEntropies]: 0,
           [MetaMetricsUserTrait.OpenSeaApiEnabled]: true,
           [MetaMetricsUserTrait.ThreeBoxEnabled]: false,
           [MetaMetricsUserTrait.Theme]: 'default',
@@ -1484,16 +1603,15 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.HasMarketingConsent]: false,
           [MetaMetricsUserTrait.SecurityProviders]: ['blockaid'],
           [MetaMetricsUserTrait.IsMetricsOptedIn]: true,
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          [MetaMetricsUserTrait.MmiExtensionId]: 'testid',
-          [MetaMetricsUserTrait.MmiAccountAddress]: null,
-          [MetaMetricsUserTrait.MmiIsCustodian]: false,
-          ///: END:ONLY_INCLUDE_IF
+          [MetaMetricsUserTrait.ProfileId]: undefined,
           ///: BEGIN:ONLY_INCLUDE_IF(petnames)
           [MetaMetricsUserTrait.PetnameAddressCount]: 3,
           ///: END:ONLY_INCLUDE_IF
           [MetaMetricsUserTrait.TokenSortPreference]: 'token-sort-key',
           [MetaMetricsUserTrait.PrivacyModeEnabled]: true,
+          [MetaMetricsUserTrait.NetworkFilterPreference]: [],
+          [MetaMetricsUserTrait.Platform]: 'Chrome',
+          [MetaMetricsUserTrait.InstallType]: 'unknown',
         });
       });
     });
@@ -1532,27 +1650,29 @@ describe('MetaMetricsController', function () {
             selectedAccount: 'mock1',
           },
           useNftDetection: false,
-          theme: 'default',
+          theme: 'default' as ThemeType,
           useTokenDetection: true,
-          tokenSortConfig: {
-            key: 'token-sort-key',
-            order: 'dsc',
-            sortCallback: 'stringNumeric',
-          },
-          ShowNativeTokenAsMainBalance: true,
           allNfts: {},
           participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
-          preferences: { privacyMode: true },
+          preferences: {
+            privacyMode: true,
+            tokenNetworkFilter: {},
+            tokenSortConfig: {
+              key: 'token-sort-key',
+              order: 'dsc',
+              sortCallback: 'stringNumeric',
+            },
+            showNativeTokenAsMainBalance: true,
+          } as Preferences,
           securityAlertsEnabled: true,
           names: {
             ethereumAddress: {},
           },
-          security_providers: ['blockaid'],
           currentCurrency: 'usd',
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          custodyAccountDetails: {},
-          ///: END:ONLY_INCLUDE_IF
+          srpSessionData: undefined,
+          keyrings: [],
+          multichainNetworkConfigurationsByChainId: {},
         });
 
         const updatedTraits = controller._buildUserTraitsObject({
@@ -1591,27 +1711,42 @@ describe('MetaMetricsController', function () {
             selectedAccount: 'mock1',
           },
           useNftDetection: false,
-          theme: 'default',
+          theme: 'default' as ThemeType,
           useTokenDetection: true,
-          tokenSortConfig: {
-            key: 'token-sort-key',
-            order: 'dsc',
-            sortCallback: 'stringNumeric',
-          },
-          ShowNativeTokenAsMainBalance: false,
           names: {
             ethereumAddress: {},
           },
-          security_providers: ['blockaid'],
           currentCurrency: 'usd',
           allNfts: {},
           participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
-          preferences: { privacyMode: true },
+          preferences: {
+            privacyMode: true,
+            tokenNetworkFilter: {},
+            tokenSortConfig: {
+              key: 'token-sort-key',
+              order: 'dsc',
+              sortCallback: 'stringNumeric',
+            },
+            showNativeTokenAsMainBalance: false,
+          } as Preferences,
           securityAlertsEnabled: true,
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          custodyAccountDetails: {},
-          ///: END:ONLY_INCLUDE_IF
+          srpSessionData: {
+            entropySourceId1: {
+              token: {
+                accessToken: '',
+                expiresIn: 0,
+                obtainedAt: 0,
+              },
+              profile: {
+                identifierId: 'identifierId',
+                profileId: 'profileId',
+                metaMetricsId: 'testid',
+              },
+            },
+          },
+          keyrings: [],
+          multichainNetworkConfigurationsByChainId: {},
         });
 
         expect(updatedTraits).toStrictEqual({
@@ -1620,6 +1755,7 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.NumberOfTokens]: 1,
           [MetaMetricsUserTrait.OpenSeaApiEnabled]: false,
           [MetaMetricsUserTrait.ShowNativeTokenAsMainBalance]: false,
+          [MetaMetricsUserTrait.ProfileId]: 'profileId',
         });
       });
     });
@@ -1658,27 +1794,42 @@ describe('MetaMetricsController', function () {
             selectedAccount: 'mock1',
           },
           useNftDetection: true,
-          theme: 'default',
+          theme: 'default' as ThemeType,
           useTokenDetection: true,
-          tokenSortConfig: {
-            key: 'token-sort-key',
-            order: 'dsc',
-            sortCallback: 'stringNumeric',
-          },
-          ShowNativeTokenAsMainBalance: true,
           allNfts: {},
+          participateInMetaMetrics: true,
+          dataCollectionForMarketing: false,
+          preferences: {
+            privacyMode: true,
+            tokenNetworkFilter: {},
+            tokenSortConfig: {
+              key: 'token-sort-key',
+              order: 'dsc',
+              sortCallback: 'stringNumeric',
+            },
+            showNativeTokenAsMainBalance: true,
+          } as Preferences,
           names: {
             ethereumAddress: {},
           },
-          participateInMetaMetrics: true,
-          dataCollectionForMarketing: false,
-          preferences: { privacyMode: true },
           securityAlertsEnabled: true,
-          security_providers: ['blockaid'],
           currentCurrency: 'usd',
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          custodyAccountDetails: {},
-          ///: END:ONLY_INCLUDE_IF
+          srpSessionData: {
+            entropySourceId1: {
+              token: {
+                accessToken: '',
+                expiresIn: 0,
+                obtainedAt: 0,
+              },
+              profile: {
+                identifierId: 'identifierId',
+                profileId: 'profileId',
+                metaMetricsId: 'testid',
+              },
+            },
+          },
+          keyrings: [],
+          multichainNetworkConfigurationsByChainId: {},
         });
 
         const updatedTraits = controller._buildUserTraitsObject({
@@ -1707,27 +1858,42 @@ describe('MetaMetricsController', function () {
             selectedAccount: 'mock1',
           },
           useNftDetection: true,
-          theme: 'default',
+          theme: 'default' as ThemeType,
           useTokenDetection: true,
-          tokenSortConfig: {
-            key: 'token-sort-key',
-            order: 'dsc',
-            sortCallback: 'stringNumeric',
-          },
-          ShowNativeTokenAsMainBalance: true,
           allNfts: {},
           participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
-          preferences: { privacyMode: true },
+          preferences: {
+            privacyMode: true,
+            tokenNetworkFilter: {},
+            tokenSortConfig: {
+              key: 'token-sort-key',
+              order: 'dsc',
+              sortCallback: 'stringNumeric',
+            },
+            showNativeTokenAsMainBalance: true,
+          } as Preferences,
           names: {
             ethereumAddress: {},
           },
           securityAlertsEnabled: true,
-          security_providers: ['blockaid'],
           currentCurrency: 'usd',
-          ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
-          custodyAccountDetails: {},
-          ///: END:ONLY_INCLUDE_IF
+          srpSessionData: {
+            entropySourceId1: {
+              token: {
+                accessToken: '',
+                expiresIn: 0,
+                obtainedAt: 0,
+              },
+              profile: {
+                identifierId: 'identifierId',
+                profileId: 'profileId',
+                metaMetricsId: 'testid',
+              },
+            },
+          },
+          keyrings: [],
+          multichainNetworkConfigurationsByChainId: {},
         });
         expect(updatedTraits).toStrictEqual(null);
       });
@@ -1789,6 +1955,8 @@ describe('MetaMetricsController', function () {
               event: 'Fake Event',
               category: 'Unit Test',
               properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
             },
@@ -1805,6 +1973,8 @@ describe('MetaMetricsController', function () {
               },
               properties: {
                 ...DEFAULT_EVENT_PROPERTIES,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
               messageId: Utils.generateRandomId(),
@@ -1840,7 +2010,211 @@ describe('MetaMetricsController', function () {
       );
     });
   });
+  describe('updateExtensionUninstallUrl', function () {
+    it('should include extension version in uninstall URL regardless of MetaMetrics participation', async function () {
+      await withController(({ controller }) => {
+        const setUninstallURLSpy = jest.spyOn(
+          MOCK_EXTENSION.runtime,
+          'setUninstallURL',
+        );
+
+        // Test with MetaMetrics disabled
+        controller.updateExtensionUninstallUrl(false, 'test-id');
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.stringContaining(`av=${VERSION}`),
+        );
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.not.stringContaining('mmi='),
+        );
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.not.stringContaining('env='),
+        );
+
+        // Test with MetaMetrics enabled
+        controller.updateExtensionUninstallUrl(true, 'test-id');
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.stringContaining(`av=${VERSION}`),
+        );
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.stringContaining('mmi='),
+        );
+        expect(setUninstallURLSpy).toHaveBeenCalledWith(
+          expect.stringContaining('env='),
+        );
+      });
+    });
+  });
+
+  describe('getNumberOfHDEntropies', function () {
+    it('counts HD entropies correctly across various keyring configurations', async function () {
+      await withController(({ controller: _ }) => {
+        const testScenarios = [
+          {
+            name: 'with undefined keyrings',
+            state: { keyrings: undefined },
+            expectedCount: 0,
+          },
+          {
+            name: 'with empty keyrings array',
+            state: { keyrings: [] },
+            expectedCount: 0,
+          },
+          {
+            name: 'with one HD keyring',
+            state: {
+              keyrings: [{ type: KeyringType.hdKeyTree, accounts: ['0x123'] }],
+            },
+            expectedCount: 1,
+          },
+          {
+            name: 'with two HD keyrings',
+            state: {
+              keyrings: [
+                { type: KeyringType.hdKeyTree, accounts: ['0x123'] },
+                { type: KeyringType.hdKeyTree, accounts: ['0x456'] },
+              ],
+            },
+            expectedCount: 2,
+          },
+          {
+            name: 'with mixed keyring types',
+            state: {
+              keyrings: [
+                { type: KeyringType.hdKeyTree, accounts: ['0x123'] },
+                { type: KeyringType.imported, accounts: ['0x456'] },
+                { type: KeyringType.ledger, accounts: ['0x789'] },
+                { type: KeyringType.hdKeyTree, accounts: ['0xabc'] },
+              ],
+            },
+            expectedCount: 2,
+          },
+        ];
+
+        testScenarios.forEach((scenario) => {
+          // Implement the same logic as the private method
+          const hdKeyringCount =
+            scenario.state.keyrings?.filter(
+              (keyring) => keyring.type === KeyringType.hdKeyTree,
+            ).length ?? 0;
+          expect(hdKeyringCount).toBe(scenario.expectedCount);
+        });
+      });
+    });
+  });
+
+  describe('metadata', () => {
+    it('includes expected state in debug snapshots', async () => {
+      await withController(
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
+        ({ controller }) => {
+          expect(
+            deriveStateFromMetadata(
+              controller.state,
+              controller.metadata,
+              'includeInDebugSnapshot',
+            ),
+          ).toMatchInlineSnapshot(`
+            {
+              "latestNonAnonymousEventTimestamp": 0,
+              "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+            }
+          `);
+        },
+      );
+    });
+
+    it('includes expected state in state logs', async () => {
+      await withController(
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
+        ({ controller }) => {
+          expect(
+            deriveStateFromMetadata(
+              controller.state,
+              controller.metadata,
+              'includeInStateLogs',
+            ),
+          ).toMatchInlineSnapshot(`
+            {
+              "dataCollectionForMarketing": null,
+              "eventsBeforeMetricsOptIn": [],
+              "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
+              "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+              "segmentApiCalls": {},
+              "tracesBeforeMetricsOptIn": [],
+              "traits": {},
+            }
+          `);
+        },
+      );
+    });
+
+    it('persists expected state', async () => {
+      await withController(
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
+        ({ controller }) => {
+          expect(
+            deriveStateFromMetadata(
+              controller.state,
+              controller.metadata,
+              'persist',
+            ),
+          ).toMatchInlineSnapshot(`
+            {
+              "dataCollectionForMarketing": null,
+              "eventsBeforeMetricsOptIn": [],
+              "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
+              "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+              "segmentApiCalls": {},
+              "tracesBeforeMetricsOptIn": [],
+              "traits": {},
+            }
+          `);
+        },
+      );
+    });
+
+    it('exposes expected state to UI', async () => {
+      await withController(
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
+        ({ controller }) => {
+          expect(
+            deriveStateFromMetadata(
+              controller.state,
+              controller.metadata,
+              'usedInUi',
+            ),
+          ).toMatchInlineSnapshot(`
+            {
+              "dataCollectionForMarketing": null,
+              "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+            }
+          `);
+        },
+      );
+    });
+  });
 });
+
+type RootMessenger = Messenger<MockAnyNamespace, AllowedActions, AllowedEvents>;
 
 type WithControllerOptions = {
   currentLocale?: string;
@@ -1887,19 +2261,19 @@ async function withController<ReturnValue>(
         },
       },
     } = rest;
-    const controllerMessenger = new ControllerMessenger<
-      AllowedActions,
-      AllowedEvents
-    >();
+    const messenger: RootMessenger = new Messenger({
+      namespace: MOCK_ANY_NAMESPACE,
+    });
 
-    controllerMessenger.registerActionHandler(
+    messenger.registerActionHandler(
       'PreferencesController:getState',
       jest.fn().mockReturnValue({
         currentLocale,
+        useExternalServices: true,
       }),
     );
 
-    controllerMessenger.registerActionHandler(
+    messenger.registerActionHandler(
       'NetworkController:getState',
       jest.fn().mockReturnValue({
         selectedNetworkClientId: Object.keys(
@@ -1908,7 +2282,7 @@ async function withController<ReturnValue>(
       }),
     );
 
-    controllerMessenger.registerActionHandler(
+    messenger.registerActionHandler(
       'NetworkController:getNetworkClientById',
       jest.fn().mockReturnValue({
         configuration: Object.values(
@@ -1917,21 +2291,32 @@ async function withController<ReturnValue>(
       }),
     );
 
+    const metaMetricsControllerMessenger = new Messenger<
+      'MetaMetricsController',
+      AllowedActions,
+      AllowedEvents,
+      RootMessenger
+    >({
+      namespace: 'MetaMetricsController',
+      parent: messenger,
+    });
+    messenger.delegate({
+      messenger: metaMetricsControllerMessenger,
+      actions: [
+        'PreferencesController:getState',
+        'NetworkController:getState',
+        'NetworkController:getNetworkClientById',
+      ],
+      events: [
+        'PreferencesController:stateChange',
+        'NetworkController:networkDidChange',
+      ],
+    });
+
     return fn({
       controller: new MetaMetricsController({
         segment: segmentMock,
-        messenger: controllerMessenger.getRestricted({
-          name: 'MetaMetricsController',
-          allowedActions: [
-            'PreferencesController:getState',
-            'NetworkController:getState',
-            'NetworkController:getNetworkClientById',
-          ],
-          allowedEvents: [
-            'PreferencesController:stateChange',
-            'NetworkController:networkDidChange',
-          ],
-        }),
+        messenger: metaMetricsControllerMessenger,
         version: '0.0.1',
         environment: 'test',
         extension: MOCK_EXTENSION,
@@ -1948,16 +2333,9 @@ async function withController<ReturnValue>(
         },
       }),
       triggerPreferencesControllerStateChange: (state) =>
-        controllerMessenger.publish(
-          'PreferencesController:stateChange',
-          state,
-          [],
-        ),
+        messenger.publish('PreferencesController:stateChange', state, []),
       triggerNetworkDidChange: (state) =>
-        controllerMessenger.publish(
-          'NetworkController:networkDidChange',
-          state,
-        ),
+        messenger.publish('NetworkController:networkDidChange', state),
     });
   } finally {
     // flush the queues manually after each test

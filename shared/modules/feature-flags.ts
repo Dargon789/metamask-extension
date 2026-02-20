@@ -1,3 +1,4 @@
+import { Json } from '@metamask/utils';
 import { CHAIN_IDS } from '../constants/network';
 
 enum NetworkName {
@@ -9,6 +10,7 @@ enum NetworkName {
   Arbitrum = 'arbitrum',
   ZkSyncEra = 'zksync',
   Linea = 'linea',
+  Base = 'base',
 }
 
 /**
@@ -35,7 +37,19 @@ export const getNetworkNameByChainId = (chainId: string): string => {
       return NetworkName.ZkSyncEra;
     case CHAIN_IDS.LINEA_MAINNET:
       return NetworkName.Linea;
+    case CHAIN_IDS.BASE:
+      return NetworkName.Base;
     default:
       return '';
   }
+};
+
+export enum FeatureFlagNames {
+  AssetsDefiPositionsEnabled = 'assetsDefiPositionsEnabled',
+}
+
+export const DEFAULT_FEATURE_FLAG_VALUES: Partial<
+  Record<FeatureFlagNames, Json>
+> = {
+  [FeatureFlagNames.AssetsDefiPositionsEnabled]: true,
 };

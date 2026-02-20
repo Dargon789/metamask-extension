@@ -67,12 +67,20 @@ class ChromeDriver {
         '*** Running e2e tests in headless mode is experimental and some tests are known to fail for unknown reasons',
       );
       args.push('--headless=new');
+    } else {
+      args.push('--no-sandbox');
     }
 
     const options = new chrome.Options().addArguments(args);
     options.setAcceptInsecureCerts(true);
     options.setUserPreferences({
       'download.default_directory': `${process.cwd()}/test-artifacts/downloads`,
+      'profile.content_settings.exceptions.clipboard': {
+        '[*.]': {
+          last_modified: Date.now(),
+          setting: 1, // 1 = allow
+        },
+      },
     });
 
     // Temporarily lock to version 126
@@ -109,6 +117,7 @@ class ChromeDriver {
 
     return {
       driver,
+      extensionId,
       extensionUrl: `chrome-extension://${extensionId}`,
     };
   }

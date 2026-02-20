@@ -1,80 +1,75 @@
 import { strict as assert } from 'assert';
 import { Suite } from 'mocha';
-
 import { Driver } from '../../webdriver/driver';
-import {
-  defaultGanacheOptions,
-  withFixtures,
-  unlockWallet,
-} from '../../helpers';
-import FixtureBuilder from '../../fixture-builder';
+import { withFixtures } from '../../helpers';
+import FixtureBuilder from '../../fixtures/fixture-builder';
+import AdvancedSettings from '../../page-objects/pages/settings/advanced-settings';
+import GeneralSettings from '../../page-objects/pages/settings/general-settings';
+import HeaderNavbar from '../../page-objects/pages/header-navbar';
+import Homepage from '../../page-objects/pages/home/homepage';
+import SettingsPage from '../../page-objects/pages/settings/settings-page';
+import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow';
+import ar from '../../../../app/_locales/ar/messages.json';
+import da from '../../../../app/_locales/da/messages.json';
+import de from '../../../../app/_locales/de/messages.json';
+import en from '../../../../app/_locales/en/messages.json';
+import hu from '../../../../app/_locales/hu/messages.json';
+import es from '../../../../app/_locales/es/messages.json';
+import hi from '../../../../app/_locales/hi/messages.json';
+import SendPage from '../../page-objects/pages/send/send-page';
 
 const selectors = {
-  accountOptionsMenuButton: '[data-testid="account-options-menu-button"]',
-  settingsOption: { text: 'Settings', tag: 'div' },
-  localeSelect: '[data-testid="locale-select"]',
-  ethOverviewSend: '[data-testid="eth-overview-send"]',
-  ensInput: '[data-testid="ens-input"]',
-  nftsTab: '[data-testid="account-overview__nfts-tab"]',
-  labelSpanish: { tag: 'p', text: 'Idioma actual' },
-  currentLanguageLabel: { tag: 'p', text: 'Current language' },
-  advanceText: { text: 'Avanceret', tag: 'div' },
-  waterText: '[placeholder="Søg"]',
-  headerTextDansk: { text: 'Indstillinger', tag: 'h3' },
-  buttonText: { css: '[data-testid="auto-lockout-button"]', text: 'Gem' },
-  dialogText: { text: 'Empfängeradresse ist unzulässig', tag: 'p' },
-  accountTooltipText: '[data-original-title="क्लिपबोर्ड पर कॉपी करें"]',
-  bridgeTooltipText: '[data-original-title="इस नेटवर्क पर उपलब्ध नहीं है"]',
-  hyperText: { text: 'Tudjon meg többet', tag: 'a' },
-  headerText: { text: 'الإعدادات', tag: 'h3' },
+  currentLanguageDansk: { tag: 'p', text: da.currentLanguage.message },
+  currentLanguageDeutsch: { tag: 'p', text: de.currentLanguage.message },
+  currentLanguageEnglish: { tag: 'p', text: en.currentLanguage.message },
+  currentLanguageMagyar: { tag: 'p', text: hu.currentLanguage.message },
+  currentLanguageSpanish: { tag: 'p', text: es.currentLanguage.message },
+  currentLanguageवर्तमान: { tag: 'p', text: hi.currentLanguage.message },
+  advanceTextDansk: { text: da.advanced.message, tag: 'div' },
+  waterTextDansk: `[placeholder="${da.search.message}"]`,
+  headerTextDansk: { text: da.settings.message, tag: 'h3' },
+  buttonTextDansk: {
+    testId: 'auto-lockout-button',
+    text: da.save.message,
+  },
+  dialogTextDeutsch: { text: de.invalidAddress.message, tag: 'p' },
+  discoverTextवर्तमान: { text: hi.discover.message, tag: 'a' },
+  headerTextAr: { text: ar.settings.message, tag: 'h3' },
 };
 
-async function changeLanguage(driver: Driver, languageIndex: number) {
-  await driver.clickElement(selectors.accountOptionsMenuButton);
-  await driver.clickElement(selectors.settingsOption);
-
-  const dropdownElement = await driver.findElement(selectors.localeSelect);
-  await dropdownElement.click();
-
-  const options = await dropdownElement.findElements({ css: 'option' });
-  await options[languageIndex].click();
-}
-
-describe('Settings - general tab @no-mmi', function (this: Suite) {
+describe('Settings - general tab', function (this: Suite) {
   it('validate the change language functionality', async function () {
-    let languageIndex = 10;
-
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test?.fullTitle(),
       },
-
       async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        await changeLanguage(driver, languageIndex);
+        await loginWithBalanceValidation(driver);
+        await new HeaderNavbar(driver).openSettingsPage();
+        const generalSettings = new GeneralSettings(driver);
+        await generalSettings.checkPageIsLoaded();
 
-        // Validate the label changes to Spanish
+        // Change language to Spanish and validate that the word has changed correctly
+        await generalSettings.changeLanguage('Español');
         const isLanguageLabelChanged = await driver.isElementPresent(
-          selectors.labelSpanish,
+          selectors.currentLanguageSpanish,
         );
         assert.equal(isLanguageLabelChanged, true, 'Language did not change');
 
+        // Refresh the page and validate that the language is still Spanish
         await driver.refresh();
-
-        // Change back to English and verify that the word is correctly changed back to English
-        languageIndex = 9;
-
-        const dropdownElement = await driver.findElement(
-          selectors.localeSelect,
+        await generalSettings.checkPageIsLoaded();
+        assert.equal(
+          await driver.isElementPresent(selectors.currentLanguageSpanish),
+          true,
+          'Language did not change after refresh',
         );
-        await dropdownElement.click();
-        const options = await dropdownElement.findElements({ css: 'option' });
-        await options[languageIndex].click();
 
+        // Change language back to English and validate that the word has changed correctly
+        await generalSettings.changeLanguage('English');
         const isLabelTextChanged = await driver.isElementPresent(
-          selectors.currentLanguageLabel,
+          selectors.currentLanguageEnglish,
         );
         assert.equal(isLabelTextChanged, true, 'Language did not change');
       },
@@ -82,25 +77,31 @@ describe('Settings - general tab @no-mmi', function (this: Suite) {
   });
 
   it('validate "Dansk" language on page navigation', async function () {
-    const languageIndex = 6;
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test?.fullTitle(),
       },
-
       async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        await changeLanguage(driver, languageIndex);
+        await loginWithBalanceValidation(driver);
+        await new HeaderNavbar(driver).openSettingsPage();
+        const generalSettings = new GeneralSettings(driver);
+        await generalSettings.checkPageIsLoaded();
 
-        await driver.assertElementNotPresent('.loading-overlay__spinner');
+        // Select "Dansk" language
+        await generalSettings.changeLanguage('Dansk');
+        const isLanguageLabelChanged = await driver.isElementPresent(
+          selectors.currentLanguageDansk,
+        );
+        assert.equal(isLanguageLabelChanged, true, 'Language did not change');
 
-        await driver.clickElement(selectors.advanceText);
+        await driver.clickElement(selectors.advanceTextDansk);
+        const advancedSettings = new AdvancedSettings(driver);
+        await advancedSettings.checkPageIsLoaded();
 
         // Confirm that the language change is reflected in search box water text
         const isWaterTextChanged = await driver.isElementPresent(
-          selectors.waterText,
+          selectors.waterTextDansk,
         );
         assert.equal(
           isWaterTextChanged,
@@ -120,7 +121,7 @@ describe('Settings - general tab @no-mmi', function (this: Suite) {
 
         // Confirm that the language change is reflected in button
         const isButtonTextChanged = await driver.isElementPresent(
-          selectors.buttonText,
+          selectors.buttonTextDansk,
         );
         assert.equal(
           isButtonTextChanged,
@@ -132,28 +133,39 @@ describe('Settings - general tab @no-mmi', function (this: Suite) {
   });
 
   it('validate "Deutsch" language on error messages', async function () {
-    const languageIndex = 7;
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test?.fullTitle(),
       },
-
       async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        await changeLanguage(driver, languageIndex);
-        await driver.navigate();
-        await driver.clickElement(selectors.ethOverviewSend);
-        await driver.pasteIntoField(
-          selectors.ensInput,
-          // use wrong checksum address; other inputs don't show error until snaps name-lookup has happened
-          '0xAAAA6BF26964aF9D7eEd9e03E53415D37aA96045',
+        await loginWithBalanceValidation(driver);
+        await new HeaderNavbar(driver).openSettingsPage();
+        const generalSettings = new GeneralSettings(driver);
+        await generalSettings.checkPageIsLoaded();
+
+        // Select "Deutsch" language
+        await generalSettings.changeLanguage('Deutsch');
+        const isLanguageLabelChanged = await driver.isElementPresent(
+          selectors.currentLanguageDeutsch,
         );
+        assert.equal(isLanguageLabelChanged, true, 'Language did not change');
+
+        await new SettingsPage(driver).closeSettingsPage();
+
+        const homepage = new Homepage(driver);
+        await homepage.checkPageIsLoaded();
+        await homepage.checkExpectedBalanceIsDisplayed();
+        await homepage.startSendFlow();
+
+        const sendPage = new SendPage(driver);
+        await sendPage.selectToken('0x539', 'ETH');
+        // use wrong address for recipient to allow error message to show
+        await sendPage.fillRecipient('0xAAA');
 
         // Validate the language change is reflected in the dialog message
         const isDialogMessageChanged = await driver.isElementPresent(
-          selectors.dialogText,
+          selectors.dialogTextDeutsch,
         );
         assert.equal(
           isDialogMessageChanged,
@@ -165,86 +177,58 @@ describe('Settings - general tab @no-mmi', function (this: Suite) {
   });
 
   it('validate "मानक हिन्दी" language on tooltips', async function () {
-    const languageIndex = 19;
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test?.fullTitle(),
       },
-
       async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        await changeLanguage(driver, languageIndex);
-        await driver.navigate();
+        await loginWithBalanceValidation(driver);
+        await new HeaderNavbar(driver).openSettingsPage();
+        const generalSettings = new GeneralSettings(driver);
+        await generalSettings.checkPageIsLoaded();
 
-        // Validate the account tooltip
-        const isAccountTooltipChanged = await driver.isElementPresent(
-          selectors.accountTooltipText,
+        // Select "मानक हिन्दी" language
+        await generalSettings.changeLanguage('मानक हिन्दी');
+
+        const isLabelTextChanged = await driver.isElementPresent(
+          selectors.currentLanguageवर्तमान,
+        );
+        assert.equal(isLabelTextChanged, true, 'Language did not change');
+
+        await new SettingsPage(driver).closeSettingsPage();
+        const homepage = new Homepage(driver);
+        await homepage.checkPageIsLoaded();
+        await homepage.checkExpectedBalanceIsDisplayed();
+        const isDiscoverButtonTextChanged = await driver.isElementPresent(
+          selectors.discoverTextवर्तमान,
         );
         assert.equal(
-          isAccountTooltipChanged,
+          isDiscoverButtonTextChanged,
           true,
-          'Language changes is not reflected on the account toolTip',
-        );
-
-        // Validate the bridge tooltip
-        const isBridgeTooltipChanged = await driver.isElementPresent(
-          selectors.bridgeTooltipText,
-        );
-        assert.equal(
-          isBridgeTooltipChanged,
-          true,
-          'Language changes is not reflected on the bridge toolTip',
-        );
-      },
-    );
-  });
-
-  it('validate "Magyar" language change on hypertext', async function () {
-    const languageIndex = 23;
-    await withFixtures(
-      {
-        fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
-        title: this.test?.fullTitle(),
-      },
-
-      async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        // selects "Magyar" language
-        await changeLanguage(driver, languageIndex);
-        await driver.navigate();
-        await driver.clickElement(selectors.nftsTab);
-
-        // Validate the hypertext
-        const isHyperTextChanged = await driver.isElementPresent(
-          selectors.hyperText,
-        );
-        assert.equal(
-          isHyperTextChanged,
-          true,
-          'Language change is not reflected on hypertext',
+          'Language change is not reflected in headers',
         );
       },
     );
   });
 
   it('validate "العربية" language change on page indent', async function () {
-    const languageIndex = 1;
     await withFixtures(
       {
         fixtures: new FixtureBuilder().build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test?.fullTitle(),
       },
       async ({ driver }: { driver: Driver }) => {
-        await unlockWallet(driver);
-        await changeLanguage(driver, languageIndex);
+        await loginWithBalanceValidation(driver);
+        await new HeaderNavbar(driver).openSettingsPage();
+        const generalSettings = new GeneralSettings(driver);
+        await generalSettings.checkPageIsLoaded();
 
-        // Validate the header text
+        // Select "العربية" language and validate that the header text has changed
+        await generalSettings.changeLanguage('العربية');
+
         const isHeaderTextChanged = await driver.isElementPresent(
-          selectors.headerText,
+          selectors.headerTextAr,
         );
         assert.equal(
           isHeaderTextChanged,

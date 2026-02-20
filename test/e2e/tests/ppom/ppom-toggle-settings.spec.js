@@ -1,28 +1,25 @@
 const { strict: assert } = require('assert');
+const { withFixtures } = require('../../helpers');
 const {
-  withFixtures,
-  unlockWallet,
-  openDapp,
-  defaultGanacheOptions,
-  getWindowHandles,
-} = require('../../helpers');
-const FixtureBuilder = require('../../fixture-builder');
+  loginWithBalanceValidation,
+} = require('../../page-objects/flows/login.flow');
+const { DAPP_URL, WINDOW_TITLES } = require('../../constants');
+const FixtureBuilder = require('../../fixtures/fixture-builder');
 
-describe('PPOM Settings @no-mmi', function () {
+describe('PPOM Settings', function () {
   // eslint-disable-next-line mocha/no-skipped-tests
   it.skip('should not show the PPOM warning when toggle is off', async function () {
     await withFixtures(
       {
-        dapp: true,
+        dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilder()
           .withNetworkControllerOnMainnet()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
-        await unlockWallet(driver);
+        await loginWithBalanceValidation(driver);
 
         await driver.clickElement(
           '[data-testid="account-options-menu-button"]',
@@ -35,10 +32,9 @@ describe('PPOM Settings @no-mmi', function () {
           '[data-testid="settings-toggle-security-alert-blockaid"] .toggle-button > div',
         );
 
-        await openDapp(driver);
+        await driver.openNewPage(DAPP_URL);
         await driver.clickElement('#maliciousPermit');
-        const windowHandles = await getWindowHandles(driver, 3);
-        await driver.switchToWindow(windowHandles.popup);
+        await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
 
         const blockaidResponseTitle =
           '[data-testid="security-provider-banner-alert"]';
@@ -52,21 +48,19 @@ describe('PPOM Settings @no-mmi', function () {
   it.skip('should show the PPOM warning when the toggle is on', async function () {
     await withFixtures(
       {
-        dapp: true,
+        dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilder()
           .withNetworkControllerOnMainnet()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
-        ganacheOptions: defaultGanacheOptions,
         title: this.test.fullTitle(),
       },
       async ({ driver }) => {
-        await unlockWallet(driver);
+        await loginWithBalanceValidation(driver);
 
-        await openDapp(driver);
+        await driver.openNewPage(DAPP_URL);
         await driver.clickElement('#maliciousPermit');
-        const windowHandles = await getWindowHandles(driver, 3);
-        await driver.switchToWindow(windowHandles.popup);
+        await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
 
         const blockaidResponseTitle =
           '[data-testid="security-provider-banner-alert"]';

@@ -69,6 +69,7 @@ export function useGasEstimates({
   // gas fees.
   let gasSettings = {
     gasLimit: decimalToHex(gasLimit),
+    gasLimitNoBuffer: transaction?.gasLimitNoBuffer,
   };
   if (supportsEIP1559) {
     gasSettings = {
@@ -99,10 +100,14 @@ export function useGasEstimates({
   // The minimum amount this transaction will cost
   const minimumCostInHexWei = getMinimumGasTotalInHexWei(gasSettings);
 
-  const [estimatedMinimumNative] = useCurrencyDisplay(minimumCostInHexWei, {
-    numberOfDecimals: primaryNumberOfDecimals,
-    currency: primaryCurrency,
-  });
+  const [estimatedMinimumNative] = useCurrencyDisplay(
+    minimumCostInHexWei,
+    {
+      numberOfDecimals: primaryNumberOfDecimals,
+      currency: primaryCurrency,
+    },
+    transaction?.chainId,
+  );
 
   return {
     estimatedMinimumNative,

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { join } from 'node:path';
 import { type Compilation } from 'webpack';
@@ -6,6 +6,7 @@ import { ManifestPlugin } from '../utils/plugins/ManifestPlugin';
 import { ZipOptions } from '../utils/plugins/ManifestPlugin/types';
 import { Manifest } from '../utils/helpers';
 import { transformManifest } from '../utils/plugins/ManifestPlugin/helpers';
+import { MANIFEST_DEV_KEY } from '../../build/constants';
 import { generateCases, type Combination, mockWebpack } from './helpers';
 
 describe('ManifestPlugin', () => {
@@ -49,6 +50,7 @@ describe('ManifestPlugin', () => {
       manifestVersion: [2, 3] as const,
       webAccessibleResources: [undefined, ['filename.map.js']],
     };
+
     generateCases(matrix).forEach(runTest);
 
     type TestCase = Combination<typeof matrix>;
@@ -64,11 +66,9 @@ describe('ManifestPlugin', () => {
         zip,
       } = testCase;
       const context = join(__dirname, `fixtures/ManifestPlugin/${fixture}`);
-      const baseManifest = require(join(
-        context,
-        `manifest/v${manifestVersion}`,
-        '_base.json',
-      ));
+      const baseManifest = require(
+        join(context, `manifest/v${manifestVersion}`, '_base.json'),
+      );
       const expectedAssets = getExpectedAssets(zip, browsers, files);
       const validateManifest = getValidateManifest(testCase, baseManifest);
 
@@ -91,12 +91,17 @@ describe('ManifestPlugin', () => {
         compilation.options.context = context;
         const manifestPlugin = new ManifestPlugin({
           browsers,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           manifest_version: manifestVersion,
           version: '1.0.0.0',
           versionName: '1.0.0',
           description,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           web_accessible_resources: webAccessibleResources,
           ...getZipOptions(zip),
+          buildType: 'main',
         });
         manifestPlugin.apply(compiler);
         await promise;
@@ -175,6 +180,8 @@ describe('ManifestPlugin', () => {
           if (testCase.webAccessibleResources) {
             if (baseManifest.manifest_version === 3) {
               // Extend expected resources for manifest version 3
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+              // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
               expectedWar = baseManifest.web_accessible_resources || [];
               expectedWar = [
                 {
@@ -188,6 +195,8 @@ describe('ManifestPlugin', () => {
                 },
               ];
             } else {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+              // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
               expectedWar = baseManifest.web_accessible_resources || [];
               // Keep or extend expected resources for manifest version 2
               expectedWar = [
@@ -196,10 +205,14 @@ describe('ManifestPlugin', () => {
               ];
             }
           } else {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
             expectedWar = baseManifest.web_accessible_resources || [];
           }
 
           assert.deepStrictEqual(
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
             json.web_accessible_resources || [],
             expectedWar,
             "should have the correct 'web_accessible_resources' in the manifest",
@@ -212,10 +225,13 @@ describe('ManifestPlugin', () => {
   describe('should transform the manifest object', () => {
     const keep = ['scripts/contentscript.js', 'scripts/inpage.js'];
     const argsMatrix = {
-      lockdown: [true, false],
       test: [true, false],
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      manifest_version: [2, 3] as const,
     };
     const manifestMatrix = {
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       content_scripts: [
         undefined,
         [],
@@ -231,10 +247,12 @@ describe('ManifestPlugin', () => {
 
       function runTest(baseManifest: Combination<typeof manifestMatrix>) {
         const manifest = baseManifest as unknown as chrome.runtime.Manifest;
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const hasTabsPermission = (manifest.permissions || []).includes('tabs');
-        const transform = transformManifest(args);
+        const transform = transformManifest(args, false);
 
-        if (args.test && hasTabsPermission) {
+        if (args.test && args.manifest_version === 2 && hasTabsPermission) {
           it("throws in test mode when manifest already contains 'tabs' permission", () => {
             assert(transform, 'transform should be truthy');
             const p = () => {
@@ -246,32 +264,16 @@ describe('ManifestPlugin', () => {
               'should throw when manifest contains tabs already',
             );
           });
-        } else if (!args.lockdown || args.test) {
-          it(`works for args.test of ${args.test} and args.lockdown of ${
-            args.lockdown
-          }. Manifest: ${JSON.stringify(manifest)}`, () => {
+        } else if (args.test && args.manifest_version === 2) {
+          it(`works for args.test of ${args.test}. Manifest: ${JSON.stringify(manifest)}`, () => {
             assert(transform, 'transform should be truthy');
             const transformed = transform(manifest, 'chrome');
-            if (args.lockdown) {
-              assert.deepStrictEqual(
-                transformed.content_scripts,
-                manifest.content_scripts,
-                'nothing should change in lockdown mode',
-              );
-            } else {
-              const stripped = manifest.content_scripts?.[0]?.js?.filter(
-                (js) => js !== 'lockdown.js',
-              );
-              assert.deepStrictEqual(
-                transformed.content_scripts?.[0]?.js,
-                stripped,
-                'lockdown.js should be removed when not in lockdown mode.',
-              );
-            }
 
             if (args.test) {
               assert.deepStrictEqual(
                 transformed.permissions,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
                 [...(manifest.permissions || []), 'tabs'],
                 "manifest should have 'tabs' permission",
               );
@@ -280,5 +282,433 @@ describe('ManifestPlugin', () => {
         }
       }
     }
+  });
+
+  describe('manifest flags in development mode', () => {
+    const emptyTestManifest = {} as chrome.runtime.Manifest;
+    const notEmptyTestManifest = {
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      _flags: { remoteFeatureFlags: { testFlag: false, testFlag2: 'value1' } },
+    } as unknown as chrome.runtime.Manifest;
+    const mockFlags = {
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      _flags: { remoteFeatureFlags: { testFlag: true } },
+      key: MANIFEST_DEV_KEY,
+    };
+    const manifestOverridesPath = 'testManifestOverridesPath.json';
+    const fs = require('node:fs');
+    const { mock } = require('node:test');
+    const { resolve } = require('node:path');
+
+    afterEach(() => mock.restoreAll());
+
+    it('adds manifest flags in development mode with path provided and empty manifest', () => {
+      mock.method(fs, 'readFileSync', (path: string, options: object) => {
+        if (path === resolve(__dirname, '../../../', manifestOverridesPath)) {
+          return JSON.stringify(mockFlags);
+        }
+        return fs.readFileSync.original(path, options);
+      });
+      const transform = transformManifest(
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { test: false, manifest_version: 3 },
+        true,
+        manifestOverridesPath,
+      );
+      assert(transform, 'transform should be truthy');
+
+      const transformed = transform(emptyTestManifest, 'chrome');
+      console.log('Transformed:', transformed);
+      assert.deepStrictEqual(
+        transformed,
+        mockFlags,
+        'manifest should have flags in development mode',
+      );
+    });
+
+    it('overwrites existing manifest properties with override values but keeps original properties', () => {
+      mock.method(fs, 'readFileSync', (path: string, options: object) => {
+        if (path === resolve(__dirname, '../../../', manifestOverridesPath)) {
+          return JSON.stringify(mockFlags);
+        }
+        return fs.readFileSync.original(path, options);
+      });
+      const transform = transformManifest(
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { test: false, manifest_version: 3 },
+        true,
+        manifestOverridesPath,
+      );
+      assert(transform, 'transform should be truthy');
+
+      const transformed = transform(notEmptyTestManifest, 'chrome');
+      assert.deepStrictEqual(
+        transformed,
+        {
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          _flags: {
+            remoteFeatureFlags: {
+              testFlag2: 'value1',
+              testFlag: true,
+            },
+          },
+          key: MANIFEST_DEV_KEY,
+        },
+        'manifest should merge original properties with overrides, with overrides taking precedence',
+      );
+    });
+
+    it('handles missing manifest flags file with path provided', () => {
+      mock.method(fs, 'readFileSync', () => {
+        const error = new Error('File not found') as NodeJS.ErrnoException;
+        error.code = 'ENOENT';
+        throw error;
+      });
+
+      const transform = transformManifest(
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { test: false, manifest_version: 3 },
+        true,
+        manifestOverridesPath,
+      );
+      assert(transform, 'transform should be truthy');
+
+      assert.throws(
+        () => transform(emptyTestManifest, 'chrome'),
+        {
+          message: `Manifest override file not found: ${manifestOverridesPath}`,
+        },
+        'should throw when manifest override file is not found',
+      );
+    });
+
+    it('silently ignores non-ENOENT filesystem errors', () => {
+      const transform = transformManifest(
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { test: false, manifest_version: 3 },
+        true,
+        manifestOverridesPath,
+      );
+      assert(transform, 'transform should be truthy');
+
+      const originalError = new Error(
+        'Permission denied',
+      ) as NodeJS.ErrnoException;
+      originalError.code = 'EACCES';
+
+      mock.method(fs, 'readFileSync', () => {
+        throw originalError;
+      });
+
+      const transformed = transform(emptyTestManifest, 'chrome');
+      assert.deepStrictEqual(
+        transformed._flags,
+        undefined,
+        'should not have flags when file read fails with non-ENOENT error',
+      );
+    });
+  });
+
+  describe('build type overrides', () => {
+    const context = join(__dirname, 'fixtures/ManifestPlugin/build-types');
+
+    it('should apply build type base manifest overrides', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'beta',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(
+        json.description,
+        'Beta build type description',
+        'should use beta build type description',
+      );
+      assert.strictEqual(
+        json.beta_property,
+        'from_beta_base',
+        'should include beta base property',
+      );
+      assert.strictEqual(
+        json.base_property,
+        'overridden_by_beta',
+        'should override base property with beta value',
+      );
+    });
+
+    it('should apply build type browser manifest overrides on top of all previous layers', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'beta',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(
+        json.browser_specific_settings?.chrome?.id,
+        'beta-chrome-extension-id',
+        'should use beta chrome extension id',
+      );
+      assert.strictEqual(
+        json.beta_chrome_property,
+        'from_beta_chrome',
+        'should include beta chrome property',
+      );
+      assert.strictEqual(
+        json.chrome_property,
+        'overridden_by_beta_chrome',
+        'should override chrome property with beta chrome value',
+      );
+    });
+
+    it('should gracefully skip non-existent build type manifests', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'nonexistent',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      // Should use base manifest values
+      assert.strictEqual(
+        json.description,
+        'Base v3 manifest description',
+        'should use base manifest description when build type does not exist',
+      );
+      assert.strictEqual(
+        json.base_property,
+        'from_base',
+        'should use base property value',
+      );
+      assert.strictEqual(
+        json.beta_property,
+        undefined,
+        'should not have beta properties',
+      );
+    });
+
+    it('should use build type base when build type browser manifest does not exist', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'flask',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(
+        json.description,
+        'Flask build type description',
+        'should use flask build type description',
+      );
+      assert.strictEqual(
+        json.flask_property,
+        'from_flask_base',
+        'should include flask base property',
+      );
+      assert.strictEqual(
+        json.flask_firefox_property,
+        undefined,
+        'should not have flask firefox property for chrome',
+      );
+      assert.strictEqual(
+        json.browser_specific_settings?.chrome?.id,
+        'chrome-extension-id-v3',
+        'should use base chrome extension id since flask chrome manifest does not exist',
+      );
+    });
+
+    it('should prioritize build type base description over base description', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: 'test suffix',
+        buildType: 'beta',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(
+        json.description,
+        'Beta build type description – test suffix',
+        'should use beta description with suffix appended',
+      );
+    });
+
+    it('should apply different build type overrides for different browsers', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome', 'firefox'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'flask',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const chromeManifest = compilation.assets['chrome/manifest.json'];
+      const chromeJson = JSON.parse(
+        chromeManifest.source().toString(),
+      ) as Manifest;
+
+      const firefoxManifest = compilation.assets['firefox/manifest.json'];
+      const firefoxJson = JSON.parse(
+        firefoxManifest.source().toString(),
+      ) as Manifest;
+
+      // Chrome should not have flask firefox overrides
+      assert.strictEqual(
+        chromeJson.flask_firefox_property,
+        undefined,
+        'chrome should not have flask firefox property',
+      );
+
+      // Firefox should have flask firefox overrides
+      assert.strictEqual(
+        firefoxJson.flask_firefox_property,
+        'from_flask_firefox',
+        'firefox should have flask firefox property',
+      );
+      assert.strictEqual(
+        firefoxJson.browser_specific_settings?.gecko?.id,
+        'flask-firefox-extension-id@metamask.io',
+        'firefox should have flask firefox extension id',
+      );
+    });
+
+    it('should work with manifest v2 and build type overrides', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 2,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: null,
+        buildType: 'beta',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(json.manifest_version, 2, 'should use manifest v2');
+      assert.strictEqual(
+        json.description,
+        'Beta build type description',
+        'should use beta build type description in v2',
+      );
+      assert.strictEqual(
+        json.beta_property,
+        'from_beta_base',
+        'should include beta base property in v2',
+      );
+    });
+
+    it('should append additional description suffix to build type description', async () => {
+      const { compiler, compilation, promise } = mockWebpack([], [], []);
+      compilation.options.context = context;
+
+      const manifestPlugin = new ManifestPlugin({
+        browsers: ['chrome'],
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        manifest_version: 3,
+        version: '1.0.0.0',
+        versionName: '1.0.0',
+        description: 'Additional Info',
+        buildType: 'flask',
+        zip: false,
+      });
+
+      manifestPlugin.apply(compiler);
+      await promise;
+
+      const manifest = compilation.assets['chrome/manifest.json'];
+      const json = JSON.parse(manifest.source().toString()) as Manifest;
+
+      assert.strictEqual(
+        json.description,
+        'Flask build type description – Additional Info',
+        'should append additional description to flask description',
+      );
+    });
   });
 });

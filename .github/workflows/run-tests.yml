@@ -14,15 +14,17 @@ jobs:
   test-unit:
     name: Unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         shard: [1, 2, 3, 4, 5, 6]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup environment
-        uses: metamask/github-tools/.github/actions/setup-environment@main
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v1
+        with:
+          is-high-risk-environment: false
+          skip-allow-scripts: true
+          use-yarn-hydrate: true
 
       - name: test:unit:coverage
         run: yarn test:unit:coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }}
@@ -38,12 +40,14 @@ jobs:
   test-webpack:
     name: Webpack tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup environment
-        uses: metamask/github-tools/.github/actions/setup-environment@main
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v1
+        with:
+          is-high-risk-environment: false
+          skip-allow-scripts: true
+          use-yarn-hydrate: true
 
       - name: test:unit:webpack:coverage
         run: yarn test:unit:webpack:coverage
@@ -59,12 +63,14 @@ jobs:
   test-integration:
     name: Integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup environment
-        uses: metamask/github-tools/.github/actions/setup-environment@main
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v1
+        with:
+          is-high-risk-environment: false
+          skip-allow-scripts: true
+          use-yarn-hydrate: true
 
       - name: test:integration:coverage
         run: yarn test:integration:coverage
@@ -79,7 +85,9 @@ jobs:
 
   report-coverage:
     name: Report coverage
+    if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs:
       - test-unit
       - test-webpack
@@ -88,16 +96,18 @@ jobs:
       current-coverage: ${{ steps.get-current-coverage.outputs.CURRENT_COVERAGE }}
       stored-coverage: ${{ steps.get-stored-coverage.outputs.STORED_COVERAGE }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup environment
-        uses: metamask/github-tools/.github/actions/setup-environment@main
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v1
+        with:
+          is-high-risk-environment: false
+          skip-allow-scripts: true
+          use-yarn-hydrate: true
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: coverage
+          pattern: coverage-*
           merge-multiple: true
 
       - name: Merge coverage reports

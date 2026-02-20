@@ -1,13 +1,30 @@
-import { ListNames, PhishingController } from '@metamask/phishing-controller';
-import { ControllerMessenger } from '@metamask/base-controller';
+import {
+  ListNames,
+  PhishingController,
+  AllowedEvents,
+  PhishingControllerActions,
+} from '@metamask/phishing-controller';
+import { Messenger } from '@metamask/messenger';
+import { getRootMessenger } from '../../messenger';
 import { isBlockedUrl } from './isBlockedUrl';
 
 describe('isBlockedUrl', () => {
-  const messenger = new ControllerMessenger();
-  const phishingControllerMessenger = messenger.getRestricted({
-    name: 'PhishingController',
-    allowedActions: [],
-    allowedEvents: [],
+  const messenger = getRootMessenger<
+    PhishingControllerActions,
+    AllowedEvents
+  >();
+  const phishingControllerMessenger = new Messenger<
+    'PhishingController',
+    PhishingControllerActions,
+    AllowedEvents,
+    typeof messenger
+  >({
+    namespace: 'PhishingController',
+    parent: messenger,
+  });
+  messenger.delegate({
+    messenger: phishingControllerMessenger,
+    events: ['TransactionController:stateChange'],
   });
   const phishingController = new PhishingController({
     messenger: phishingControllerMessenger,
@@ -27,6 +44,7 @@ describe('isBlockedUrl', () => {
           lastUpdated: 0,
           name: ListNames.MetaMask,
           c2DomainBlocklist: [],
+          blocklistPaths: {},
         },
       ],
     },
@@ -55,7 +73,7 @@ describe('isBlockedUrl', () => {
     [1, true],
     [0, true],
     [-1, true],
-    // TODO: Replace `any` with type
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ])('"%s" is blocked: %s', async (url: any, expected: boolean) => {
     const result = await isBlockedUrl(

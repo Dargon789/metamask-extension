@@ -1,17 +1,14 @@
 import { Contract } from '@ethersproject/contracts';
-import {
-  ExternalProvider,
-  JsonRpcFetchFunc,
-  Web3Provider,
-} from '@ethersproject/providers';
+import { Web3Provider } from '@ethersproject/providers';
 import { BaseController, StateMetadata } from '@metamask/base-controller';
-import type { ChainId } from '@metamask/controller-utils';
 import { GasFeeState } from '@metamask/gas-fee-controller';
 import { TransactionParams } from '@metamask/transaction-controller';
-import { captureException } from '@sentry/browser';
 import { BigNumber } from 'bignumber.js';
 import abi from 'human-standard-token-abi';
 import { cloneDeep, mapValues } from 'lodash';
+import { NetworkClient, NetworkClientId } from '@metamask/network-controller';
+import { Hex } from '@metamask/utils';
+import { captureException } from '../../../../shared/lib/sentry';
 import { EtherDenomination } from '../../../../shared/constants/common';
 import { GasEstimateTypes } from '../../../../shared/constants/gas';
 import {
@@ -71,10 +68,19 @@ import type {
   Trade,
 } from './swaps.types';
 
+type Network = {
+  client: NetworkClient;
+  clientId: NetworkClientId;
+  chainId: Hex;
+  ethersProvider: Web3Provider;
+};
+
 const metadata: StateMetadata<SwapsControllerState> = {
   swapsState: {
+    includeInStateLogs: true,
     persist: false,
-    anonymous: false,
+    includeInDebugSnapshot: false,
+    usedInUi: true,
   },
 };
 
@@ -103,33 +109,35 @@ export default class SwapsController extends BaseController<
     properties: Record<string, string | boolean | number | null>;
   }) => void;
 
-  #ethersProvider: Web3Provider;
-
-  #ethersProviderChainId: ChainId;
-
   #indexOfNewestCallInFlight: number;
 
   #pollCount: number;
 
   #pollingTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  #provider: ExternalProvider | JsonRpcFetchFunc;
-
-  #getEIP1559GasFeeEstimates: () => Promise<GasFeeState>;
+  #getEIP1559GasFeeEstimates: (options?: {
+    networkClientId?: NetworkClientId;
+    shouldUpdateState?: boolean;
+  }) => Promise<GasFeeState>;
 
   #getLayer1GasFee: (params: {
     transactionParams: TransactionParams;
-    chainId: ChainId;
+    networkClientId: NetworkClientId;
   }) => Promise<string>;
+
+  #network: Network | undefined;
 
   private _fetchTradesInfo: (
     fetchParams: FetchTradesInfoParams,
-    fetchMetadata: { chainId: ChainId },
+    fetchMetadata: { chainId: Hex },
   ) => Promise<{
     [aggId: string]: Quote;
   }> = defaultFetchTradesInfo;
 
-  constructor(opts: SwapsControllerOptions, state: SwapsControllerState) {
+  constructor(
+    opts: SwapsControllerOptions,
+    state: Partial<SwapsControllerState> | undefined,
+  ) {
     super({
       name: controllerName,
       metadata,
@@ -142,112 +150,112 @@ export default class SwapsController extends BaseController<
       },
     });
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:fetchAndSetQuotes`,
       this.fetchAndSetQuotes.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSelectedQuoteAggId`,
       this.setSelectedQuoteAggId.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:resetSwapsState`,
       this.resetSwapsState.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsTokens`,
       this.setSwapsTokens.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:clearSwapsQuotes`,
       this.clearSwapsQuotes.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setApproveTxId`,
       this.setApproveTxId.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setTradeTxId`,
       this.setTradeTxId.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsTxGasPrice`,
       this.setSwapsTxGasPrice.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsTxGasLimit`,
       this.setSwapsTxGasLimit.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsTxMaxFeePerGas`,
       this.setSwapsTxMaxFeePerGas.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsTxMaxFeePriorityPerGas`,
       this.setSwapsTxMaxFeePriorityPerGas.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:safeRefetchQuotes`,
       this.safeRefetchQuotes.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:stopPollingForQuotes`,
       this.stopPollingForQuotes.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setBackgroundSwapRouteState`,
       this.setBackgroundSwapRouteState.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:resetPostFetchState`,
       this.resetPostFetchState.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsErrorKey`,
       this.setSwapsErrorKey.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setInitialGasEstimate`,
       this.setInitialGasEstimate.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setCustomApproveTxData`,
       this.setCustomApproveTxData.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsLiveness`,
       this.setSwapsLiveness.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsFeatureFlags`,
       this.setSwapsFeatureFlags.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsUserFeeLevel`,
       this.setSwapsUserFeeLevel.bind(this),
     );
 
-    this.messagingSystem.registerActionHandler(
+    this.messenger.registerActionHandler(
       `SwapsController:setSwapsQuotesPollingLimitEnabled`,
       this.setSwapsQuotesPollingLimitEnabled.bind(this),
     );
@@ -267,11 +275,8 @@ export default class SwapsController extends BaseController<
 
     this.#getEIP1559GasFeeEstimates = opts.getEIP1559GasFeeEstimates;
     this.#getLayer1GasFee = opts.getLayer1GasFee;
-    this.#ethersProvider = new Web3Provider(opts.provider);
-    this.#ethersProviderChainId = this._getCurrentChainId();
     this.#indexOfNewestCallInFlight = 0;
     this.#pollCount = 0;
-    this.#provider = opts.provider;
 
     // TODO: this should be private, but since a lot of tests depends on spying on it
     // we cannot enforce privacy 100%
@@ -295,11 +300,11 @@ export default class SwapsController extends BaseController<
       return null;
     }
 
-    const { chainId } = fetchParamsMetaData;
-
-    if (chainId !== this.#ethersProviderChainId) {
-      this.#ethersProvider = new Web3Provider(this.#provider);
-      this.#ethersProviderChainId = chainId;
+    let network;
+    if (this.#network?.clientId === fetchParamsMetaData.networkClientId) {
+      network = this.#network;
+    } else {
+      network = this.#setNetwork(fetchParamsMetaData.networkClientId);
     }
 
     const { quotesPollingLimitEnabled, saveFetchedQuotes } =
@@ -327,8 +332,8 @@ export default class SwapsController extends BaseController<
     }
 
     let [newQuotes] = await Promise.all([
-      this._fetchTradesInfo(fetchParams, { ...fetchParamsMetaData }),
-      this._setSwapsNetworkConfig(),
+      this._fetchTradesInfo(fetchParams, { chainId: network.chainId }),
+      this._setSwapsNetworkConfig(network),
     ]);
 
     const { saveFetchedQuotes: saveFetchedQuotesAfterResponse } =
@@ -349,8 +354,8 @@ export default class SwapsController extends BaseController<
       destinationTokenInfo: fetchParamsMetaData?.destinationTokenInfo,
     }));
 
-    const isOptimism = chainId === CHAIN_IDS.OPTIMISM.toString();
-    const isBase = chainId === CHAIN_IDS.BASE.toString();
+    const isOptimism = network.chainId === CHAIN_IDS.OPTIMISM.toString();
+    const isBase = network.chainId === CHAIN_IDS.BASE.toString();
 
     if ((isOptimism || isBase) && Object.values(newQuotes).length > 0) {
       await Promise.all(
@@ -358,7 +363,7 @@ export default class SwapsController extends BaseController<
           if (quote.trade) {
             const multiLayerL1TradeFeeTotal = await this.#getLayer1GasFee({
               transactionParams: quote.trade,
-              chainId,
+              networkClientId: network.clientId,
             });
 
             quote.multiLayerL1TradeFeeTotal = multiLayerL1TradeFeeTotal;
@@ -372,23 +377,22 @@ export default class SwapsController extends BaseController<
 
     let approvalRequired = false;
     if (
-      !isSwapsDefaultTokenAddress(fetchParams.sourceToken, chainId) &&
+      !isSwapsDefaultTokenAddress(fetchParams.sourceToken, network.chainId) &&
       Object.values(newQuotes).length
     ) {
       const allowance = await this._getERC20Allowance(
         fetchParams.sourceToken,
         fetchParams.fromAddress,
-        chainId,
+        network,
       );
       const [firstQuote] = Object.values(newQuotes);
 
       // For a user to be able to swap a token, they need to have approved the MetaSwap contract to withdraw that token.
-      // _getERC20Allowance() returns the amount of the token they have approved for withdrawal. If that amount is greater
-      // than 0, it means that approval has already occurred and is not needed. Otherwise, for tokens to be swapped, a new
-      // call of the ERC-20 approve method is required.
+      // _getERC20Allowance() returns the amount of the token they have approved for withdrawal. If that amount is either
+      // zero or less than the sourceAmount of the swap, a new call of the ERC-20 approve method is required.
       approvalRequired =
         firstQuote.approvalNeeded &&
-        allowance.eq(0) &&
+        (allowance.eq(0) || allowance.lt(firstQuote.sourceAmount)) &&
         firstQuote.aggregator !== 'wrappedNative';
       if (!approvalRequired) {
         newQuotes = mapValues(newQuotes, (quote) => ({
@@ -409,6 +413,8 @@ export default class SwapsController extends BaseController<
                   // approvalNeeded is guaranteed to be defined here because of the conditional above, since all quotes are from the same source token
                   // the approvalNeeded object will be present for all quotes
                   ...quote.approvalNeeded,
+                  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
                   gas: approvalGas || DEFAULT_ERC20_APPROVE_GAS,
                 },
               }
@@ -428,9 +434,9 @@ export default class SwapsController extends BaseController<
     if (Object.values(newQuotes).length === 0) {
       this.setSwapsErrorKey(QUOTES_NOT_AVAILABLE_ERROR);
     } else {
-      const topQuoteAndSavings = await this.getTopQuoteWithCalculatedSavings(
-        newQuotes,
-      );
+      const topQuoteAndSavings = await this.getTopQuoteWithCalculatedSavings({
+        quotes: newQuotes,
+      });
       if (Array.isArray(topQuoteAndSavings)) {
         topAggId = topQuoteAndSavings[0];
         newQuotes = topQuoteAndSavings[1];
@@ -476,11 +482,27 @@ export default class SwapsController extends BaseController<
     return [newQuotes, topAggId];
   }
 
-  public async getTopQuoteWithCalculatedSavings(
-    quotes: Record<string, Quote> = {},
-  ): Promise<[string | null, Record<string, Quote>] | Record<string, never>> {
+  public async getTopQuoteWithCalculatedSavings({
+    quotes,
+    networkClientId,
+  }: {
+    quotes: Record<string, Quote>;
+    networkClientId?: NetworkClientId;
+  }): Promise<[string | null, Record<string, Quote>] | Record<string, never>> {
+    let chainId;
+    if (networkClientId) {
+      const networkClient = this.messenger.call(
+        'NetworkController:getNetworkClientById',
+        networkClientId,
+      );
+      chainId = networkClient.configuration.chainId;
+    } else if (this.#network === undefined) {
+      throw new Error('There is no network set');
+    } else {
+      chainId = this.#network.chainId;
+    }
+
     const { marketData } = this._getTokenRatesState();
-    const chainId = this._getCurrentChainId();
     const tokenConversionRates = marketData?.[chainId] ?? {};
 
     const { customGasPrice, customMaxPriorityFeePerGas } =
@@ -494,7 +516,7 @@ export default class SwapsController extends BaseController<
     const newQuotes = cloneDeep(quotes);
 
     const { gasFeeEstimates, gasEstimateType } =
-      await this.#getEIP1559GasFeeEstimates();
+      await this.#getEIP1559GasFeeEstimates({ networkClientId });
 
     let usedGasPrice = '0x0';
 
@@ -514,6 +536,8 @@ export default class SwapsController extends BaseController<
       ).toDenomination(EtherDenomination.WEI);
 
       usedGasPrice = new Numeric(
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         customMaxPriorityFeePerGas || suggestedMaxPriorityFeePerGasInHexWEI,
         16,
       )
@@ -522,9 +546,13 @@ export default class SwapsController extends BaseController<
         .toString();
     } else if (gasEstimateType === GasEstimateTypes.legacy) {
       usedGasPrice =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         customGasPrice || decGWEIToHexWEI(Number(gasFeeEstimates.high));
     } else if (gasEstimateType === GasEstimateTypes.ethGasPrice) {
       usedGasPrice =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         customGasPrice || decGWEIToHexWEI(Number(gasFeeEstimates.gasPrice));
     }
 
@@ -556,6 +584,8 @@ export default class SwapsController extends BaseController<
         : new BigNumber(averageGas || MAX_GAS_LIMIT, 10);
 
       const totalGasLimitForCalculation = tradeGasLimitForCalculation
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         .plus(approvalNeeded?.gas || '0x0', 16)
         .toString(16);
 
@@ -566,6 +596,8 @@ export default class SwapsController extends BaseController<
       if (multiLayerL1TradeFeeTotal !== null) {
         gasTotalInWeiHex = sumHexes(
           gasTotalInWeiHex || '0x0',
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           multiLayerL1TradeFeeTotal || '0x0',
         );
       }
@@ -618,6 +650,8 @@ export default class SwapsController extends BaseController<
         ? tokenConversionRates[tokenConversionRateKey]
         : null;
 
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       const conversionRateForSorting = tokenConversionRate?.price || 1;
 
       const ethValueOfTokens = decimalAdjustedDestinationAmount.times(
@@ -904,6 +938,8 @@ export default class SwapsController extends BaseController<
    *
    * @param newState - The new state to set
    */
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   public __test__updateState = (newState: Partial<SwapsControllerState>) => {
     this.update((oldState) => {
       return { swapsState: { ...oldState.swapsState, ...newState.swapsState } };
@@ -911,9 +947,9 @@ export default class SwapsController extends BaseController<
   };
 
   // Private Methods
-  private async _fetchSwapsNetworkConfig(chainId: ChainId) {
+  private async _fetchSwapsNetworkConfig(network: Network) {
     const response = await fetchWithCache({
-      url: getBaseApi('network', chainId),
+      url: getBaseApi('network', network.chainId),
       fetchOptions: { method: 'GET' },
       cacheOptions: { cacheRefreshTime: 600000 },
       functionName: '_fetchSwapsNetworkConfig',
@@ -983,29 +1019,16 @@ export default class SwapsController extends BaseController<
     return newQuotes;
   }
 
-  private _getCurrentChainId(): ChainId {
-    const { selectedNetworkClientId } = this.messagingSystem.call(
-      'NetworkController:getState',
-    );
-    const {
-      configuration: { chainId },
-    } = this.messagingSystem.call(
-      'NetworkController:getNetworkClientById',
-      selectedNetworkClientId,
-    );
-    return chainId as ChainId;
-  }
-
   private async _getERC20Allowance(
     contractAddress: string,
     walletAddress: string,
-    chainId: ChainId,
+    network: Network,
   ) {
-    const contract = new Contract(contractAddress, abi, this.#ethersProvider);
+    const contract = new Contract(contractAddress, abi, network.ethersProvider);
     return await contract.allowance(
       walletAddress,
       SWAPS_CHAINID_CONTRACT_ADDRESS_MAP[
-        chainId as keyof typeof SWAPS_CHAINID_CONTRACT_ADDRESS_MAP
+        network.chainId as keyof typeof SWAPS_CHAINID_CONTRACT_ADDRESS_MAP
       ],
     );
   }
@@ -1020,9 +1043,7 @@ export default class SwapsController extends BaseController<
       }
     >;
   } {
-    const { marketData } = this.messagingSystem.call(
-      'TokenRatesController:getState',
-    );
+    const { marketData } = this.messenger.call('TokenRatesController:getState');
     return { marketData };
   }
 
@@ -1053,8 +1074,7 @@ export default class SwapsController extends BaseController<
   }
 
   // Sets the network config from the MetaSwap API.
-  private async _setSwapsNetworkConfig() {
-    const chainId = this._getCurrentChainId();
+  private async _setSwapsNetworkConfig(network: Network) {
     let swapsNetworkConfig: {
       quotes: number;
       quotesPrefetching: number;
@@ -1065,25 +1085,37 @@ export default class SwapsController extends BaseController<
     } | null = null;
 
     try {
-      swapsNetworkConfig = await this._fetchSwapsNetworkConfig(chainId);
+      swapsNetworkConfig = await this._fetchSwapsNetworkConfig(network);
     } catch (e) {
       console.error('Request for Swaps network config failed: ', e);
     }
     this.update((_state) => {
       _state.swapsState.swapsQuoteRefreshTime =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.quotes || FALLBACK_QUOTE_REFRESH_TIME;
       _state.swapsState.swapsQuotePrefetchingRefreshTime =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.quotesPrefetching || FALLBACK_QUOTE_REFRESH_TIME;
       _state.swapsState.swapsStxGetTransactionsRefreshTime =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.stxGetTransactions ||
         FALLBACK_SMART_TRANSACTIONS_REFRESH_TIME;
       _state.swapsState.swapsStxBatchStatusRefreshTime =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.stxBatchStatus ||
         FALLBACK_SMART_TRANSACTIONS_REFRESH_TIME;
       _state.swapsState.swapsStxMaxFeeMultiplier =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.stxMaxFeeMultiplier ||
         FALLBACK_SMART_TRANSACTIONS_MAX_FEE_MULTIPLIER;
       _state.swapsState.swapsStxStatusDeadline =
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         swapsNetworkConfig?.stxStatusDeadline ||
         FALLBACK_SMART_TRANSACTIONS_DEADLINE;
     });
@@ -1102,6 +1134,8 @@ export default class SwapsController extends BaseController<
           event: MetaMetricsEventName.QuoteError,
           category: MetaMetricsEventCategory.Swaps,
           properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             error_type: MetaMetricsEventErrorType.GasTimeout,
             aggregator,
           },
@@ -1141,5 +1175,26 @@ export default class SwapsController extends BaseController<
           }
         });
     });
+  }
+
+  #setNetwork(networkClientId: NetworkClientId) {
+    const networkClient = this.messenger.call(
+      'NetworkController:getNetworkClientById',
+      networkClientId,
+    );
+    const { chainId } = networkClient.configuration;
+    // Web3Provider (via JsonRpcProvider) creates two extra network requests, so
+    // we cache the object so that we can reuse it for subsequent contract
+    // interactions for the same network
+    const ethersProvider = new Web3Provider(networkClient.provider);
+
+    const network = {
+      client: networkClient,
+      clientId: networkClientId,
+      chainId,
+      ethersProvider,
+    };
+    this.#network = network;
+    return network;
   }
 }

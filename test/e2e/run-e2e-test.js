@@ -25,10 +25,6 @@ async function main() {
               'Run tests in debug mode, logging each driver interaction',
             type: 'boolean',
           })
-          .option('mmi', {
-            description: 'Run only mmi related tests',
-            type: 'boolean',
-          })
           .option('retries', {
             default: 0,
             description:
@@ -70,7 +66,6 @@ async function main() {
   const {
     browser,
     debug,
-    mmi,
     e2eTestPath,
     retries,
     stopAfterOneFailure,
@@ -131,14 +126,6 @@ async function main() {
     const configFile = path.join(__dirname, '.mocharc.js');
     const extraArgs = process.env.E2E_ARGS?.split(' ') || [];
 
-    // If mmi flag is passed
-    if (mmi) {
-      // Tests that contains `@no-mmi` will be grep (-g) and inverted (-i)
-      // meaning that all tests with @no-mmi in the title will be ignored
-      extraArgs.push('-g', '@no-mmi', '-i');
-      process.env.MMI = 'true';
-    }
-
     const dir = 'test/test-results/e2e';
     fs.mkdir(dir, { recursive: true });
 
@@ -179,6 +166,13 @@ async function main() {
       );
     }
   }
+
+  // In CI we sometimes get to this point without being ready to properly
+  // terminate the process. We haven't been able to figure out what is
+  // holding up the process. But this is a quick fix to ensure more
+  // stable CI going forward.
+  // eslint-disable-next-line node/no-process-exit
+  process.exit();
 }
 
 main().catch((error) => {

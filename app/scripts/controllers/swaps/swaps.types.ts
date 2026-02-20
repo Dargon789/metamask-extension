@@ -1,13 +1,12 @@
-import { ExternalProvider, JsonRpcFetchFunc } from '@ethersproject/providers';
 import { TokenRatesControllerGetStateAction } from '@metamask/assets-controllers';
 import {
   ControllerGetStateAction,
   ControllerStateChangeEvent,
-  RestrictedControllerMessenger,
 } from '@metamask/base-controller';
-import type { ChainId } from '@metamask/controller-utils';
+import type { Messenger } from '@metamask/messenger';
 import { GasFeeState } from '@metamask/gas-fee-controller';
 import {
+  NetworkClientId,
   NetworkControllerGetNetworkClientByIdAction,
   NetworkControllerGetStateAction,
 } from '@metamask/network-controller';
@@ -115,12 +114,10 @@ export type SwapsControllerEvents = SwapsControllerStateChangeEvent;
 /**
  * The messenger for the SwapsController.
  */
-export type SwapsControllerMessenger = RestrictedControllerMessenger<
+export type SwapsControllerMessenger = Messenger<
   typeof controllerName,
   SwapsControllerActions | AllowedActions,
-  SwapsControllerEvents,
-  AllowedActions['type'],
-  never
+  SwapsControllerEvents
 >;
 
 /**
@@ -312,7 +309,7 @@ export type FetchTradesInfoParams = {
 };
 
 export type FetchTradesInfoParamsMetadata = {
-  chainId: ChainId;
+  networkClientId: NetworkClientId;
   sourceTokenInfo: {
     address: string;
     symbol: string;
@@ -348,11 +345,10 @@ export type SwapsControllerOptions = {
     },
     factor: number,
   ) => Promise<{ gasLimit: string; simulationFails: boolean }>;
-  provider: ExternalProvider | JsonRpcFetchFunc;
-  fetchTradesInfo: typeof defaultFetchTradesInfo;
+  fetchTradesInfo?: typeof defaultFetchTradesInfo;
   getLayer1GasFee: (params: {
     transactionParams: TransactionParams;
-    chainId: ChainId;
+    networkClientId: NetworkClientId;
   }) => Promise<string>;
   getEIP1559GasFeeEstimates: () => Promise<GasFeeState>;
   trackMetaMetricsEvent: (event: {

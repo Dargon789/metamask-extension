@@ -9,6 +9,10 @@ const store = mockStore({
   appState: {
     isLoading: false,
   },
+  metamask: {
+    isSignedIn: true,
+    sessionData: undefined,
+  }
 });
 
 const meta: Meta<typeof RestoreVaultPage> = {
@@ -18,13 +22,13 @@ const meta: Meta<typeof RestoreVaultPage> = {
   argTypes: {
     createNewVaultAndRestore: { action: 'createNewVaultAndRestore' },
     leaveImportSeedScreenState: { action: 'leaveImportSeedScreenState' },
-    history: { control: 'object' },
+    navigate: { control: 'function' },
     isLoading: { control: 'boolean' },
   },
   args: {
     createNewVaultAndRestore: () => {},
     leaveImportSeedScreenState: () => {},
-    history: { push: () => {} },
+    navigate: () => {},
     isLoading: false,
   },
 };

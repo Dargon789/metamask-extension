@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { hasProperty } from '@metamask/utils';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AlignItems,
   BackgroundColor,
@@ -18,12 +18,13 @@ import {
 import { Content, Page } from '../../../components/multichain/pages/page';
 import SnapAuthorshipHeader from '../../../components/app/snaps/snap-authorship-header';
 import SnapHomeMenu from '../../../components/app/snaps/snap-home-menu';
+import { SnapHomeRenderer } from '../../../components/app/snaps/snap-home-page/snap-home-renderer';
 import SnapSettings from './snap-settings';
-import SnapHome from './snap-home';
 
 function SnapView() {
-  const history = useHistory();
+  const navigate = useNavigate();
   const location = useLocation();
+
   const { pathname } = location;
   // The snap ID is in URI-encoded form in the last path segment of the URL.
   const snapId = decodeURIComponent(pathname.match(/[^/]+$/u)[0]);
@@ -34,9 +35,9 @@ function SnapView() {
 
   useEffect(() => {
     if (!snap) {
-      history.push(SNAPS_ROUTE);
+      navigate(SNAPS_ROUTE);
     }
-  }, [history, snap]);
+  }, [navigate, snap]);
 
   const permissions = useSelector(
     (state) => snap && getPermissions(state, snap.id),
@@ -66,11 +67,11 @@ function SnapView() {
 
   const handleBackClick = () => {
     if (snap.preinstalled && snap.hidden) {
-      history.push(DEFAULT_ROUTE);
+      navigate(DEFAULT_ROUTE);
     } else if (showSettings && hasHomePage) {
       setShowSettings(false);
     } else {
-      history.push(SNAPS_ROUTE);
+      navigate(SNAPS_ROUTE);
     }
   };
 
@@ -92,12 +93,7 @@ function SnapView() {
   };
 
   return (
-    <div
-      className="snap-view"
-      style={{
-        boxShadow: 'var(--shadow-size-md) var(--color-shadow-default)',
-      }}
-    >
+    <div className="snap-view">
       <Page backgroundColor={BackgroundColor.backgroundDefault}>
         {!snap.hideSnapBranding && (
           <SnapAuthorshipHeader
@@ -129,7 +125,7 @@ function SnapView() {
               resetInitRemove={resetInitRemove}
             />
           ) : (
-            <SnapHome snapId={snapId} />
+            <SnapHomeRenderer snapId={snapId} />
           )}
         </Content>
       </Page>

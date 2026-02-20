@@ -1,8 +1,10 @@
 import { waitFor } from '@testing-library/react';
 import React from 'react';
+import { TransactionType } from '@metamask/transaction-controller';
 import configureMockStore from 'redux-mock-store';
 import {
   getMockApproveConfirmState,
+  getMockConfirmStateForTransaction,
   getMockContractInteractionConfirmState,
   getMockPersonalSignConfirmState,
   getMockPersonalSignConfirmStateForRequest,
@@ -17,11 +19,13 @@ import {
 } from '../../../../../../test/data/confirmations/typed_sign';
 import { renderWithConfirmContextProvider } from '../../../../../../test/lib/confirmations/render-helpers';
 import { tEn } from '../../../../../../test/lib/i18n-helpers';
+import { upgradeAccountConfirmationOnly } from '../../../../../../test/data/confirmations/batch-transaction';
 import {
   Alert,
   ConfirmAlertsState,
 } from '../../../../../ducks/confirm-alerts/confirm-alerts';
 import { Severity } from '../../../../../helpers/constants/design-system';
+import { Confirmation } from '../../../types/confirm';
 import { useIsNFT } from '../info/approve/hooks/use-is-nft';
 import ConfirmTitle from './title';
 
@@ -45,7 +49,29 @@ jest.mock('../info/approve/hooks/use-is-nft', () => ({
   useIsNFT: jest.fn(() => ({ isNFT: true })),
 }));
 
+jest.mock('../../../../../store/actions', () => ({
+  getContractMethodData: jest.fn().mockReturnValue({ type: 'dummy' }),
+}));
+
 describe('ConfirmTitle', () => {
+  it('should render a skeleton loader when there is no current confirmation', () => {
+    const mockStateWithNoConfirmation = {
+      ...getMockPersonalSignConfirmState(),
+      metamask: {
+        ...getMockPersonalSignConfirmState().metamask,
+        pendingApprovals: {},
+        unapprovedPersonalMsgs: {},
+      },
+    };
+    const mockStore = configureMockStore([])(mockStateWithNoConfirmation);
+    const { container } = renderWithConfirmContextProvider(
+      <ConfirmTitle />,
+      mockStore,
+    );
+
+    expect(container.querySelector('.mm-skeleton')).toBeInTheDocument();
+  });
+
   it('should render the title and description for a personal signature', () => {
     const mockStore = configureMockStore([])(getMockPersonalSignConfirmState);
     const { getByText } = renderWithConfirmContextProvider(
@@ -89,6 +115,23 @@ describe('ConfirmTitle', () => {
     ).toBeInTheDocument();
   });
 
+  it('should render the title and description for smart account upgrade correctly', () => {
+    const mockStore = configureMockStore([])(
+      getMockConfirmStateForTransaction(
+        upgradeAccountConfirmationOnly as Confirmation,
+      ),
+    );
+    const { getByText } = renderWithConfirmContextProvider(
+      <ConfirmTitle />,
+      mockStore,
+    );
+
+    expect(getByText('Account update')).toBeInTheDocument();
+    expect(
+      getByText("You're switching to a smart account."),
+    ).toBeInTheDocument();
+  });
+
   it('should render the title and description for typed signature', () => {
     const mockStore = configureMockStore([])(getMockTypedSignConfirmState());
     const { getByText } = renderWithConfirmContextProvider(
@@ -124,7 +167,7 @@ describe('ConfirmTitle', () => {
     );
 
     expect(
-      getByText(tEn('confirmTitleApproveTransaction') as string),
+      getByText(tEn('confirmTitleApproveTransactionNFT') as string),
     ).toBeInTheDocument();
     expect(
       getByText(tEn('confirmTitleDescApproveTransaction') as string),
@@ -229,6 +272,46 @@ describe('ConfirmTitle', () => {
 
       expect(getByText(alertMock.reason)).toBeInTheDocument();
       expect(getByText(alertMock2.reason)).toBeInTheDocument();
+    });
+
+    // @ts-expect-error This is missing from the Mocha type definitions
+    it.each([
+      TransactionType.musdConversion,
+      TransactionType.perpsDeposit,
+      TransactionType.predictDeposit,
+      TransactionType.predictWithdraw,
+    ])('hides alert banner for %s transaction type', (type: string) => {
+      const txId = `${type}-tx-id`;
+      const transaction = {
+        id: txId,
+        type: type as TransactionType,
+        chainId: '0x5',
+        txParams: { from: '0x123' },
+        status: 'unapproved',
+        time: Date.now(),
+      } as Confirmation;
+
+      const stateWithAlert = getMockConfirmStateForTransaction(transaction, {
+        metamask: {},
+        confirmAlerts: {
+          alerts: {
+            [txId]: [alertMock as Alert],
+          },
+          confirmed: {
+            [txId]: {
+              [alertMock.key]: false,
+            },
+          },
+        },
+      });
+
+      const mockStore = configureMockStore([])(stateWithAlert);
+      const { queryByText } = renderWithConfirmContextProvider(
+        <ConfirmTitle />,
+        mockStore,
+      );
+
+      expect(queryByText(alertMock.reason)).not.toBeInTheDocument();
     });
   });
 });

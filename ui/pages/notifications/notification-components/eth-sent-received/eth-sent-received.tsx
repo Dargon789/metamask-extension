@@ -1,13 +1,11 @@
 import React from 'react';
 import { NotificationServicesController } from '@metamask/notification-services-controller';
-// TODO: Remove restricted import
-// eslint-disable-next-line import/no-restricted-paths
-import { t } from '../../../../../app/scripts/translate';
-import { CHAIN_IDS } from '../../../../../shared/constants/network';
+import { t } from '../../../../../shared/lib/translate';
 import { type ExtractedNotification, isOfTypeNodeGuard } from '../node-guard';
-import type { NotificationComponent } from '../types/notifications/notifications';
-
-import { decimalToHex } from '../../../../../shared/modules/conversion.utils';
+import {
+  NotificationComponentType,
+  type NotificationComponent,
+} from '../types/notifications/notifications';
 import { shortenAddress } from '../../../../helpers/utils/util';
 import {
   createTextItems,
@@ -54,16 +52,15 @@ const title = (n: ETHNotification) =>
   isSent(n) ? t('notificationItemSentTo') : t('notificationItemReceivedFrom');
 
 const getNativeCurrency = (n: ETHNotification) => {
-  const chainId = decimalToHex(n.chain_id);
-  const nativeCurrency = getNetworkDetailsByChainId(
-    `0x${chainId}` as keyof typeof CHAIN_IDS,
-  );
+  const nativeCurrency = getNetworkDetailsByChainId(n.payload.chain_id);
   return nativeCurrency;
 };
 
 const getTitle = (n: ETHNotification) => {
-  const address = shortenAddress(isSent(n) ? n.data.to : n.data.from);
-  const items = createTextItems([title(n) || '', address], TextVariant.bodySm);
+  const address = shortenAddress(
+    isSent(n) ? n.payload.data.to : n.payload.data.from,
+  );
+  const items = createTextItems([title(n) ?? '', address], TextVariant.bodySm);
   return items;
 };
 
@@ -95,18 +92,20 @@ export const components: NotificationComponent<ETHNotification> = {
         title={getTitle(notification)}
         description={getDescription(notification)}
         createdAt={new Date(notification.createdAt)}
-        amount={`${formatAmount(parseFloat(notification.data.amount.eth), {
-          shouldEllipse: true,
-        })} ${nativeCurrencySymbol}`}
+        amount={`${formatAmount(
+          parseFloat(notification.payload.data.amount.eth),
+          {
+            shouldEllipse: true,
+          },
+        )} ${nativeCurrencySymbol}`}
         onClick={onClick}
       />
     );
   },
   details: {
     title: ({ notification }) => {
-      const chainId = decimalToHex(notification.chain_id);
       const { nativeCurrencySymbol } = getNetworkDetailsByChainId(
-        `0x${chainId}` as keyof typeof CHAIN_IDS,
+        notification.payload.chain_id,
       );
       return (
         <NotificationDetailTitle
@@ -120,13 +119,13 @@ export const components: NotificationComponent<ETHNotification> = {
       );
     },
     body: {
-      type: 'body_onchain_notification',
+      type: NotificationComponentType.OnChainBody,
       From: ({ notification }) => (
         <NotificationDetailAddress
           side={`${t('notificationItemFrom')}${
             isSent(notification) ? ` (${t('you')})` : ''
           }`}
-          address={notification.data.from}
+          address={notification.payload.data.from}
         />
       ),
       To: ({ notification }) => (
@@ -134,7 +133,7 @@ export const components: NotificationComponent<ETHNotification> = {
           side={`${t('notificationItemTo')}${
             isSent(notification) ? '' : ` (${t('you')})`
           }`}
-          address={notification.data.to}
+          address={notification.payload.data.to}
         />
       ),
       Status: ({ notification }) => (
@@ -144,21 +143,20 @@ export const components: NotificationComponent<ETHNotification> = {
             color: TextColor.successDefault,
             backgroundColor: BackgroundColor.successMuted,
           }}
-          label={t('notificationItemStatus') || ''}
-          detail={t('notificationItemConfirmed') || ''}
+          label={t('notificationItemStatus') ?? ''}
+          detail={t('notificationItemConfirmed') ?? ''}
           action={
             <NotificationDetailCopyButton
               notification={notification}
-              text={notification.tx_hash}
-              displayText={t('notificationItemTransactionId') || ''}
+              text={notification.payload.tx_hash}
+              displayText={t('notificationItemTransactionId') ?? ''}
             />
           }
         />
       ),
       Asset: ({ notification }) => {
-        const chainId = decimalToHex(notification.chain_id);
         const { nativeCurrencyLogo, nativeCurrencySymbol } =
-          getNetworkDetailsByChainId(`0x${chainId}` as keyof typeof CHAIN_IDS);
+          getNetworkDetailsByChainId(notification.payload.chain_id);
         return (
           <NotificationDetailAsset
             icon={{
@@ -168,31 +166,33 @@ export const components: NotificationComponent<ETHNotification> = {
                 position: BadgeWrapperPosition.topRight,
               },
             }}
-            label={t('asset') || ''}
+            label={t('asset') ?? ''}
             detail={nativeCurrencySymbol}
             fiatValue={`$${formatAmount(
-              parseFloat(notification.data.amount.usd),
+              parseFloat(notification.payload.data.amount.usd),
               {
                 shouldEllipse: true,
               },
             )}`}
-            value={`${formatAmount(parseFloat(notification.data.amount.eth), {
-              shouldEllipse: true,
-            })} ${nativeCurrencySymbol}`}
+            value={`${formatAmount(
+              parseFloat(notification.payload.data.amount.eth),
+              {
+                shouldEllipse: true,
+              },
+            )} ${nativeCurrencySymbol}`}
           />
         );
       },
       Network: ({ notification }) => {
-        const chainId = decimalToHex(notification.chain_id);
         const { nativeCurrencyLogo, nativeCurrencyName } =
-          getNetworkDetailsByChainId(`0x${chainId}` as keyof typeof CHAIN_IDS);
+          getNetworkDetailsByChainId(notification.payload.chain_id);
 
         return (
           <NotificationDetailAsset
             icon={{
               src: nativeCurrencyLogo,
             }}
-            label={t('notificationDetailNetwork') || ''}
+            label={t('notificationDetailNetwork') ?? ''}
             detail={nativeCurrencyName}
           />
         );
@@ -201,18 +201,17 @@ export const components: NotificationComponent<ETHNotification> = {
         return <NotificationDetailNetworkFee notification={notification} />;
       },
     },
-  },
-  footer: {
-    type: 'footer_onchain_notification',
-    ScanLink: ({ notification }) => {
-      return (
-        <NotificationDetailBlockExplorerButton
-          notification={notification}
-          chainId={notification.chain_id}
-          txHash={notification.tx_hash}
-          id={notification.id}
-        />
-      );
+    footer: {
+      type: NotificationComponentType.OnChainFooter,
+      ScanLink: ({ notification }) => {
+        return (
+          <NotificationDetailBlockExplorerButton
+            notification={notification}
+            chainId={notification.payload.chain_id}
+            txHash={notification.payload.tx_hash}
+          />
+        );
+      },
     },
   },
 };

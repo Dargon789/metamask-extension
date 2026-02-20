@@ -1,63 +1,193 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Button } from '../../../components/component-library';
 import {
-  getBridgeQuotes,
+  Button,
+  ButtonLink,
+  ButtonSize,
+  ButtonVariant,
+  Text,
+} from '../../../components/component-library';
+import {
   getFromAmount,
-  getFromChain,
-  getFromToken,
-  getToAmount,
-  getToChain,
   getToToken,
+  getBridgeQuotes,
+  getValidationErrors,
+  getWasTxDeclined,
+  getIsQuoteExpired,
+  BridgeAppState,
 } from '../../../ducks/bridge/selectors';
 import { useI18nContext } from '../../../hooks/useI18nContext';
+import useSubmitBridgeTransaction from '../hooks/useSubmitBridgeTransaction';
+import {
+  AlignItems,
+  BlockSize,
+  JustifyContent,
+  TextAlign,
+  TextColor,
+  TextVariant,
+} from '../../../helpers/constants/design-system';
+import { useIsTxSubmittable } from '../../../hooks/bridge/useIsTxSubmittable';
+import { Row } from '../layout';
 
-export const BridgeCTAButton = () => {
+export const BridgeCTAButton = ({
+  onFetchNewQuotes,
+  needsDestinationAddress = false,
+  onOpenRecipientModal,
+}: {
+  onFetchNewQuotes: () => void;
+  needsDestinationAddress?: boolean;
+  onOpenRecipientModal?: () => void;
+}) => {
   const t = useI18nContext();
-  const fromToken = useSelector(getFromToken);
+
   const toToken = useSelector(getToToken);
 
-  const fromChain = useSelector(getFromChain);
-  const toChain = useSelector(getToChain);
-
   const fromAmount = useSelector(getFromAmount);
-  const toAmount = useSelector(getToAmount);
 
-  const { isLoading } = useSelector(getBridgeQuotes);
+  const { isLoading, activeQuote } = useSelector(getBridgeQuotes);
 
-  const isTxSubmittable =
-    fromToken && toToken && fromChain && toChain && fromAmount && toAmount;
+  const isQuoteExpired = useSelector((state) =>
+    getIsQuoteExpired(state as BridgeAppState, Date.now()),
+  );
+  const { submitBridgeTransaction } = useSubmitBridgeTransaction();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    isNoQuotesAvailable,
+    isInsufficientBalance,
+    isInsufficientGasBalance,
+    isInsufficientGasForQuote,
+    isTxAlertPresent,
+    isTxAlertLoading,
+  } = useSelector(getValidationErrors);
+
+  const wasTxDeclined = useSelector(getWasTxDeclined);
+
+  const isTxSubmittable = useIsTxSubmittable();
 
   const label = useMemo(() => {
-    if (isLoading && !isTxSubmittable) {
-      return t('swapFetchingQuotes');
+    if (wasTxDeclined) {
+      return 'youDeclinedTheTransaction';
     }
 
     if (!fromAmount) {
       if (!toToken) {
-        return t('bridgeSelectTokenAndAmount');
+        return needsDestinationAddress
+          ? 'bridgeSelectTokenAmountAndAccount'
+          : 'bridgeSelectTokenAndAmount';
       }
-      return t('bridgeEnterAmount');
+      return needsDestinationAddress
+        ? 'bridgeSelectDestinationAccount'
+        : 'bridgeEnterAmount';
     }
 
-    if (isTxSubmittable) {
-      return t('confirm');
+    if (needsDestinationAddress) {
+      return 'bridgeSelectDestinationAccount';
     }
 
-    return t('swapSelectToken');
-  }, [isLoading, fromAmount, toToken, isTxSubmittable]);
+    if (isQuoteExpired && !isLoading) {
+      return 'bridgeQuoteExpired';
+    }
 
-  return (
+    if (isLoading && !isTxSubmittable && !activeQuote) {
+      return undefined;
+    }
+
+    if (isInsufficientGasBalance || isNoQuotesAvailable) {
+      return undefined;
+    }
+
+    if (isInsufficientBalance || isInsufficientGasForQuote) {
+      return 'alertReasonInsufficientBalance';
+    }
+
+    if (isTxSubmittable || isTxAlertPresent || isTxAlertLoading) {
+      return 'swap';
+    }
+
+    return 'swapSelectToken';
+  }, [
+    isLoading,
+    isTxAlertPresent,
+    isTxAlertLoading,
+    fromAmount,
+    toToken,
+    isTxSubmittable,
+    isInsufficientBalance,
+    isInsufficientGasBalance,
+    isInsufficientGasForQuote,
+    wasTxDeclined,
+    isQuoteExpired,
+    needsDestinationAddress,
+    activeQuote,
+    isNoQuotesAvailable,
+  ]);
+
+  // Label for the secondary button that re-starts quote fetching
+  const secondaryButtonLabel = useMemo(() => {
+    if (wasTxDeclined || isQuoteExpired) {
+      return 'bridgeFetchNewQuotes';
+    }
+    return undefined;
+  }, [wasTxDeclined, isQuoteExpired]);
+
+  return (activeQuote || needsDestinationAddress) && !secondaryButtonLabel ? (
     <Button
+      width={BlockSize.Full}
+      size={ButtonSize.Lg}
+      variant={ButtonVariant.Primary}
       data-testid="bridge-cta-button"
-      onClick={() => {
-        if (isTxSubmittable) {
-          // dispatch tx submission
+      style={{ boxShadow: 'none' }}
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      onClick={async () => {
+        if (needsDestinationAddress && onOpenRecipientModal) {
+          onOpenRecipientModal();
+          return;
+        }
+
+        if (activeQuote && isTxSubmittable && !isSubmitting) {
+          try {
+            // We don't need to worry about setting to false if the tx submission succeeds
+            // because we route immediately to Activity list page
+            setIsSubmitting(true);
+            await submitBridgeTransaction(activeQuote);
+          } finally {
+            setIsSubmitting(false);
+          }
         }
       }}
-      disabled={!isTxSubmittable}
+      loading={isSubmitting}
+      disabled={
+        (!needsDestinationAddress && (!isTxSubmittable || isQuoteExpired)) ||
+        isSubmitting
+      }
     >
-      {label}
+      {label ? t(label) : ''}
     </Button>
+  ) : (
+    <Row
+      alignItems={AlignItems.center}
+      justifyContent={JustifyContent.center}
+      gap={1}
+    >
+      <Text
+        variant={TextVariant.bodyMd}
+        textAlign={TextAlign.Center}
+        color={TextColor.textAlternative}
+      >
+        {label ? t(label) : ''}
+      </Text>
+      {secondaryButtonLabel && (
+        <ButtonLink
+          as="a"
+          variant={TextVariant.bodyMd}
+          style={{ whiteSpace: 'nowrap' }}
+          onClick={onFetchNewQuotes}
+        >
+          {t(secondaryButtonLabel)}
+        </ButtonLink>
+      )}
+    </Row>
   );
 };

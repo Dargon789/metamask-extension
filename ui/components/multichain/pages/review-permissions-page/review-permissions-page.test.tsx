@@ -1,8 +1,8 @@
 import React from 'react';
-import { renderWithProvider } from '../../../../../test/jest/rendering';
+import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import mockState from '../../../../../test/data/mock-state.json';
 import configureStore from '../../../../store/store';
-import { ReviewPermissions } from '.';
+import { ReviewPermissions } from './review-permissions-page';
 
 const render = (state = {}) => {
   const store = configureStore({
@@ -12,6 +12,8 @@ const render = (state = {}) => {
       ...state,
       permissionHistory: {
         'https://test.dapp': {
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           eth_accounts: {
             accounts: {
               '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc': 1709225290848,

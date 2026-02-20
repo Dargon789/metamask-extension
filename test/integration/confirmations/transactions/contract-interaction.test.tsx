@@ -17,16 +17,22 @@ import * as backgroundConnection from '../../../../ui/store/background-connectio
 import { tEn } from '../../../lib/i18n-helpers';
 import { integrationTestRender } from '../../../lib/render-helpers';
 import mockMetaMaskState from '../../data/integration-init-state.json';
-import { createMockImplementation, mock4byte } from '../../helpers';
+import {
+  createMockImplementation,
+  getSelectedAccountGroupAccounts,
+  getSelectedAccountGroupName,
+  mock4byte,
+} from '../../helpers';
 import {
   getMaliciousUnapprovedTransaction,
   getUnapprovedContractInteractionTransaction,
 } from './transactionDataHelpers';
 
+jest.setTimeout(30_000);
+
 jest.mock('../../../../ui/store/background-connection', () => ({
   ...jest.requireActual('../../../../ui/store/background-connection'),
   submitRequestToBackground: jest.fn(),
-  callBackgroundMethod: jest.fn(),
 }));
 
 const mockedBackgroundConnection = jest.mocked(backgroundConnection);
@@ -48,7 +54,6 @@ const getMetaMaskStateWithUnapprovedContractInteraction = ({
     ...mockMetaMaskState,
     preferences: {
       ...mockMetaMaskState.preferences,
-      redesignedConfirmationsEnabled: true,
       showConfirmationAdvancedDetails,
     },
     nextNonce: '8',
@@ -120,6 +125,7 @@ const advancedDetailsMockedRequests = {
     ],
     source: 'Sourcify',
   },
+  setPreference: {},
 };
 
 const setupSubmitRequestToBackgroundMocks = (
@@ -128,7 +134,7 @@ const setupSubmitRequestToBackgroundMocks = (
   mockedBackgroundConnection.submitRequestToBackground.mockImplementation(
     createMockImplementation({
       ...advancedDetailsMockedRequests,
-      ...(mockRequests ?? {}),
+      ...mockRequests,
     }),
   );
 };
@@ -161,13 +167,8 @@ describe('Contract Interaction Confirmation', () => {
   });
 
   it('displays the header account modal with correct data', async () => {
-    const account =
-      mockMetaMaskState.internalAccounts.accounts[
-        mockMetaMaskState.internalAccounts
-          .selectedAccount as keyof typeof mockMetaMaskState.internalAccounts.accounts
-      ];
-
-    const accountName = account.metadata.name;
+    const [account] = getSelectedAccountGroupAccounts(mockMetaMaskState);
+    const accountName = getSelectedAccountGroupName(mockMetaMaskState);
     const mockedMetaMaskState =
       getMetaMaskStateWithUnapprovedContractInteraction({
         accountAddress: account.address,
@@ -175,25 +176,34 @@ describe('Contract Interaction Confirmation', () => {
 
     await act(async () => {
       await integrationTestRender({
-        preloadedState: mockedMetaMaskState,
+        preloadedState: {
+          ...mockedMetaMaskState,
+          participateInMetaMetrics: true,
+          dataCollectionForMarketing: false,
+        },
         backgroundConnection: backgroundConnectionMocked,
       });
     });
 
-    expect(screen.getByTestId('header-account-name')).toHaveTextContent(
+    await screen.findByText(accountName);
+    expect(await screen.findByTestId('header-account-name')).toHaveTextContent(
       accountName,
     );
-    expect(screen.getByTestId('header-network-display-name')).toHaveTextContent(
-      'Sepolia',
-    );
-
-    fireEvent.click(screen.getByTestId('header-info__account-details-button'));
-
     expect(
-      await screen.findByTestId(
-        'confirmation-account-details-modal__account-name',
-      ),
-    ).toHaveTextContent(accountName);
+      await screen.findByTestId('confirmation__details-network-name'),
+    ).toHaveTextContent('Sepolia');
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByTestId('header-info__account-details-button'),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('confirmation-account-details-modal__account-name'),
+      ).toHaveTextContent(accountName);
+    });
     expect(screen.getByTestId('address-copy-button-text')).toHaveTextContent(
       '0x0DCD5...3E7bc',
     );
@@ -214,21 +224,26 @@ describe('Contract Interaction Confirmation', () => {
       expect(confirmAccountDetailsModalMetricsEvent?.[0]).toBe(
         'trackMetaMetricsEvent',
       );
-    });
 
-    expect(confirmAccountDetailsModalMetricsEvent?.[1]).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          category: MetaMetricsEventCategory.Confirmations,
-          event: MetaMetricsEventName.AccountDetailsOpened,
-          properties: {
-            action: 'Confirm Screen',
-            location: MetaMetricsEventLocation.Transaction,
-            transaction_type: TransactionType.contractInteraction,
-          },
-        }),
-      ]),
-    );
+      expect(confirmAccountDetailsModalMetricsEvent?.[1]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: MetaMetricsEventCategory.Confirmations,
+            event: MetaMetricsEventName.AccountDetailsOpened,
+            properties: {
+              action: 'Confirm Screen',
+              location: MetaMetricsEventLocation.Transaction,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              transaction_type: TransactionType.contractInteraction,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              hd_entropy_index: 0,
+            },
+          }),
+        ]),
+      );
+    });
 
     fireEvent.click(
       screen.getByTestId('confirmation-account-details-modal__close-button'),
@@ -263,10 +278,12 @@ describe('Contract Interaction Confirmation', () => {
     });
 
     expect(
-      screen.getByText(tEn('confirmTitleTransaction') as string),
+      await screen.findByText(tEn('confirmTitleTransaction') as string),
     ).toBeInTheDocument();
 
-    const simulationSection = screen.getByTestId('simulation-details-layout');
+    const simulationSection = await screen.findByTestId(
+      'simulation-details-layout',
+    );
     expect(simulationSection).toBeInTheDocument();
     expect(simulationSection).toHaveTextContent(
       tEn('simulationDetailsTitle') as string,
@@ -279,10 +296,10 @@ describe('Contract Interaction Confirmation', () => {
       tEn('simulationDetailsIncomingHeading') as string,
     );
     expect(simulationDetailsRow).toContainElement(
-      screen.getByTestId('simulation-details-amount-pill'),
+      await screen.findByTestId('simulation-details-amount-pill'),
     );
 
-    const transactionDetailsSection = screen.getByTestId(
+    const transactionDetailsSection = await screen.findByTestId(
       'transaction-details-section',
     );
     expect(transactionDetailsSection).toBeInTheDocument();
@@ -293,33 +310,31 @@ describe('Contract Interaction Confirmation', () => {
       tEn('interactingWith') as string,
     );
 
-    const gasFeesSection = screen.getByTestId('gas-fee-section');
+    const gasFeesSection = await screen.findByTestId('gas-fee-section');
     expect(gasFeesSection).toBeInTheDocument();
 
     const editGasFeesRow =
-      within(gasFeesSection).getByTestId('edit-gas-fees-row');
+      await within(gasFeesSection).findByTestId('edit-gas-fees-row');
     expect(editGasFeesRow).toHaveTextContent(tEn('networkFee') as string);
 
-    const firstGasField = within(editGasFeesRow).getByTestId('first-gas-field');
-    expect(firstGasField).toHaveTextContent('0.0001 SepoliaETH');
+    const firstGasField =
+      await within(editGasFeesRow).findByTestId('first-gas-field');
+    expect(firstGasField).toHaveTextContent('0.0001');
     expect(editGasFeesRow).toContainElement(
-      screen.getByTestId('edit-gas-fee-icon'),
+      await screen.findByTestId('edit-gas-fee-icon'),
     );
 
-    const gasFeeSpeed = within(gasFeesSection).getByTestId(
+    const gasFeeSpeed = await within(gasFeesSection).findByTestId(
       'gas-fee-details-speed',
     );
     expect(gasFeeSpeed).toHaveTextContent(tEn('speed') as string);
 
-    const gasTimingTime = within(gasFeeSpeed).getByTestId('gas-timing-time');
+    const gasTimingTime =
+      await within(gasFeeSpeed).findByTestId('gas-timing-time');
     expect(gasTimingTime).toHaveTextContent('~0 sec');
   });
 
   it('sets the preference showConfirmationAdvancedDetails to true when advanced details button is clicked', async () => {
-    mockedBackgroundConnection.callBackgroundMethod.mockImplementation(
-      createMockImplementation({ setPreference: {} }),
-    );
-
     const account =
       mockMetaMaskState.internalAccounts.accounts[
         mockMetaMaskState.internalAccounts
@@ -339,24 +354,21 @@ describe('Contract Interaction Confirmation', () => {
       });
     });
 
-    fireEvent.click(screen.getByTestId('header-advanced-details-button'));
+    fireEvent.click(
+      await screen.findByTestId('header-advanced-details-button'),
+    );
 
     await waitFor(() => {
       expect(
-        mockedBackgroundConnection.callBackgroundMethod,
-      ).toHaveBeenCalledWith(
-        'setPreference',
-        ['showConfirmationAdvancedDetails', true],
-        expect.anything(),
-      );
+        mockedBackgroundConnection.submitRequestToBackground,
+      ).toHaveBeenCalledWith('setPreference', [
+        'showConfirmationAdvancedDetails',
+        true,
+      ]);
     });
   });
 
   it('displays the advanced transaction details section', async () => {
-    mockedBackgroundConnection.callBackgroundMethod.mockImplementation(
-      createMockImplementation({ setPreference: {} }),
-    );
-
     const account =
       mockMetaMaskState.internalAccounts.accounts[
         mockMetaMaskState.internalAccounts
@@ -395,28 +407,32 @@ describe('Contract Interaction Confirmation', () => {
       ]);
     });
 
-    const gasFeesSection = screen.getByTestId('gas-fee-section');
-    const maxFee = screen.getByTestId('gas-fee-details-max-fee');
+    const gasFeesSection = await screen.findByTestId('gas-fee-section');
+    const maxFee = await screen.findByTestId('gas-fee-details-max-fee');
     expect(gasFeesSection).toContainElement(maxFee);
     expect(maxFee).toHaveTextContent(tEn('maxFee') as string);
-    expect(maxFee).toHaveTextContent('0.0023 SepoliaETH');
+    expect(maxFee).toHaveTextContent('0.0023');
 
-    const nonceSection = screen.getByTestId('advanced-details-nonce-section');
+    const nonceSection = await screen.findByTestId(
+      'advanced-details-nonce-section',
+    );
     expect(nonceSection).toBeInTheDocument();
     expect(nonceSection).toHaveTextContent(
       tEn('advancedDetailsNonceDesc') as string,
     );
     expect(nonceSection).toContainElement(
-      screen.getByTestId('advanced-details-displayed-nonce'),
+      await screen.findByTestId('advanced-details-displayed-nonce'),
     );
     expect(
-      screen.getByTestId('advanced-details-displayed-nonce'),
+      await screen.findByTestId('advanced-details-displayed-nonce'),
     ).toHaveTextContent('9');
 
-    const dataSection = screen.getByTestId('advanced-details-data-section');
+    const dataSection = await screen.findByTestId(
+      'advanced-details-data-section',
+    );
     expect(dataSection).toBeInTheDocument();
 
-    const dataSectionFunction = screen.getByTestId(
+    const dataSectionFunction = await screen.findByTestId(
       'advanced-details-data-function',
     );
     expect(dataSection).toContainElement(dataSectionFunction);
@@ -425,7 +441,7 @@ describe('Contract Interaction Confirmation', () => {
     );
     expect(dataSectionFunction).toHaveTextContent('mintNFTs');
 
-    const transactionDataParams = screen.getByTestId(
+    const transactionDataParams = await screen.findByTestId(
       'advanced-details-data-param-0',
     );
     expect(dataSection).toContainElement(transactionDataParams);
@@ -454,7 +470,53 @@ describe('Contract Interaction Confirmation', () => {
 
     const headingText = tEn('blockaidTitleDeceptive') as string;
     const bodyText = tEn('blockaidDescriptionTransferFarming') as string;
-    expect(screen.getByText(headingText)).toBeInTheDocument();
-    expect(screen.getByText(bodyText)).toBeInTheDocument();
+    expect(await screen.findByText(headingText)).toBeInTheDocument();
+    expect(await screen.findByText(bodyText)).toBeInTheDocument();
+  });
+
+  it('tracks external link clicked in transaction metrics', async () => {
+    const account =
+      mockMetaMaskState.internalAccounts.accounts[
+        mockMetaMaskState.internalAccounts
+          .selectedAccount as keyof typeof mockMetaMaskState.internalAccounts.accounts
+      ];
+
+    const mockedMetaMaskState =
+      getMetaMaskStateWithMaliciousUnapprovedContractInteraction(
+        account.address,
+      );
+
+    await act(async () => {
+      await integrationTestRender({
+        preloadedState: mockedMetaMaskState,
+        backgroundConnection: backgroundConnectionMocked,
+      });
+    });
+
+    fireEvent.click(await screen.findByTestId('disclosure'));
+    expect(
+      await screen.findByTestId('alert-provider-report-link'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByTestId('alert-provider-report-link'));
+
+    fireEvent.click(await screen.findByTestId('confirm-footer-cancel-button'));
+
+    await waitFor(() => {
+      expect(
+        mockedBackgroundConnection.submitRequestToBackground,
+      ).toHaveBeenCalledWith(
+        'updateEventFragment',
+        expect.arrayContaining([
+          expect.objectContaining({
+            properties: expect.objectContaining({
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              external_link_clicked: 'security_alert_support_link',
+            }),
+          }),
+        ]),
+      );
+    });
   });
 });

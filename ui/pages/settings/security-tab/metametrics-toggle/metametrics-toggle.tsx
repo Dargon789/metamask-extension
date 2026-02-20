@@ -5,9 +5,8 @@ import { MetaMetricsContext } from '../../../../contexts/metametrics';
 import {
   useEnableMetametrics,
   useDisableMetametrics,
-} from '../../../../hooks/metamask-notifications/useMetametrics';
-import { selectIsProfileSyncingEnabled } from '../../../../selectors/metamask-notifications/profile-syncing';
-import { selectParticipateInMetaMetrics } from '../../../../selectors/metamask-notifications/authentication';
+} from '../../../../hooks/useMetametrics';
+import { selectIsBackupAndSyncEnabled } from '../../../../selectors/identity/backup-and-sync';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -21,34 +20,59 @@ import {
   TextColor,
   TextVariant,
 } from '../../../../helpers/constants/design-system';
+import {
+  getParticipateInMetaMetrics,
+  getUseExternalServices,
+} from '../../../../selectors';
 
 const MetametricsToggle = ({
   dataCollectionForMarketing,
   setDataCollectionForMarketing,
+  fromDefaultSettings = false,
 }: {
   dataCollectionForMarketing: boolean;
-  setDataCollectionForMarketing: (value: boolean) => void;
+  setDataCollectionForMarketing: (value: boolean) => Promise<void>;
+  fromDefaultSettings?: boolean;
 }) => {
   const t = useI18nContext();
-  const trackEvent = useContext(MetaMetricsContext);
+  const { trackEvent } = useContext(MetaMetricsContext);
   const { enableMetametrics, error: enableMetametricsError } =
     useEnableMetametrics();
   const { disableMetametrics, error: disableMetametricsError } =
     useDisableMetametrics();
 
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const error = enableMetametricsError || disableMetametricsError;
 
-  const isProfileSyncingEnabled = useSelector(selectIsProfileSyncingEnabled);
-  const participateInMetaMetrics = useSelector(selectParticipateInMetaMetrics);
+  const isBackupAndSyncEnabled = useSelector(selectIsBackupAndSyncEnabled);
+  const participateInMetaMetrics = useSelector(getParticipateInMetaMetrics);
+  const useExternalServices = useSelector(getUseExternalServices);
 
-  const handleUseParticipateInMetaMetrics = async () => {
-    if (participateInMetaMetrics) {
+  const handleUseParticipateInMetaMetrics = async (isParticipated: boolean) => {
+    if (isParticipated) {
+      await enableMetametrics();
+      trackEvent({
+        category: MetaMetricsEventCategory.Settings,
+        event: MetaMetricsEventName.TurnOnMetaMetrics,
+        properties: {
+          isProfileSyncingEnabled: isBackupAndSyncEnabled,
+          participateInMetaMetrics,
+          location: fromDefaultSettings ? 'Default Settings' : 'Settings',
+        },
+      });
+    } else {
+      // disable data collection for marketing if participate in meta metrics is set to false
+      if (dataCollectionForMarketing) {
+        await setDataCollectionForMarketing(false);
+      }
+
       await disableMetametrics();
       trackEvent({
         category: MetaMetricsEventCategory.Settings,
         event: MetaMetricsEventName.TurnOffMetaMetrics,
         properties: {
-          isProfileSyncingEnabled,
+          isProfileSyncingEnabled: isBackupAndSyncEnabled,
           participateInMetaMetrics,
         },
       });
@@ -57,25 +81,15 @@ const MetametricsToggle = ({
         category: MetaMetricsEventCategory.Settings,
         event: MetaMetricsEventName.AnalyticsPreferenceSelected,
         properties: {
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           is_metrics_opted_in: false,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           has_marketing_consent: false,
           location: 'Settings',
         },
       });
-    } else {
-      await enableMetametrics();
-      trackEvent({
-        category: MetaMetricsEventCategory.Settings,
-        event: MetaMetricsEventName.TurnOnMetaMetrics,
-        properties: {
-          isProfileSyncingEnabled,
-          participateInMetaMetrics,
-        },
-      });
-    }
-
-    if (dataCollectionForMarketing) {
-      setDataCollectionForMarketing(false);
     }
   };
 
@@ -87,28 +101,25 @@ const MetametricsToggle = ({
         flexDirection={FlexDirection.Row}
         justifyContent={JustifyContent.spaceBetween}
         gap={4}
-        data-testid="profileSyncToggle"
+        data-testid="participate-in-meta-metrics-container"
       >
-        <div className="settings-page__content-item" id="profileSyncLabel">
+        <div className="settings-page__content-item">
           <span>{t('participateInMetaMetrics')}</span>
-          <div
-            className="settings-page__content-description"
-            data-testid="profileSyncDescription"
-          >
+          <div className="settings-page__content-description">
             {t('participateInMetaMetricsDescription')}
           </div>
         </div>
 
         <div
           className="settings-page__content-item-col"
-          data-testid="participateInMetaMetrics"
+          data-testid="participate-in-meta-metrics-toggle"
         >
           <ToggleButton
             value={participateInMetaMetrics}
-            onToggle={handleUseParticipateInMetaMetrics}
+            disabled={!useExternalServices}
+            onToggle={(value) => handleUseParticipateInMetaMetrics(!value)}
             offLabel={t('off')}
             onLabel={t('on')}
-            dataTestId="toggleButton"
           />
         </div>
       </Box>

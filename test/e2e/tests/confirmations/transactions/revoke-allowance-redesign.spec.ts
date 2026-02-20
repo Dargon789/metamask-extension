@@ -1,85 +1,48 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 import { MockttpServer } from 'mockttp';
-import { WINDOW_TITLES } from '../../../helpers';
+import { WINDOW_TITLES } from '../../../constants';
 import { Driver } from '../../../webdriver/driver';
 import { scrollAndConfirmAndAssertConfirm } from '../helpers';
-import { mocked4BytesApprove } from './erc20-approve-redesign.spec';
+import { loginWithBalanceValidation } from '../../../page-objects/flows/login.flow';
+import TestDapp from '../../../page-objects/pages/test-dapp';
 import {
   assertChangedSpendingCap,
   editSpendingCap,
-} from './increase-token-allowance-redesign.spec';
-import { openDAppWithContract, TestSuiteArguments } from './shared';
+  mocked4BytesApprove,
+  TestSuiteArguments,
+} from './shared';
 
-const {
-  defaultGanacheOptions,
-  defaultGanacheOptionsForType2Transactions,
-  withFixtures,
-} = require('../../../helpers');
-const FixtureBuilder = require('../../../fixture-builder');
+const { withFixtures } = require('../../../helpers');
+const FixtureBuilder = require('../../../fixtures/fixture-builder');
 const { SMART_CONTRACTS } = require('../../../seeder/smart-contracts');
 
 describe('Confirmation Redesign ERC20 Revoke Allowance', function () {
   const smartContract = SMART_CONTRACTS.HST;
 
-  describe('Submit an revoke transaction @no-mmi', function () {
-    it('Sends a type 0 transaction (Legacy)', async function () {
+  describe('Submit an revoke transaction', function () {
+    it('submits an ERC20 revoke allowance transaction', async function () {
       await withFixtures(
         {
-          dapp: true,
+          dappOptions: { numberOfTestDapps: 1 },
           fixtures: new FixtureBuilder()
             .withPermissionControllerConnectedToTestDapp()
-            .withPreferencesController({
-              preferences: {
-                redesignedConfirmationsEnabled: true,
-                isRedesignedConfirmationsDeveloperEnabled: true,
-              },
-            })
             .build(),
-          ganacheOptions: defaultGanacheOptions,
           smartContract,
           testSpecificMock: mocks,
           title: this.test?.fullTitle(),
         },
-        async ({ driver, contractRegistry }: TestSuiteArguments) => {
-          await openDAppWithContract(driver, contractRegistry, smartContract);
+        async ({
+          driver,
+          contractRegistry,
+          localNodes,
+        }: TestSuiteArguments) => {
+          const contractAddress =
+            await contractRegistry?.getContractAddress(smartContract);
 
-          await createERC20ApproveTransaction(driver);
-
-          const NEW_SPENDING_CAP = '0';
-          await editSpendingCap(driver, NEW_SPENDING_CAP);
-
-          await driver.waitForSelector({
-            css: 'h2',
-            text: 'Remove permission',
-          });
-
-          await scrollAndConfirmAndAssertConfirm(driver);
-
-          await assertChangedSpendingCap(driver, NEW_SPENDING_CAP);
-        },
-      );
-    });
-
-    it('Sends a type 2 transaction (EIP1559)', async function () {
-      await withFixtures(
-        {
-          dapp: true,
-          fixtures: new FixtureBuilder()
-            .withPermissionControllerConnectedToTestDapp()
-            .withPreferencesController({
-              preferences: {
-                redesignedConfirmationsEnabled: true,
-                isRedesignedConfirmationsDeveloperEnabled: true,
-              },
-            })
-            .build(),
-          ganacheOptions: defaultGanacheOptionsForType2Transactions,
-          smartContract,
-          testSpecificMock: mocks,
-          title: this.test?.fullTitle(),
-        },
-        async ({ driver, contractRegistry }: TestSuiteArguments) => {
-          await openDAppWithContract(driver, contractRegistry, smartContract);
+          await loginWithBalanceValidation(driver, localNodes?.[0]);
+          const testDapp = new TestDapp(driver);
+          await testDapp.openTestDappPage({ contractAddress });
+          await testDapp.checkPageIsLoaded();
 
           await createERC20ApproveTransaction(driver);
 

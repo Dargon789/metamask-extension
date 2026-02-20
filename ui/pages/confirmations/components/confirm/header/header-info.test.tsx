@@ -28,7 +28,12 @@ const cases = [
       properties: {
         action: 'Confirm Screen',
         location: MetaMetricsEventLocation.SignatureConfirmation,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         signature_type: 'eth_signTypedData_v4',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        hd_entropy_index: 0,
       },
     },
   },
@@ -41,7 +46,12 @@ const cases = [
       properties: {
         action: 'Confirm Screen',
         location: MetaMetricsEventLocation.Transaction,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         transaction_type: TransactionType.contractInteraction,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        hd_entropy_index: 0,
       },
     },
   },
@@ -76,8 +86,14 @@ describe('Header', () => {
     cases.forEach(({ description, store, expectedEvent }) => {
       it(`sends "${MetaMetricsEventName.AccountDetailsOpened}" metametric ${description}`, () => {
         const mockTrackEvent = jest.fn();
+        const mockMetaMetricsContext = {
+          trackEvent: mockTrackEvent,
+          bufferedTrace: jest.fn(),
+          bufferedEndTrace: jest.fn(),
+          onboardingParentContext: { current: null },
+        };
         const { getByLabelText } = renderWithConfirmContextProvider(
-          <MetaMetricsContext.Provider value={mockTrackEvent}>
+          <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
             <HeaderInfo />
           </MetaMetricsContext.Provider>,
           configureStore(store),

@@ -36,13 +36,16 @@ jest.mock('../ducks/metamask/metamask', () => ({
     .mockReturnValue('getIsNetworkBusyByChainId'),
 }));
 
+jest.mock('../../shared/modules/selectors/networks', () => ({
+  getSelectedNetworkClientId: jest
+    .fn()
+    .mockReturnValue('getSelectedNetworkClientId'),
+}));
+
 jest.mock('../selectors', () => ({
   checkNetworkAndAccountSupports1559: jest
     .fn()
     .mockReturnValue('checkNetworkAndAccountSupports1559'),
-  getSelectedNetworkClientId: jest
-    .fn()
-    .mockReturnValue('getSelectedNetworkClientId'),
 }));
 
 jest.mock('react-redux', () => {
@@ -117,6 +120,7 @@ describe('useGasFeeEstimates', () => {
       startPolling: expect.any(Function),
       stopPollingByPollingToken: gasFeeStopPollingByPollingToken,
       input: { networkClientId: 'selectedNetworkClientId' },
+      enabled: true,
     });
   });
 
@@ -129,6 +133,7 @@ describe('useGasFeeEstimates', () => {
       startPolling: expect.any(Function),
       stopPollingByPollingToken: gasFeeStopPollingByPollingToken,
       input: { networkClientId: 'networkClientId1' },
+      enabled: true,
     });
   });
 
@@ -295,6 +300,19 @@ describe('useGasFeeEstimates', () => {
       gasFeeEstimates,
       gasEstimateType: GasEstimateTypes.feeMarket,
       isGasEstimatesLoading: true,
+    });
+  });
+
+  it('does not poll when enabled is false', async () => {
+    useSelector.mockImplementation(generateUseSelectorRouter());
+    await act(async () => {
+      renderHook(() => useGasFeeEstimates('networkClientId1', false));
+    });
+    expect(usePolling).toHaveBeenCalledWith({
+      startPolling: expect.any(Function),
+      stopPollingByPollingToken: gasFeeStopPollingByPollingToken,
+      input: { networkClientId: 'networkClientId1' },
+      enabled: false,
     });
   });
 });

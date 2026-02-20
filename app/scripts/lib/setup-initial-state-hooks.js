@@ -1,15 +1,22 @@
+import { getManifestFlags } from '../../../shared/lib/manifestFlags';
 import { maskObject } from '../../../shared/modules/object.utils';
 import ExtensionPlatform from '../platforms/extension';
 import { SENTRY_BACKGROUND_STATE } from '../constants/sentry-state';
-import LocalStore from './local-store';
-import ReadOnlyNetworkStore from './network-store';
+import { FixtureExtensionStore } from './stores/fixture-extension-store';
+import ExtensionStore from './stores/extension-store';
+import { PersistenceManager } from './stores/persistence-manager';
 
 const platform = new ExtensionPlatform();
 
+const useFixtureStore =
+  process.env.IN_TEST &&
+  getManifestFlags().testing?.forceExtensionStore !== true;
 // This instance of `localStore` is used by Sentry to get the persisted state
-const sentryLocalStore = process.env.IN_TEST
-  ? new ReadOnlyNetworkStore()
-  : new LocalStore();
+const sentryLocalStore = new PersistenceManager({
+  localStore: useFixtureStore
+    ? new FixtureExtensionStore()
+    : new ExtensionStore(),
+});
 
 /**
  * Get the persisted wallet state.
@@ -17,12 +24,23 @@ const sentryLocalStore = process.env.IN_TEST
  * @returns The persisted wallet state.
  */
 globalThis.stateHooks.getPersistedState = async function () {
-  return await sentryLocalStore.get();
+  return await sentryLocalStore.get({ validateVault: false });
+};
+
+/**
+ * Get the backup state from IndexedDB.
+ * This is used as a fallback when primary storage is unavailable.
+ *
+ * @returns The backup state, or null if unavailable.
+ */
+globalThis.stateHooks.getBackupState = async function () {
+  return await sentryLocalStore.getBackup();
 };
 
 const persistedStateMask = {
   data: SENTRY_BACKGROUND_STATE,
   meta: {
+    storageKind: true,
     version: true,
   },
 };

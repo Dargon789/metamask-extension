@@ -1,3 +1,5 @@
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+/* eslint-disable @typescript-eslint/naming-convention */
 import {
   SimulationData,
   SimulationErrorCode,
@@ -16,6 +18,7 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../../shared/constants/metametrics';
+import { TrustSignalDisplayState } from '../../../../hooks/useTrustSignals';
 import { calculateTotalFiat } from './fiat-display';
 import { BalanceChange } from './types';
 import { useLoadingTime } from './useLoadingTime';
@@ -148,7 +151,7 @@ function useIncompleteAssetEvent(
     [address: string]: UseDisplayNameResponse | undefined;
   },
 ) {
-  const trackEvent = useContext(MetaMetricsContext);
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [processedAssets, setProcessedAssets] = useState<string[]>([]);
 
   for (const change of balanceChanges) {
@@ -156,6 +159,8 @@ function useIncompleteAssetEvent(
     const displayName = displayNamesByAddress[assetAddress];
 
     const isIncomplete =
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       (change.asset.address && !change.fiatAmount) ||
       getPetnameType(change, displayName) === PetnameType.Unknown;
 
@@ -207,7 +212,7 @@ function getProperties(
     ),
   );
 
-  const fiatAmounts = changes.map((change) => change.fiatAmount);
+  const fiatAmounts = changes.map((change) => change.usdAmount);
   const totalFiat = calculateTotalFiat(fiatAmounts);
   const totalValue = totalFiat ? Math.abs(totalFiat) : undefined;
 
@@ -217,7 +222,7 @@ function getProperties(
   );
 }
 
-// TODO: Replace `any` with type
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getPrefixProperties(properties: Record<string, any>, prefix: string) {
   return Object.entries(properties).reduce(
@@ -244,7 +249,12 @@ function getAssetType(standard: TokenStandard) {
 
 function getPetnameType(
   balanceChange: BalanceChange,
-  displayName: UseDisplayNameResponse = { name: '', hasPetname: false },
+  displayName: UseDisplayNameResponse = {
+    name: '',
+    hasPetname: false,
+    displayState: TrustSignalDisplayState.Unknown,
+    isAccount: false,
+  },
 ) {
   if (balanceChange.asset.standard === TokenStandard.none) {
     return PetnameType.Default;

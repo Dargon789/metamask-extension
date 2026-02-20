@@ -1,6 +1,6 @@
 import React from 'react';
 import configureMockStore from 'redux-mock-store';
-import { renderWithProvider } from '../../../../test/lib/render-helpers';
+import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate';
 import { getTokenList } from '../../../selectors';
 import { getNftContractsByAddressOnCurrentChain } from '../../../selectors/nft';
 import Identicon from '.';
@@ -8,6 +8,10 @@ import Identicon from '.';
 jest.mock('../../../selectors', () => ({
   ...jest.requireActual('../../../selectors'),
   getTokenList: jest.fn(),
+}));
+
+jest.mock('../../../selectors/multi-srp/multi-srp', () => ({
+  getShouldShowSeedPhraseReminder: () => false,
 }));
 
 jest.mock('../../../selectors/nft', () => ({

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector, shallowEqual } from 'react-redux';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getBlockExplorerLink } from '@metamask/etherscan-link';
 import { isEqual } from 'lodash';
 import { I18nContext } from '../../../contexts/i18n';
@@ -13,10 +13,10 @@ import {
   cancelSwapsSmartTransaction,
   getUsedQuote,
 } from '../../../ducks/swaps/swaps';
+import { getCurrentChainId } from '../../../../shared/modules/selectors/networks';
 import {
   isHardwareWallet,
   getHardwareWalletType,
-  getCurrentChainId,
   getRpcPrefsForCurrentProvider,
 } from '../../../selectors';
 import {
@@ -53,6 +53,7 @@ import { MetaMetricsContext } from '../../../contexts/metametrics';
 import CreateNewSwap from '../create-new-swap';
 import ViewOnBlockExplorer from '../view-on-block-explorer';
 import { calcTokenAmount } from '../../../../shared/lib/transactions-controller-utils';
+import { getHDEntropyIndex } from '../../../selectors/selectors';
 import SuccessIcon from './success-icon';
 import RevertedIcon from './reverted-icon';
 import CanceledIcon from './canceled-icon';
@@ -63,8 +64,9 @@ import TimerIcon from './timer-icon';
 export default function SmartTransactionStatusPage() {
   const [cancelSwapLinkClicked, setCancelSwapLinkClicked] = useState(false);
   const t = useContext(I18nContext);
-  const history = useHistory();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
+  const hdEntropyIndex = useSelector(getHDEntropyIndex);
   const fetchParams = useSelector(getFetchParams, isEqual) || {};
   const {
     destinationTokenInfo: fetchParamsDestinationTokenInfo = {},
@@ -136,7 +138,7 @@ export default function SmartTransactionStatusPage() {
         latestSmartTransaction?.destinationTokenDecimals,
     ).toPrecision(8);
   }
-  const trackEvent = useContext(MetaMetricsContext);
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const isSmartTransactionPending =
     smartTransactionStatus === SmartTransactionStatus.pending;
@@ -150,6 +152,9 @@ export default function SmartTransactionStatusPage() {
       event: 'STX Status Page Loaded',
       category: MetaMetricsEventCategory.Swaps,
       sensitiveProperties,
+      properties: {
+        hd_entropy_index: hdEntropyIndex,
+      },
     });
     // eslint-disable-next-line
   }, []);
@@ -273,6 +278,9 @@ export default function SmartTransactionStatusPage() {
               event: 'Cancel STX',
               category: MetaMetricsEventCategory.Swaps,
               sensitiveProperties,
+              properties: {
+                hd_entropy_index: hdEntropyIndex,
+              },
             });
             dispatch(cancelSwapsSmartTransaction(latestSmartTransactionUuid));
           }}
@@ -462,14 +470,14 @@ export default function SmartTransactionStatusPage() {
         onSubmit={async () => {
           if (showCloseButtonOnly) {
             await dispatch(prepareToLeaveSwaps());
-            history.push(DEFAULT_ROUTE);
+            navigate(DEFAULT_ROUTE);
           } else {
-            history.push(PREPARE_SWAP_ROUTE);
+            navigate(PREPARE_SWAP_ROUTE);
           }
         }}
         onCancel={async () => {
           await dispatch(prepareToLeaveSwaps());
-          history.push(DEFAULT_ROUTE);
+          navigate(DEFAULT_ROUTE);
         }}
         submitText={showCloseButtonOnly ? t('close') : t('tryAgain')}
         hideCancel={showCloseButtonOnly}

@@ -1,19 +1,28 @@
-import nock from 'nock';
+import { toChecksumAddress } from 'ethereumjs-util';
+import {
+  formatChainIdToCaip,
+  getNativeAssetForChainId,
+} from '@metamask/bridge-controller';
 import { MetaMetricsSwapsEventSource } from '../../../shared/constants/metametrics';
-import { ETH_SWAPS_TOKEN_OBJECT } from '../../../shared/constants/swaps';
-import { renderHookWithProvider } from '../../../test/lib/render-helpers';
-import { BRIDGE_API_BASE_URL } from '../../../shared/constants/bridge';
+import { renderHookWithProvider } from '../../../test/lib/render-helpers-navigate';
+import { createBridgeMockStore } from '../../../test/data/bridge/mock-bridge-store';
+import { MultichainNetworks } from '../../../shared/constants/multichain/networks';
 import { mockNetworkState } from '../../../test/stub/networks';
 import { CHAIN_IDS } from '../../../shared/constants/network';
+import * as bridgeSelectors from '../../ducks/bridge/selectors';
+import {
+  CROSS_CHAIN_SWAP_ROUTE,
+  PREPARE_SWAP_ROUTE,
+} from '../../helpers/constants/routes';
 import useBridging from './useBridging';
 
-const mockHistoryPush = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useHistory: () => ({
-    push: mockHistoryPush,
-  }),
-}));
+const mockUseNavigate = jest.fn();
+jest.mock('react-router-dom', () => {
+  return {
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockUseNavigate,
+  };
+});
 
 const mockDispatch = jest.fn().mockReturnValue(() => jest.fn());
 jest.mock('react-redux', () => ({
@@ -21,16 +30,11 @@ jest.mock('react-redux', () => ({
   useDispatch: () => mockDispatch,
 }));
 
-const mockSetFromChain = jest.fn();
-jest.mock('../../ducks/bridge/actions', () => ({
-  ...jest.requireActual('../../ducks/bridge/actions'),
-  setFromChain: () => mockSetFromChain(),
-}));
-
 const MOCK_METAMETRICS_ID = '0xtestMetaMetricsId';
+const BRIDGE_PREPARE_PATH = `${CROSS_CHAIN_SWAP_ROUTE}${PREPARE_SWAP_ROUTE}`;
 
-const renderUseBridging = (mockStoreState: object) =>
-  renderHookWithProvider(() => useBridging(), mockStoreState);
+const renderUseBridging = (mockStoreState: object, pathname?: string) =>
+  renderHookWithProvider(() => useBridging(), mockStoreState, pathname);
 
 describe('useBridging', () => {
   beforeAll(() => {
@@ -42,141 +46,296 @@ describe('useBridging', () => {
     });
   });
 
-  describe('extensionSupport=false, chainId=1', () => {
+  describe('extensionConfig.support=true, chain=1', () => {
     beforeEach(() => {
-      nock(BRIDGE_API_BASE_URL)
-        .get('/getAllFeatureFlags')
-        .reply(200, { 'extension-support': false });
       jest.clearAllMocks();
     });
     // @ts-expect-error This is missing from the Mocha type definitions
     it.each([
       [
-        'https://portfolio.test/bridge?metamaskEntry=ext_bridge_button&metametricsId=0xtestMetaMetricsId&metricsEnabled=false&marketingEnabled=null&token=0x0000000000000000000000000000000000000000',
-        ETH_SWAPS_TOKEN_OBJECT,
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(CHAIN_IDS.MAINNET),
         'Home',
-        undefined,
+        false,
+        { srcToken: getNativeAssetForChainId(CHAIN_IDS.MAINNET) },
       ],
       [
-        'https://portfolio.test/bridge?metamaskEntry=ext_bridge_button&metametricsId=0xtestMetaMetricsId&metricsEnabled=false&marketingEnabled=null&token=native',
-        ETH_SWAPS_TOKEN_OBJECT,
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(CHAIN_IDS.MAINNET),
         MetaMetricsSwapsEventSource.TokenView,
-        '&token=native',
+        false,
+        { srcToken: getNativeAssetForChainId(CHAIN_IDS.MAINNET) },
       ],
       [
-        'https://portfolio.test/bridge?metamaskEntry=ext_bridge_button&metametricsId=0xtestMetaMetricsId&metricsEnabled=false&marketingEnabled=null&token=0x00232f2jksdauo',
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(CHAIN_IDS.OPTIMISM),
+        MetaMetricsSwapsEventSource.TokenView,
+        false,
+        { srcToken: getNativeAssetForChainId(CHAIN_IDS.OPTIMISM) },
+      ],
+      [
+        BRIDGE_PREPARE_PATH,
+        { ...getNativeAssetForChainId(CHAIN_IDS.OPTIMISM), chainId: 123 },
+        MetaMetricsSwapsEventSource.TokenView,
+        false,
+      ],
+      [
+        BRIDGE_PREPARE_PATH,
+        {
+          ...getNativeAssetForChainId(CHAIN_IDS.SEI),
+          chainId: 243,
+        },
+        MetaMetricsSwapsEventSource.TokenView,
+        false,
+      ],
+      [
+        BRIDGE_PREPARE_PATH,
         {
           iconUrl: 'https://icon.url',
           symbol: 'TEST',
-          address: '0x00232f2jksdauo',
+          address: toChecksumAddress(
+            '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580D',
+          ),
           balance: '0x5f5e100',
           string: '123',
+          chainId: '0xa',
+          decimals: 18,
         },
         MetaMetricsSwapsEventSource.TokenView,
-        undefined,
-      ],
-    ])(
-      'should open %s with the currently selected token: %p',
-      (
-        expectedUrl: string,
-        token: string,
-        location: string,
-        urlSuffix: string,
-      ) => {
-        const openTabSpy = jest.spyOn(global.platform, 'openTab');
-        const { result } = renderUseBridging({
-          metamask: {
-            useExternalServices: true,
-            ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
-            metaMetricsId: MOCK_METAMETRICS_ID,
-            bridgeState: {
-              bridgeFeatureFlags: {
-                extensionSupport: false,
-              },
-            },
-            internalAccounts: {
-              selectedAccount: '0xabc',
-              accounts: { '0xabc': { metadata: { keyring: {} } } },
-            },
-          },
-        });
-
-        expect(mockDispatch.mock.calls).toHaveLength(1);
-
-        expect(nock(BRIDGE_API_BASE_URL).isDone()).toBe(true);
-        result.current.openBridgeExperience(location, token, urlSuffix);
-
-        expect(openTabSpy).toHaveBeenCalledWith({
-          url: expectedUrl,
-        });
-      },
-    );
-  });
-
-  describe('extensionSupport=true, chain=1', () => {
-    beforeEach(() => {
-      nock(BRIDGE_API_BASE_URL)
-        .get('/getAllFeatureFlags')
-        .reply(200, { 'extension-support': true });
-      jest.clearAllMocks();
-    });
-    // @ts-expect-error This is missing from the Mocha type definitions
-    it.each([
-      [
-        '/cross-chain/swaps/prepare-swap-page',
-        ETH_SWAPS_TOKEN_OBJECT,
-        'Home',
-        undefined,
-      ],
-      [
-        '/cross-chain/swaps/prepare-swap-page',
-        ETH_SWAPS_TOKEN_OBJECT,
-        MetaMetricsSwapsEventSource.TokenView,
-        '&token=native',
-      ],
-      [
-        '/cross-chain/swaps/prepare-swap-page',
+        true,
         {
-          iconUrl: 'https://icon.url',
-          symbol: 'TEST',
-          address: '0x00232f2jksdauo',
-          balance: '0x5f5e100',
-          string: '123',
+          srcToken: {
+            iconUrl: 'https://icon.url',
+            string: '123',
+            symbol: 'TEST',
+            address: toChecksumAddress(
+              '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580D',
+            ),
+            balance: '0x5f5e100',
+            chainId: '0xa',
+            decimals: 18,
+            name: 'TEST',
+            assetId:
+              'eip155:10/erc20:0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+          },
         },
-        MetaMetricsSwapsEventSource.TokenView,
-        undefined,
       ],
     ])(
       'should open %s with the currently selected token: %p',
-      (
+      async (
         expectedUrl: string,
-        token: string,
+        token: Record<string, unknown>,
         location: string,
-        urlSuffix: string,
+        isSwap: boolean,
+        expectedState = {},
       ) => {
         const openTabSpy = jest.spyOn(global.platform, 'openTab');
-        const { result } = renderUseBridging({
-          metamask: {
-            useExternalServices: true,
-            ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
-            metaMetricsId: MOCK_METAMETRICS_ID,
-            bridgeState: {
-              bridgeFeatureFlags: {
-                extensionSupport: true,
+        const { result } = renderUseBridging(
+          createBridgeMockStore({
+            metamaskStateOverrides: {
+              useExternalServices: true,
+              metaMetricsId: MOCK_METAMETRICS_ID,
+              enabledNetworkMap: {
+                eip155: {
+                  '1': true,
+                  '10': true,
+                  '56': true,
+                },
+                bip122: {
+                  'bip122:000000000019d6689c085ae165831e93': true,
+                },
+                solana: {
+                  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': true,
+                },
+                tron: {
+                  'tron:728126428': true,
+                },
               },
             },
-            internalAccounts: {
-              selectedAccount: '0xabc',
-              accounts: { '0xabc': { metadata: { keyring: {} } } },
+            featureFlagOverrides: {
+              bridgeConfig: {
+                refreshRate: 5000,
+                minimumVersion: '0.0.0',
+                maxRefreshCount: 5,
+                chainRanking: [
+                  { chainId: formatChainIdToCaip(CHAIN_IDS.MAINNET) },
+                  { chainId: formatChainIdToCaip(CHAIN_IDS.OPTIMISM) },
+                  { chainId: MultichainNetworks.SOLANA },
+                  { chainId: MultichainNetworks.TRON },
+                  { chainId: MultichainNetworks.BITCOIN },
+                  { chainId: formatChainIdToCaip(CHAIN_IDS.BSC) },
+                ],
+              },
             },
-          },
-        });
+          }),
+        );
 
-        result.current.openBridgeExperience(location, token, urlSuffix);
+        result.current.openBridgeExperience(location, token, isSwap);
 
         expect(mockDispatch.mock.calls).toHaveLength(2);
-        expect(mockHistoryPush.mock.calls).toHaveLength(1);
-        expect(mockHistoryPush).toHaveBeenCalledWith(expectedUrl);
+        expect(mockUseNavigate).toHaveBeenCalledWith(expectedUrl, {
+          state: expectedState,
+        });
+        expect(openTabSpy).not.toHaveBeenCalled();
+      },
+    );
+
+    // @ts-expect-error This is missing from the Mocha type definitions
+    it.each([
+      [
+        '/',
+        `${BRIDGE_PREPARE_PATH}?from=eip155:1/slip44:60`,
+        undefined,
+        'Home',
+      ],
+      [
+        '/asset/0xa/',
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(CHAIN_IDS.OPTIMISM),
+        MetaMetricsSwapsEventSource.TokenView,
+        {
+          srcToken: getNativeAssetForChainId(CHAIN_IDS.OPTIMISM),
+        },
+      ],
+      [
+        '/asset/0xa/0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+        BRIDGE_PREPARE_PATH,
+        {
+          iconUrl: 'https://icon.url',
+          symbol: 'TEST',
+          address: toChecksumAddress(
+            '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580D',
+          ),
+          balance: '0x5f5e100',
+          name: 'Test token',
+          string: '123',
+          chainId: '0xa',
+          decimals: 18,
+        },
+        MetaMetricsSwapsEventSource.TokenView,
+        {
+          srcToken: {
+            symbol: 'TEST',
+            address: toChecksumAddress(
+              '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580D',
+            ),
+            balance: '0x5f5e100',
+            iconUrl: 'https://icon.url',
+            string: '123',
+            chainId: '0xa',
+            decimals: 18,
+            name: 'Test token',
+            assetId:
+              'eip155:10/erc20:0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+          },
+        },
+      ],
+      [
+        '/asset/0xa/0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+        `${BRIDGE_PREPARE_PATH}?from=eip155:10/erc20:0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d`,
+        {
+          iconUrl: 'https://icon.url',
+          address: toChecksumAddress(
+            '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580D',
+          ),
+          balance: '0x5f5e100',
+          name: 'Test token',
+          string: '123',
+          chainId: '0xa',
+          decimals: 18,
+        },
+        MetaMetricsSwapsEventSource.TokenView,
+      ],
+      // Should use bip44 default asset for BTC
+      [
+        `/`,
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(MultichainNetworks.BITCOIN),
+        MetaMetricsSwapsEventSource.TokenView,
+        {
+          srcToken: getNativeAssetForChainId(MultichainNetworks.BITCOIN),
+        },
+      ],
+      // Should use bip44 default asset for SOLANA
+      [
+        '/',
+        BRIDGE_PREPARE_PATH,
+        getNativeAssetForChainId(MultichainNetworks.SOLANA),
+        MetaMetricsSwapsEventSource.TokenView,
+        {
+          srcToken: getNativeAssetForChainId(MultichainNetworks.SOLANA),
+        },
+      ],
+      // test account has no TRON account
+      [
+        '/',
+        `${BRIDGE_PREPARE_PATH}?from=eip155:1/slip44:60`,
+        getNativeAssetForChainId(MultichainNetworks.TRON),
+        MetaMetricsSwapsEventSource.TokenView,
+      ],
+    ])(
+      'should open swap with correct token pair when pathname is %s',
+      async (
+        pathname: string,
+        expectedUrl: string,
+        token: string,
+        location: string,
+        expectedState = {},
+      ) => {
+        const openTabSpy = jest.spyOn(global.platform, 'openTab');
+        jest
+          .spyOn(bridgeSelectors, 'getLastSelectedChainId')
+          .mockReturnValueOnce(formatChainIdToCaip(CHAIN_IDS.MAINNET));
+
+        const { result } = renderUseBridging(
+          createBridgeMockStore({
+            metamaskStateOverrides: {
+              useExternalServices: true,
+              ...mockNetworkState(
+                { chainId: CHAIN_IDS.BSC },
+                { chainId: CHAIN_IDS.OPTIMISM },
+              ),
+              metaMetricsId: MOCK_METAMETRICS_ID,
+              enabledNetworkMap: {
+                eip155: {
+                  '10': true,
+                  '56': true,
+                },
+                bip122: {
+                  'bip122:000000000019d6689c085ae165831e93': true,
+                },
+                solana: {
+                  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': true,
+                },
+                tron: {
+                  [MultichainNetworks.TRON]: true,
+                },
+              },
+              pathname,
+            },
+            featureFlagOverrides: {
+              bridgeConfig: {
+                refreshRate: 5000,
+                minimumVersion: '0.0.0',
+                maxRefreshCount: 5,
+                chainRanking: [
+                  { chainId: formatChainIdToCaip(CHAIN_IDS.OPTIMISM) },
+                  { chainId: MultichainNetworks.SOLANA },
+                  { chainId: MultichainNetworks.TRON },
+                  { chainId: MultichainNetworks.BITCOIN },
+                  { chainId: formatChainIdToCaip(CHAIN_IDS.BSC) },
+                ],
+              },
+            },
+          }),
+        );
+
+        result.current.openBridgeExperience(location, token, true);
+
+        expect(mockDispatch.mock.calls).toHaveLength(2);
+        expect(mockUseNavigate).toHaveBeenCalledWith(expectedUrl, {
+          state: expectedState,
+        });
         expect(openTabSpy).not.toHaveBeenCalled();
       },
     );

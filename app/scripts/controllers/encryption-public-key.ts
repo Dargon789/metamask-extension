@@ -1,19 +1,19 @@
-import EventEmitter from 'events';
 import log from 'loglevel';
 import {
   EncryptionPublicKeyManager,
   EncryptionPublicKeyParamsMetamask,
-  AbstractMessageManager,
   AbstractMessage,
   MessageManagerState,
   AbstractMessageParams,
   AbstractMessageParamsMetamask,
   OriginalRequest,
 } from '@metamask/message-manager';
-import {
-  BaseController,
-  RestrictedControllerMessenger,
-} from '@metamask/base-controller';
+import type {
+  EncryptionPublicKeyManagerState,
+  EncryptionPublicKeyManagerUnapprovedMessageAddedEvent,
+} from '@metamask/message-manager';
+import { BaseController, StateMetadata } from '@metamask/base-controller';
+import type { Messenger } from '@metamask/messenger';
 import { Patch } from 'immer';
 import {
   AcceptRequest,
@@ -27,9 +27,19 @@ import { ORIGIN_METAMASK } from '../../../shared/constants/app';
 const controllerName = 'EncryptionPublicKeyController';
 const methodNameGetEncryptionPublicKey = 'eth_getEncryptionPublicKey';
 
-const stateMetadata = {
-  unapprovedEncryptionPublicKeyMsgs: { persist: false, anonymous: false },
-  unapprovedEncryptionPublicKeyMsgCount: { persist: false, anonymous: false },
+const stateMetadata: StateMetadata<EncryptionPublicKeyControllerState> = {
+  unapprovedEncryptionPublicKeyMsgs: {
+    includeInStateLogs: true,
+    persist: false,
+    includeInDebugSnapshot: false,
+    usedInUi: true,
+  },
+  unapprovedEncryptionPublicKeyMsgCount: {
+    includeInStateLogs: true,
+    persist: false,
+    includeInDebugSnapshot: false,
+    usedInUi: true,
+  },
 };
 
 const getDefaultState = () => ({
@@ -55,42 +65,52 @@ export type EncryptionPublicKeyControllerState = {
   unapprovedEncryptionPublicKeyMsgCount: number;
 };
 
-export type GetEncryptionPublicKeyState = {
+export type EncryptionPublicKeyControllerGetState = {
   type: `${typeof controllerName}:getState`;
   handler: () => EncryptionPublicKeyControllerState;
 };
 
-export type EncryptionPublicKeyStateChange = {
+export type EncryptionPublicKeyControllerStateChange = {
   type: `${typeof controllerName}:stateChange`;
   payload: [EncryptionPublicKeyControllerState, Patch[]];
 };
 
-export type EncryptionPublicKeyControllerActions = GetEncryptionPublicKeyState;
+export type EncryptionPublicKeyControllerActions =
+  EncryptionPublicKeyControllerGetState;
 
 export type EncryptionPublicKeyControllerEvents =
-  EncryptionPublicKeyStateChange;
+  EncryptionPublicKeyControllerStateChange;
 
-type AllowedActions = AddApprovalRequest | AcceptRequest | RejectRequest;
+type EncryptionPublicKeyManagerStateChange = {
+  type: `EncryptionPublicKeyManager:stateChange`;
+  payload: [EncryptionPublicKeyManagerState, Patch[]];
+};
 
-export type EncryptionPublicKeyControllerMessenger =
-  RestrictedControllerMessenger<
-    typeof controllerName,
-    EncryptionPublicKeyControllerActions | AllowedActions,
-    EncryptionPublicKeyControllerEvents,
-    AllowedActions['type'],
-    never
-  >;
+export type AllowedActions = AddApprovalRequest | AcceptRequest | RejectRequest;
+
+export type AllowedEvents =
+  | EncryptionPublicKeyManagerStateChange
+  | EncryptionPublicKeyManagerUnapprovedMessageAddedEvent;
+
+export type EncryptionPublicKeyControllerMessenger = Messenger<
+  typeof controllerName,
+  EncryptionPublicKeyControllerActions | AllowedActions,
+  EncryptionPublicKeyControllerEvents | AllowedEvents
+>;
 
 export type EncryptionPublicKeyControllerOptions = {
   messenger: EncryptionPublicKeyControllerMessenger;
   getEncryptionPublicKey: (address: string) => Promise<string>;
   getAccountKeyringType: (account: string) => Promise<string>;
-  // TODO: Replace `any` with type
+
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getState: () => any;
-  // TODO: Replace `any` with type
+
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metricsEvent: (payload: any, options?: any) => void;
+  manager: EncryptionPublicKeyManager;
 };
 
 /**
@@ -101,19 +121,17 @@ export default class EncryptionPublicKeyController extends BaseController<
   EncryptionPublicKeyControllerState,
   EncryptionPublicKeyControllerMessenger
 > {
-  hub: EventEmitter;
-
   private _getEncryptionPublicKey: (address: string) => Promise<string>;
 
   private _getAccountKeyringType: (account: string) => Promise<string>;
 
-  // TODO: Replace `any` with type
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _getState: () => any;
 
   private _encryptionPublicKeyManager: EncryptionPublicKeyManager;
 
-  // TODO: Replace `any` with type
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _metricsEvent: (payload: any, options?: any) => void;
 
@@ -126,9 +144,11 @@ export default class EncryptionPublicKeyController extends BaseController<
    * @param options.getAccountKeyringType - Callback to get the keyring type.
    * @param options.getState - Callback to retrieve all user state.
    * @param options.metricsEvent - A function for emitting a metric event.
+   * @param options.manager - A reference to the encryption public key manager.
    */
   constructor({
     messenger,
+    manager,
     getEncryptionPublicKey,
     getAccountKeyringType,
     getState,
@@ -145,28 +165,15 @@ export default class EncryptionPublicKeyController extends BaseController<
     this._getAccountKeyringType = getAccountKeyringType;
     this._getState = getState;
     this._metricsEvent = metricsEvent;
+    this._encryptionPublicKeyManager = manager;
 
-    this.hub = new EventEmitter();
-    this._encryptionPublicKeyManager = new EncryptionPublicKeyManager(
-      undefined,
-      undefined,
-      undefined,
-      ['received'],
-    );
-
-    this._encryptionPublicKeyManager.hub.on('updateBadge', () => {
-      this.hub.emit('updateBadge');
-    });
-
-    this._encryptionPublicKeyManager.hub.on(
-      'unapprovedMessage',
-      (msgParams: AbstractMessageParamsMetamask) => {
-        this._requestApproval(msgParams, methodNameGetEncryptionPublicKey);
-      },
+    this.messenger.subscribe(
+      'EncryptionPublicKeyManager:unapprovedMessage',
+      this._requestApproval.bind(this),
     );
 
     this._subscribeToMessageState(
-      this._encryptionPublicKeyManager,
+      messenger,
       (state, newMessages, messageCount) => {
         state.unapprovedEncryptionPublicKeyMsgs = newMessages;
         state.unapprovedEncryptionPublicKeyMsgCount = messageCount;
@@ -313,18 +320,11 @@ export default class EncryptionPublicKeyController extends BaseController<
    * Clears all unapproved messages from memory.
    */
   clearUnapproved() {
-    this._encryptionPublicKeyManager.update({
-      unapprovedMessages: {},
-      unapprovedMessagesCount: 0,
-    });
+    this._encryptionPublicKeyManager.clearUnapprovedMessages();
   }
 
   private _cancelAbstractMessage(
-    messageManager: AbstractMessageManager<
-      AbstractMessage,
-      AbstractMessageParams,
-      AbstractMessageParamsMetamask
-    >,
+    messageManager: EncryptionPublicKeyManager,
     messageId: string,
     reason?: string,
   ) {
@@ -345,27 +345,26 @@ export default class EncryptionPublicKeyController extends BaseController<
   }
 
   private _subscribeToMessageState(
-    messageManager: AbstractMessageManager<
-      AbstractMessage,
-      AbstractMessageParams,
-      AbstractMessageParamsMetamask
-    >,
+    controllerMessenger: EncryptionPublicKeyControllerMessenger,
     updateState: (
       state: EncryptionPublicKeyControllerState,
       newMessages: Record<string, StateMessage>,
       messageCount: number,
     ) => void,
   ) {
-    messageManager.subscribe((state: MessageManagerState<AbstractMessage>) => {
-      const newMessages = this._migrateMessages(
-        // TODO: Replace `any` with type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        state.unapprovedMessages as any,
-      );
-      this.update((draftState) => {
-        updateState(draftState, newMessages, state.unapprovedMessagesCount);
-      });
-    });
+    controllerMessenger.subscribe(
+      'EncryptionPublicKeyManager:stateChange',
+      (state: MessageManagerState<AbstractMessage>) => {
+        const newMessages = this._migrateMessages(
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          state.unapprovedMessages as any,
+        );
+        this.update((draftState) => {
+          updateState(draftState, newMessages, state.unapprovedMessagesCount);
+        });
+      },
+    );
   }
 
   private _migrateMessages(
@@ -396,20 +395,19 @@ export default class EncryptionPublicKeyController extends BaseController<
     return stateMessage;
   }
 
-  private _requestApproval(
-    msgParams: AbstractMessageParamsMetamask,
-    type: string,
-  ) {
+  private _requestApproval(msgParams: AbstractMessageParamsMetamask) {
     const id = msgParams.metamaskId as string;
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const origin = msgParams.origin || ORIGIN_METAMASK;
 
-    this.messagingSystem
+    this.messenger
       .call(
         'ApprovalController:addRequest',
         {
           id,
           origin,
-          type,
+          type: methodNameGetEncryptionPublicKey,
         },
         true,
       )
@@ -419,11 +417,11 @@ export default class EncryptionPublicKeyController extends BaseController<
   }
 
   private _acceptApproval(messageId: string) {
-    this.messagingSystem.call('ApprovalController:acceptRequest', messageId);
+    this.messenger.call('ApprovalController:acceptRequest', messageId);
   }
 
   private _rejectApproval(messageId: string) {
-    this.messagingSystem.call(
+    this.messenger.call(
       'ApprovalController:rejectRequest',
       messageId,
       'Cancel',

@@ -1,12 +1,13 @@
 import assert from 'assert';
 import { Mockttp, MockedEndpoint } from 'mockttp';
 import { withFixtures, regularDelayMs } from '../../helpers';
-import FixtureBuilder from '../../fixture-builder';
-import HomePage from '../../page-objects/pages/homepage';
+import FixtureBuilder from '../../fixtures/fixture-builder';
+import HomePage from '../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../page-objects/pages/onboarding/onboarding-complete-page';
 import {
   importSRPOnboardingFlow,
   createNewWalletOnboardingFlow,
+  handleSidepanelPostOnboarding,
 } from '../../page-objects/flows/onboarding.flow';
 
 // Mock function implementation for Infura requests
@@ -79,7 +80,7 @@ async function mockInfura(mockServer: Mockttp): Promise<MockedEndpoint[]> {
   ];
 }
 
-describe('MetaMask onboarding @no-mmi', function () {
+describe('MetaMask onboarding', function () {
   it("doesn't make any network requests to infura before create new wallet onboarding is completed", async function () {
     await withFixtures(
       {
@@ -90,7 +91,7 @@ describe('MetaMask onboarding @no-mmi', function () {
         testSpecificMock: mockInfura,
       },
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
-        await createNewWalletOnboardingFlow(driver);
+        await createNewWalletOnboardingFlow({ driver });
 
         // Check no requests are made before completing creat new wallet onboarding
         // Intended delay to ensure we cover at least 1 polling loop of time for the network request
@@ -112,11 +113,14 @@ describe('MetaMask onboarding @no-mmi', function () {
 
         // complete create new wallet onboarding
         const onboardingCompletePage = new OnboardingCompletePage(driver);
-        await onboardingCompletePage.check_pageIsLoaded();
+        await onboardingCompletePage.checkPageIsLoaded();
         await onboardingCompletePage.completeOnboarding();
+
+        // Handle sidepanel navigation if needed
+        await handleSidepanelPostOnboarding(driver);
+
         const homePage = new HomePage(driver);
-        await homePage.check_pageIsLoaded();
-        await homePage.check_expectedBalanceIsDisplayed();
+        await homePage.checkPageIsLoaded();
 
         // network requests happen here
         for (const mockedEndpoint of mockedEndpoints) {
@@ -162,11 +166,14 @@ describe('MetaMask onboarding @no-mmi', function () {
 
         // complete import wallet onboarding
         const onboardingCompletePage = new OnboardingCompletePage(driver);
-        await onboardingCompletePage.check_pageIsLoaded();
+        await onboardingCompletePage.checkPageIsLoaded();
         await onboardingCompletePage.completeOnboarding();
+
+        // Handle sidepanel navigation if needed
+        await handleSidepanelPostOnboarding(driver);
+
         const homePage = new HomePage(driver);
-        await homePage.check_pageIsLoaded();
-        await homePage.check_expectedBalanceIsDisplayed();
+        await homePage.checkPageIsLoaded();
 
         // requests happen here
         for (const mockedEndpoint of mockedEndpoints) {

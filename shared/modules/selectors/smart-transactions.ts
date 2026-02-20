@@ -1,22 +1,35 @@
 import { createSelector } from 'reselect';
+import type {
+  SmartTransactionsNetworkConfig,
+  SmartTransactionsFeatureFlagsState,
+} from '@metamask/smart-transactions-controller';
+import { selectSmartTransactionsFeatureFlagsForChain } from '@metamask/smart-transactions-controller';
+import type { Hex, CaipChainId } from '@metamask/utils';
 import {
   getAllowedSmartTransactionsChainIds,
   SKIP_STX_RPC_URL_CHECK_CHAIN_IDS,
 } from '../../constants/smartTransactions';
 import {
-  getCurrentChainId,
-  getCurrentNetwork,
   accountSupportsSmartTx,
   getPreferences,
+  selectDefaultRpcEndpointByChainId,
   // TODO: Remove restricted import
   // eslint-disable-next-line import/no-restricted-paths
 } from '../../../ui/selectors/selectors'; // TODO: Migrate shared selectors to this file.
+import {
+  getRemoteFeatureFlags,
+  type RemoteFeatureFlagsState,
+  // eslint-disable-next-line import/no-restricted-paths
+} from '../../../ui/selectors/remote-feature-flags';
 import { isProduction } from '../environment';
+import { getCurrentChainId, type NetworkState } from './networks';
+import { createDeepEqualSelector } from './util';
 
-type SmartTransactionsMetaMaskState = {
+export type SmartTransactionsMetaMaskState = {
   metamask: {
     preferences: {
       smartTransactionsOptInStatus?: boolean;
+      smartTransactionsMigrationApplied?: boolean;
     };
     internalAccounts: {
       selectedAccount: string;
@@ -30,28 +43,38 @@ type SmartTransactionsMetaMaskState = {
         };
       };
     };
-    swapsState: {
-      swapsFeatureFlags: {
-        ethereum: {
-          extensionActive: boolean;
-          mobileActive: boolean;
-          smartTransactions: {
-            expectedDeadline?: number;
-            maxDeadline?: number;
-            returnTxHashAsap?: boolean;
-          };
-        };
-        smartTransactions: {
-          extensionActive: boolean;
-          mobileActive: boolean;
-        };
-      };
-    };
     smartTransactionsState: {
       liveness: boolean;
+      livenessByChainId: Record<string, boolean>;
     };
   };
 };
+
+export type SmartTransactionsState = SmartTransactionsMetaMaskState &
+  NetworkState &
+  RemoteFeatureFlagsState;
+
+/**
+ * Stable wrapper for controller's feature flags state shape.
+ */
+const selectSmartTransactionsFeatureFlagsState = createDeepEqualSelector(
+  (state) => getRemoteFeatureFlags(state).smartTransactionsNetworks,
+  (smartTransactionsNetworks): SmartTransactionsFeatureFlagsState => ({
+    remoteFeatureFlags: { smartTransactionsNetworks },
+  }),
+);
+
+/**
+ * @param state - The Redux state.
+ * @param chainId - The chain ID (hex or CAIP-2 format).
+ * @returns The validated and merged feature flags for the chain.
+ */
+export const getSmartTransactionsFeatureFlagsForChain = createDeepEqualSelector(
+  selectSmartTransactionsFeatureFlagsState,
+  (_state, chainId: Hex | CaipChainId) => chainId,
+  (featureFlagsState, chainId): SmartTransactionsNetworkConfig =>
+    selectSmartTransactionsFeatureFlagsForChain(featureFlagsState, chainId),
+);
 
 /**
  * Returns the user's explicit opt-in status for the smart transactions feature.
@@ -73,6 +96,25 @@ export const getSmartTransactionsOptInStatusInternal = createSelector(
 );
 
 /**
+ * Returns whether the smart transactions migration has been applied to the user's settings.
+ * This specifically tracks if Migration 135 has been run, which enables Smart Transactions
+ * by default for users who have never interacted with the feature or who previously opted out
+ * with no STX activity.
+ *
+ * This should only be used for internal checks of the migration status, and not
+ * for determining overall Smart Transactions availability.
+ *
+ * @param state - The state object.
+ * @returns true if the migration has been applied to the user's settings, false if not or if unset.
+ */
+export const getSmartTransactionsMigrationAppliedInternal = createSelector(
+  getPreferences,
+  (preferences: { smartTransactionsMigrationApplied?: boolean }): boolean => {
+    return preferences?.smartTransactionsMigrationApplied ?? false;
+  },
+);
+
+/**
  * Returns the user's explicit opt-in status for the smart transactions feature.
  * This should only be used for metrics collection, and not for determining if the
  * smart transactions user preference is enabled.
@@ -84,6 +126,7 @@ export const getSmartTransactionsOptInStatusInternal = createSelector(
  * @returns true if the user has explicitly opted in, false if they have opted out,
  * or null if they have not explicitly opted in or out.
  */
+// @ts-expect-error TODO: Fix types for `getSmartTransactionsOptInStatusInternal` once `getPreferences is converted to TypeScript
 export const getSmartTransactionsOptInStatusForMetrics = createSelector(
   getSmartTransactionsOptInStatusInternal,
   (optInStatus: boolean): boolean => optInStatus,
@@ -96,6 +139,7 @@ export const getSmartTransactionsOptInStatusForMetrics = createSelector(
  * @param state
  * @returns
  */
+// @ts-expect-error TODO: Fix types for `getSmartTransactionsOptInStatusInternal` once `getPreferences is converted to TypeScript
 export const getSmartTransactionsPreferenceEnabled = createSelector(
   getSmartTransactionsOptInStatusInternal,
   (optInStatus: boolean): boolean => {
@@ -106,43 +150,65 @@ export const getSmartTransactionsPreferenceEnabled = createSelector(
   },
 );
 
-export const getCurrentChainSupportsSmartTransactions = (
-  state: SmartTransactionsMetaMaskState,
+export const getChainSupportsSmartTransactions = (
+  state: NetworkState,
+  chainId?: string,
 ): boolean => {
-  const chainId = getCurrentChainId(state);
-  return getAllowedSmartTransactionsChainIds().includes(chainId);
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const effectiveChainId = chainId || getCurrentChainId(state);
+  return getAllowedSmartTransactionsChainIds().includes(effectiveChainId);
 };
 
 const getIsAllowedRpcUrlForSmartTransactions = (
-  state: SmartTransactionsMetaMaskState,
+  state: NetworkState,
+  chainId?: string,
 ) => {
-  const chainId = getCurrentChainId(state);
-  if (!isProduction() || SKIP_STX_RPC_URL_CHECK_CHAIN_IDS.includes(chainId)) {
-    // Allow any STX RPC URL in development and testing environments or for specific chain IDs.
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const effectiveChainId = chainId || getCurrentChainId(state);
+  // Allow in non-production or if chain ID is on skip list.
+  if (
+    !isProduction() ||
+    SKIP_STX_RPC_URL_CHECK_CHAIN_IDS.includes(effectiveChainId)
+  ) {
     return true;
   }
-  const currentNetwork = getCurrentNetwork(state);
-  if (!currentNetwork?.rpcUrl) {
-    return false;
-  }
-  const rpcUrl = new URL(currentNetwork.rpcUrl);
-  // Only allow STX in prod if an Infura RPC URL is being used.
-  return rpcUrl?.hostname?.endsWith('.infura.io');
+
+  // Get the default RPC endpoint directly for this chain ID
+  const defaultRpcEndpoint = selectDefaultRpcEndpointByChainId(
+    state,
+    effectiveChainId,
+  );
+  const rpcUrl = defaultRpcEndpoint?.url;
+  const hostname = rpcUrl && new URL(rpcUrl).hostname;
+
+  return (
+    hostname?.endsWith('.infura.io') ||
+    hostname?.endsWith('.binance.org') ||
+    false
+  );
 };
 
 export const getSmartTransactionsEnabled = (
-  state: SmartTransactionsMetaMaskState,
+  state: SmartTransactionsState,
+  chainId?: string,
 ): boolean => {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const effectiveChainId = (chainId || getCurrentChainId(state)) as Hex;
   const supportedAccount = accountSupportsSmartTx(state);
-  // TODO: Create a new proxy service only for MM feature flags.
-  const smartTransactionsFeatureFlagEnabled =
-    state.metamask.swapsState?.swapsFeatureFlags?.smartTransactions
-      ?.extensionActive;
+  const featureFlags = getSmartTransactionsFeatureFlagsForChain(
+    state,
+    effectiveChainId,
+  );
+  const smartTransactionsFeatureFlagEnabled = featureFlags?.extensionActive;
   const smartTransactionsLiveness =
-    state.metamask.smartTransactionsState?.liveness;
+    state.metamask.smartTransactionsState?.livenessByChainId?.[
+      effectiveChainId
+    ];
   return Boolean(
-    getCurrentChainSupportsSmartTransactions(state) &&
-      getIsAllowedRpcUrlForSmartTransactions(state) &&
+    getChainSupportsSmartTransactions(state, chainId) &&
+      getIsAllowedRpcUrlForSmartTransactions(state, chainId) &&
       supportedAccount &&
       smartTransactionsFeatureFlagEnabled &&
       smartTransactionsLiveness,
@@ -150,11 +216,12 @@ export const getSmartTransactionsEnabled = (
 };
 
 export const getIsSmartTransaction = (
-  state: SmartTransactionsMetaMaskState,
+  state: SmartTransactionsState,
+  chainId?: string,
 ): boolean => {
   const smartTransactionsPreferenceEnabled =
     getSmartTransactionsPreferenceEnabled(state);
-  const smartTransactionsEnabled = getSmartTransactionsEnabled(state);
+  const smartTransactionsEnabled = getSmartTransactionsEnabled(state, chainId);
   return Boolean(
     smartTransactionsPreferenceEnabled && smartTransactionsEnabled,
   );

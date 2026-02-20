@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { useHistory, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useI18nContext } from '../../hooks/useI18nContext';
-import { NOTIFICATIONS_ROUTE } from '../../helpers/constants/routes';
+import {
+  NOTIFICATIONS_ROUTE,
+  PREVIOUS_ROUTE,
+} from '../../helpers/constants/routes';
 import {
   Box,
   IconName,
@@ -20,11 +23,11 @@ import {
   TextVariant,
   TextColor,
 } from '../../helpers/constants/design-system';
-import { NotificationsPage } from '../../components/multichain';
-import { Content, Header } from '../../components/multichain/pages/page';
+import { Content, Header, Page } from '../../components/multichain/pages/page';
 import {
   selectIsMetamaskNotificationsEnabled,
   getIsUpdatingMetamaskNotifications,
+  getValidNotificationAccounts,
 } from '../../selectors/metamask-notifications/metamask-notifications';
 import { getInternalAccounts } from '../../selectors';
 import { useAccountSettingsProps } from '../../hooks/metamask-notifications/useSwitchNotifications';
@@ -32,9 +35,31 @@ import { NotificationsSettingsAllowNotifications } from './notifications-setting
 import { NotificationsSettingsTypes } from './notifications-settings-types';
 import { NotificationsSettingsPerAccount } from './notifications-settings-per-account';
 
+function useNotificationAccounts() {
+  const accountAddresses = useSelector(getValidNotificationAccounts);
+  const internalAccounts = useSelector(getInternalAccounts);
+  const accounts = useMemo(() => {
+    return (
+      accountAddresses
+        .map((addr) => {
+          const account = internalAccounts.find(
+            (a) => a.address.toLowerCase() === addr.toLowerCase(),
+          );
+          return account;
+        })
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        .filter(<T,>(val: T | undefined): val is T => Boolean(val))
+    );
+  }, [accountAddresses, internalAccounts]);
+
+  return accounts;
+}
+
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function NotificationsSettings() {
-  const history = useHistory();
-  const location = useLocation();
+  const navigate = useNavigate();
   const t = useI18nContext();
 
   // Selectors
@@ -44,7 +69,7 @@ export default function NotificationsSettings() {
   const isUpdatingMetamaskNotifications = useSelector(
     getIsUpdatingMetamaskNotifications,
   );
-  const accounts = useSelector(getInternalAccounts);
+  const accounts = useNotificationAccounts();
 
   // States
   const [loadingAllowNotifications, setLoadingAllowNotifications] =
@@ -62,22 +87,23 @@ export default function NotificationsSettings() {
     await accountSettingsProps.update(accountAddresses);
   };
 
-  // Previous page
-  const previousPage = location.state?.fromPage;
-
   return (
-    <NotificationsPage>
+    <Page>
       <Header
         startAccessory={
           <ButtonIcon
             ariaLabel="Back"
             iconName={IconName.ArrowLeft}
-            size={ButtonIconSize.Sm}
-            onClick={() =>
-              previousPage
-                ? history.push(previousPage)
-                : history.push(NOTIFICATIONS_ROUTE)
-            }
+            size={ButtonIconSize.Md}
+            onClick={() => {
+              // Use browser history for natural back navigation
+              // Fallback to notifications route if no history exists
+              if (window.history.length > 1) {
+                navigate(PREVIOUS_ROUTE);
+              } else {
+                navigate(NOTIFICATIONS_ROUTE);
+              }
+            }}
           />
         }
         endAccessory={null}
@@ -89,14 +115,14 @@ export default function NotificationsSettings() {
         <NotificationsSettingsAllowNotifications
           loading={loadingAllowNotifications}
           setLoading={setLoadingAllowNotifications}
-          data-testid="notifications-settings-allow-notifications"
+          dataTestId="notifications-settings-allow"
           disabled={updatingAccounts}
         />
         <Box
           borderColor={BorderColor.borderMuted}
           width={BlockSize.Full}
           style={{ height: '1px', borderBottomWidth: 0 }}
-        ></Box>
+        />
 
         {isMetamaskNotificationsEnabled && (
           <>
@@ -161,6 +187,6 @@ export default function NotificationsSettings() {
           </>
         )}
       </Content>
-    </NotificationsPage>
+    </Page>
   );
 }

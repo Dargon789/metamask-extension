@@ -1,16 +1,14 @@
 import React from 'react';
 import { NotificationServicesController } from '@metamask/notification-services-controller';
-import { CHAIN_IDS } from '../../../../../shared/constants/network';
-// TODO: Remove restricted import
-// eslint-disable-next-line import/no-restricted-paths
-import { t } from '../../../../../app/scripts/translate';
+import { t } from '../../../../../shared/lib/translate';
 
 import { type ExtractedNotification, isOfTypeNodeGuard } from '../node-guard';
-import type { NotificationComponent } from '../types/notifications/notifications';
+import {
+  NotificationComponentType,
+  type NotificationComponent,
+} from '../types/notifications/notifications';
 
 import { shortenAddress } from '../../../../helpers/utils/util';
-import { decimalToHex } from '../../../../../shared/modules/conversion.utils';
-
 import {
   createTextItems,
   formatIsoDateString,
@@ -57,14 +55,16 @@ const title = (n: ERC721Notification) =>
     : t('notificationItemNFTReceivedFrom');
 
 const getTitle = (n: ERC721Notification) => {
-  const address = shortenAddress(isSent(n) ? n.data.to : n.data.from);
-  const items = createTextItems([title(n) || '', address], TextVariant.bodySm);
+  const address = shortenAddress(
+    isSent(n) ? n.payload.data.to : n.payload.data.from,
+  );
+  const items = createTextItems([title(n) ?? '', address], TextVariant.bodySm);
   return items;
 };
 
 const getDescription = (n: ERC721Notification) => {
   const items = createTextItems(
-    [n.data.nft.collection.name],
+    [n.payload.data.nft.collection.name],
     TextVariant.bodyMd,
   );
   return items;
@@ -79,7 +79,7 @@ export const components: NotificationComponent<ERC721Notification> = {
         isRead={notification.isRead}
         icon={{
           type: NotificationListItemIconType.Nft,
-          value: notification.data.nft.image,
+          value: notification.payload.data.nft.image,
           badge: {
             icon: isSent(notification)
               ? IconName.Arrow2UpRight
@@ -90,7 +90,7 @@ export const components: NotificationComponent<ERC721Notification> = {
         title={getTitle(notification)}
         description={getDescription(notification)}
         createdAt={new Date(notification.createdAt)}
-        amount={`#${notification.data.nft.token_id}`}
+        amount={`#${notification.payload.data.nft.token_id}`}
         onClick={onClick}
       />
     );
@@ -109,17 +109,16 @@ export const components: NotificationComponent<ERC721Notification> = {
       );
     },
     body: {
-      type: 'body_onchain_notification',
+      type: NotificationComponentType.OnChainBody,
       Image: ({ notification }) => {
-        const chainId = decimalToHex(notification.chain_id);
         const { nativeCurrencyLogo, nativeCurrencyName } =
-          getNetworkDetailsByChainId(`0x${chainId}` as keyof typeof CHAIN_IDS);
+          getNetworkDetailsByChainId(notification.payload.chain_id);
         return (
           <NotificationDetailNft
             networkSrc={nativeCurrencyLogo}
-            tokenId={notification.data.nft.token_id}
-            tokenName={notification.data.nft.name}
-            tokenSrc={notification.data.nft.image}
+            tokenId={notification.payload.data.nft.token_id}
+            tokenName={notification.payload.data.nft.name}
+            tokenSrc={notification.payload.data.nft.image}
             networkName={nativeCurrencyName}
           />
         );
@@ -129,7 +128,7 @@ export const components: NotificationComponent<ERC721Notification> = {
           side={`${t('notificationItemFrom')}${
             isSent(notification) ? ` (${t('you')})` : ''
           }`}
-          address={notification.data.from}
+          address={notification.payload.data.from}
         />
       ),
       To: ({ notification }) => (
@@ -137,7 +136,7 @@ export const components: NotificationComponent<ERC721Notification> = {
           side={`${t('notificationItemTo')}${
             isSent(notification) ? '' : ` (${t('you')})`
           }`}
-          address={notification.data.to}
+          address={notification.payload.data.to}
         />
       ),
       Status: () => (
@@ -147,37 +146,35 @@ export const components: NotificationComponent<ERC721Notification> = {
             color: TextColor.successDefault,
             backgroundColor: BackgroundColor.successMuted,
           }}
-          label={t('notificationItemStatus') || ''}
-          detail={t('notificationItemConfirmed') || ''}
+          label={t('notificationItemStatus') ?? ''}
+          detail={t('notificationItemConfirmed') ?? ''}
         />
       ),
       Asset: ({ notification }) => {
-        const chainId = decimalToHex(notification.chain_id);
         const { nativeCurrencyLogo } = getNetworkDetailsByChainId(
-          `0x${chainId}` as keyof typeof CHAIN_IDS,
+          notification.payload.chain_id,
         );
         return (
           <NotificationDetailCollection
             icon={{
-              src: notification.data.nft.image,
+              src: notification.payload.data.nft.image,
               badgeSrc: nativeCurrencyLogo,
             }}
-            label={t('notificationItemCollection') || ''}
-            collection={`${notification.data.nft.collection.name} (${notification.data.nft.token_id})`}
+            label={t('notificationItemCollection') ?? ''}
+            collection={`${notification.payload.data.nft.collection.name} (${notification.payload.data.nft.token_id})`}
           />
         );
       },
       Network: ({ notification }) => {
-        const chainId = decimalToHex(notification.chain_id);
         const { nativeCurrencyLogo, nativeCurrencyName } =
-          getNetworkDetailsByChainId(`0x${chainId}` as keyof typeof CHAIN_IDS);
+          getNetworkDetailsByChainId(notification.payload.chain_id);
 
         return (
           <NotificationDetailAsset
             icon={{
               src: nativeCurrencyLogo,
             }}
-            label={t('notificationDetailNetwork') || ''}
+            label={t('notificationDetailNetwork') ?? ''}
             detail={nativeCurrencyName}
           />
         );
@@ -186,18 +183,17 @@ export const components: NotificationComponent<ERC721Notification> = {
         return <NotificationDetailNetworkFee notification={notification} />;
       },
     },
-  },
-  footer: {
-    type: 'footer_onchain_notification',
-    ScanLink: ({ notification }) => {
-      return (
-        <NotificationDetailBlockExplorerButton
-          notification={notification}
-          chainId={notification.chain_id}
-          txHash={notification.tx_hash}
-          id={notification.id}
-        />
-      );
+    footer: {
+      type: NotificationComponentType.OnChainFooter,
+      ScanLink: ({ notification }) => {
+        return (
+          <NotificationDetailBlockExplorerButton
+            notification={notification}
+            chainId={notification.payload.chain_id}
+            txHash={notification.payload.tx_hash}
+          />
+        );
+      },
     },
   },
 };

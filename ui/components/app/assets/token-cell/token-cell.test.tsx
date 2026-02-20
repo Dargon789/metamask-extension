@@ -1,18 +1,30 @@
 import React from 'react';
 import thunk from 'redux-thunk';
 import configureMockStore from 'redux-mock-store';
-import { fireEvent } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import { useSelector } from 'react-redux';
-import { renderWithProvider } from '../../../../../test/lib/render-helpers';
+import { Hex } from '@metamask/utils';
+import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import { useTokenFiatAmount } from '../../../../hooks/useTokenFiatAmount';
-import { getTokenList, getPreferences } from '../../../../selectors';
+import { getCurrentCurrency } from '../../../../ducks/metamask/metamask';
+import {
+  getTokenList,
+  getPreferences,
+  getCurrencyRates,
+  getUseCurrencyRateCheck,
+  getUseSafeChainsListValidation,
+  getEnabledNetworksByNamespace,
+} from '../../../../selectors';
 import {
   getMultichainCurrentChainId,
   getMultichainIsEvm,
 } from '../../../../selectors/multichain';
+import { getProviderConfig } from '../../../../../shared/modules/selectors/networks';
 
 import { useIsOriginalTokenSymbol } from '../../../../hooks/useIsOriginalTokenSymbol';
 import { getIntlLocale } from '../../../../ducks/locale/locale';
+import { TokenWithFiatAmount } from '../types';
+import { TokenCellProps } from './token-cell';
 import TokenCell from '.';
 
 jest.mock('react-redux', () => {
@@ -35,6 +47,15 @@ jest.mock('../../../../hooks/useIsOriginalTokenSymbol', () => {
     useIsOriginalTokenSymbol: jest.fn(),
   };
 });
+
+const mockUseNavigate = jest.fn();
+jest.mock('react-router-dom', () => {
+  return {
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockUseNavigate,
+  };
+});
+
 describe('Token Cell', () => {
   const mockState = {
     metamask: {
@@ -49,6 +70,24 @@ describe('Token Cell', () => {
           conversionRate: 7.0,
         },
       },
+      networkConfigurationsByChainId: {
+        '0x1': {
+          chainId: '0x1',
+          name: 'Ethereum',
+          nativeCurrency: 'ETH',
+          defaultRpcEndpointIndex: 0,
+          ticker: 'ETH',
+          rpcEndpoints: [
+            {
+              type: 'custom',
+              url: 'https://mainnet.infura.io/v3/YOUR_INFURA_API_KEY',
+              networkClientId: 'eth-mainnet',
+            },
+          ],
+          blockExplorerUrls: [],
+        },
+      },
+      selectedNetworkClientId: 'eth-mainnet',
       preferences: {},
     },
   };
@@ -78,24 +117,53 @@ describe('Token Cell', () => {
   };
 
   const mockStore = configureMockStore([thunk])(mockState);
+  const propToken: Partial<TokenWithFiatAmount> & { currentCurrency: string } =
+    {
+      address: '0xAnotherToken' as Hex,
+      symbol: 'TEST',
+      string: '5.000',
+      currentCurrency: 'usd',
+      balance: '5',
+      image: '',
+      chainId: '0x1' as Hex,
+      tokenFiatAmount: 5,
+      aggregators: [],
+      decimals: 18,
+      isNative: false,
+    };
 
   const props = {
-    address: '0xAnotherToken',
-    symbol: 'TEST',
-    string: '5.000',
-    currentCurrency: 'usd',
-    image: '',
+    token: {
+      ...propToken,
+    },
     onClick: jest.fn(),
   };
-
-  const propsLargeAmount = {
-    address: '0xAnotherToken',
+  const propAnotherToken: Partial<TokenWithFiatAmount> & {
+    currentCurrency: string;
+  } = {
+    address: '0xAnotherToken' as Hex,
     symbol: 'TEST',
     string: '5000000',
     currentCurrency: 'usd',
     image: '',
+    chainId: '0x1' as Hex,
+    tokenFiatAmount: 5000000,
+    balance: '5000000',
+    aggregators: [],
+    decimals: 18,
+    isNative: false,
+  };
+  const propsLargeAmount = {
+    token: {
+      ...propAnotherToken,
+    },
     onClick: jest.fn(),
   };
+  const mockProviderConfig = jest.fn().mockReturnValue({
+    chainId: '0x1',
+    ticker: 'ETH',
+    rpcPrefs: { blockExplorerUrl: 'https://etherscan.io' },
+  });
   const useSelectorMock = useSelector;
   (useSelectorMock as jest.Mock).mockImplementation((selector) => {
     if (selector === getPreferences) {
@@ -113,13 +181,33 @@ describe('Token Cell', () => {
     if (selector === getIntlLocale) {
       return 'en-US';
     }
+    if (selector === getCurrentCurrency) {
+      return 'usd';
+    }
+    if (selector === getCurrencyRates) {
+      return { POL: '' };
+    }
+    if (selector === getProviderConfig) {
+      return mockProviderConfig();
+    }
+    if (selector === getUseCurrencyRateCheck) {
+      return true;
+    }
+    if (selector === getUseSafeChainsListValidation) {
+      return true;
+    }
+    if (selector === getEnabledNetworksByNamespace) {
+      return {
+        '0x1': true,
+      };
+    }
     return undefined;
   });
   (useTokenFiatAmount as jest.Mock).mockReturnValue('5.00');
 
   it('should match snapshot', () => {
     const { container } = renderWithProvider(
-      <TokenCell {...props} />,
+      <TokenCell {...(props as TokenCellProps)} />,
       mockStore,
     );
 
@@ -128,7 +216,7 @@ describe('Token Cell', () => {
 
   it('calls onClick when clicked', () => {
     const { queryByTestId } = renderWithProvider(
-      <TokenCell {...props} />,
+      <TokenCell {...(props as TokenCellProps)} />,
       mockStore,
     );
 
@@ -141,7 +229,7 @@ describe('Token Cell', () => {
 
   it('should render the correct token and filter by symbol and address', () => {
     const { getByTestId, getByAltText } = renderWithProvider(
-      <TokenCell {...props} />,
+      <TokenCell {...(props as TokenCellProps)} />,
       mockStore,
     );
 
@@ -154,13 +242,36 @@ describe('Token Cell', () => {
 
   it('should render amount with the correct format', () => {
     const { getByTestId } = renderWithProvider(
-      <TokenCell {...propsLargeAmount} />,
+      <TokenCell {...(propsLargeAmount as TokenCellProps)} />,
       mockStore,
     );
 
     const amountElement = getByTestId('multichain-token-list-item-value');
 
     expect(amountElement).toBeInTheDocument();
-    expect(amountElement.textContent).toBe('5,000,000 TEST');
+    expect(amountElement.textContent).toBe('5.00M TEST');
+  });
+
+  it('should show a scam warning if the native ticker does not match the expected ticker', async () => {
+    const token = { ...propToken };
+    token.chainId = '0x1';
+    token.isNative = true;
+    token.symbol = 'BTC'; // incorrect ticker
+    mockProviderConfig.mockReturnValue({
+      chainId: '0x1',
+      ticker: 'BTC', // incorrect ticker
+      rpcPrefs: { blockExplorerUrl: 'https://etherscan.io' },
+      type: 'mainnet',
+      rpcUrl: '',
+    });
+
+    const { getByTestId } = renderWithProvider(
+      <TokenCell {...({ token } as TokenCellProps)} />,
+      mockStore,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('scam-warning')).toBeInTheDocument();
+    });
   });
 });

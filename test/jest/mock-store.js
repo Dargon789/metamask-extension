@@ -1,9 +1,8 @@
-import { EthAccountType } from '@metamask/keyring-api';
+import { EthAccountType, EthScope } from '@metamask/keyring-api';
 import { CHAIN_IDS, CURRENCY_SYMBOLS } from '../../shared/constants/network';
 import { KeyringType } from '../../shared/constants/keyring';
 import { ETH_EOA_METHODS } from '../../shared/constants/eth-methods';
 import { mockNetworkState } from '../stub/networks';
-import { DEFAULT_BRIDGE_CONTROLLER_STATE } from '../../app/scripts/controllers/bridge/constants';
 
 export const createGetSmartTransactionFeesApiResponse = () => {
   return {
@@ -136,11 +135,30 @@ export const createSwapsMockStore = () => {
       swapsSTXLoading: false,
     },
     metamask: {
+      accountTree: {},
+      remoteFeatureFlags: {
+        bridgeConfig: {
+          support: false,
+        },
+        smartTransactionsNetworks: {
+          default: {
+            extensionActive: false,
+          },
+          [CHAIN_IDS.MAINNET]: {
+            extensionActive: true,
+          },
+          [CHAIN_IDS.BSC]: {
+            extensionActive: true,
+          },
+        },
+      },
       preferences: {
         showFiatInTestnets: true,
         smartTransactionsOptInStatus: true,
+        tokenNetworkFilter: {},
         showMultiRpcModal: false,
       },
+      enabledNetworkMap: {},
       transactions: [
         {
           id: 6571648590592143,
@@ -263,6 +281,7 @@ export const createSwapsMockStore = () => {
             options: {},
             methods: ETH_EOA_METHODS,
             type: EthAccountType.Eoa,
+            scopes: [EthScope.Eoa],
           },
           '07c2cfec-36c9-46c4-8115-3836d3ac9047': {
             address: '0xc5b8dbac4c1d3f152cdeb400e2313f309c410acb',
@@ -276,6 +295,7 @@ export const createSwapsMockStore = () => {
             options: {},
             methods: ETH_EOA_METHODS,
             type: EthAccountType.Eoa,
+            scopes: [EthScope.Eoa],
           },
           '15e69915-2a1a-4019-93b3-916e11fd432f': {
             address: '0x2f8d4a878cfa04a6e60d46362f5644deab66572d',
@@ -289,6 +309,7 @@ export const createSwapsMockStore = () => {
             options: {},
             methods: ETH_EOA_METHODS,
             type: EthAccountType.Eoa,
+            scopes: [EthScope.Eoa],
           },
           '784225f4-d30b-4e77-a900-c8bbce735b88': {
             address: '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc',
@@ -302,6 +323,7 @@ export const createSwapsMockStore = () => {
             options: {},
             methods: ETH_EOA_METHODS,
             type: EthAccountType.Eoa,
+            scopes: [EthScope.Eoa],
           },
           '36eb02e0-7925-47f0-859f-076608f09b69': {
             address: '0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe6',
@@ -319,28 +341,17 @@ export const createSwapsMockStore = () => {
             options: {},
             methods: ETH_EOA_METHODS,
             type: EthAccountType.Eoa,
+            scopes: [EthScope.Eoa],
           },
         },
         selectedAccount: 'cf8dace4-9439-4bd4-b3a8-88c821c8fcb3',
       },
-      accounts: {
-        '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc': {
-          address: '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc',
-          balance: '0x0',
-        },
-        '0xec1adf982415d2ef5ec55899b9bfb8bc0f29251b': {
-          address: '0xec1adf982415d2ef5ec55899b9bfb8bc0f29251b',
-          balance: '0x0',
-        },
-      },
       accountsByChainId: {
         [CHAIN_IDS.MAINNET]: {
-          '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc': {
-            address: '0x0dcd5d886577d5081b0c52e242ef29e70be3e7bc',
+          '0x0DCD5D886577d5081B0c52e242Ef29E70Be3E7bc': {
             balance: '0x0',
           },
-          '0xec1adf982415d2ef5ec55899b9bfb8bc0f29251b': {
-            address: '0xec1adf982415d2ef5ec55899b9bfb8bc0f29251b',
+          '0xEC1Adf982415D2Ef5ec55899b9Bfb8BC0f29251B': {
             balance: '0x0',
           },
         },
@@ -355,10 +366,18 @@ export const createSwapsMockStore = () => {
             'c5b8dbac4c1d3f152cdeb400e2313f309c410acb',
             '2f8d4a878cfa04a6e60d46362f5644deab66572d',
           ],
+          metadata: {
+            id: '01JKAF3DSGM3AB87EM9N0K41AJ',
+            name: '',
+          },
         },
         {
           type: KeyringType.imported,
           accounts: ['0xd85a4b6a394794842887b8284293d69163007bbb'],
+          metadata: {
+            id: '01JKAF3KP7VPAG0YXEDTDRB6ZV',
+            name: '',
+          },
         },
       ],
       ...mockNetworkState({
@@ -391,8 +410,13 @@ export const createSwapsMockStore = () => {
             smartTransactions: {
               expectedDeadline: 45,
               maxDeadline: 150,
-              returnTxHashAsap: false,
+              extensionReturnTxHashAsap: false,
             },
+          },
+          bsc: {
+            extensionActive: true,
+            mobileActive: false,
+            smartTransactions: {},
           },
           smartTransactions: {
             mobileActive: true,
@@ -649,6 +673,12 @@ export const createSwapsMockStore = () => {
         userOptIn: true,
         userOptInV2: true,
         liveness: true,
+        livenessByChainId: {
+          [CHAIN_IDS.MAINNET]: true,
+          [CHAIN_IDS.BSC]: true,
+          [CHAIN_IDS.SEPOLIA]: true,
+          [CHAIN_IDS.LINEA_MAINNET]: true,
+        },
         fees: createGetSmartTransactionFeesApiResponse(),
         smartTransactions: {
           [CHAIN_IDS.MAINNET]: [
@@ -664,6 +694,7 @@ export const createSwapsMockStore = () => {
                   '0x55ad39634ee10d417b6e190cfd3736098957e958879cffe78f1f00f4fd2654d6',
                 minedTx: 'success',
               },
+              chainId: CHAIN_IDS.MAINNET,
             },
             {
               uuid: 'uuid2',
@@ -677,6 +708,7 @@ export const createSwapsMockStore = () => {
                   '0x55ad39634ee10d417b6e190cfd3736098957e958879cffe78f1f00f4fd2654d6',
                 minedTx: 'success',
               },
+              chainId: CHAIN_IDS.MAINNET,
             },
           ],
         },
@@ -695,42 +727,6 @@ export const createSwapsMockStore = () => {
         },
       },
       gasLoadingAnimationIsShowing: false,
-    },
-  };
-};
-
-export const createBridgeMockStore = (
-  featureFlagOverrides = {},
-  bridgeSliceOverrides = {},
-  bridgeStateOverrides = {},
-  metamaskStateOverrides = {},
-) => {
-  const swapsStore = createSwapsMockStore();
-  return {
-    ...swapsStore,
-    bridge: {
-      toChainId: null,
-      ...bridgeSliceOverrides,
-    },
-    metamask: {
-      ...swapsStore.metamask,
-      ...mockNetworkState(
-        { chainId: CHAIN_IDS.MAINNET },
-        { chainId: CHAIN_IDS.LINEA_MAINNET },
-      ),
-      ...metamaskStateOverrides,
-      bridgeState: {
-        ...(swapsStore.metamask.bridgeState ?? {}),
-        bridgeFeatureFlags: {
-          extensionSupport: false,
-          srcNetworkAllowlist: [],
-          destNetworkAllowlist: [],
-          ...featureFlagOverrides,
-        },
-        quotes: DEFAULT_BRIDGE_CONTROLLER_STATE.quotes,
-        quoteRequest: DEFAULT_BRIDGE_CONTROLLER_STATE.quoteRequest,
-        ...bridgeStateOverrides,
-      },
     },
   };
 };

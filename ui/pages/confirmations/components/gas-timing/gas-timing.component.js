@@ -10,6 +10,7 @@ import { I18nContext } from '../../../../contexts/i18n';
 import {
   getGasEstimateType,
   getGasFeeEstimates,
+  getGasFeeEstimatesByChainId,
   getIsGasEstimatesLoading,
 } from '../../../../ducks/metamask/metamask';
 import {
@@ -19,15 +20,10 @@ import {
   TextColor,
   TextVariant,
 } from '../../../../helpers/constants/design-system';
-import {
-  GAS_FORM_ERRORS,
-  PRIORITY_LEVEL_ICON_MAP,
-} from '../../../../helpers/constants/gas';
+import { GAS_FORM_ERRORS } from '../../../../helpers/constants/gas';
 import { usePrevious } from '../../../../hooks/usePrevious';
 import { getGasFeeTimeEstimate } from '../../../../store/actions';
 import { useDraftTransactionWithTxParams } from '../../hooks/useDraftTransactionWithTxParams';
-import { isMMI } from '../../../../helpers/utils/build-types';
-
 // Once we reach this second threshold, we switch to minutes as a unit
 const SECOND_CUTOFF = 90;
 
@@ -40,14 +36,19 @@ const toHumanReadableTime = (milliseconds = 1, t) => {
   return t('gasTimingMinutesShort', [Math.ceil(seconds / 60)]);
 };
 export default function GasTiming({
+  chainId,
   maxFeePerGas = '0',
   maxPriorityFeePerGas = '0',
   gasWarnings,
 }) {
   const gasEstimateType = useSelector(getGasEstimateType);
-  const gasFeeEstimates = useSelector(getGasFeeEstimates);
+  const chainGasFeeEstimates = useSelector((state) =>
+    getGasFeeEstimatesByChainId(state, chainId),
+  );
+  const gasFeeEstimatesFromRoot = useSelector(getGasFeeEstimates);
   const isGasEstimatesLoading = useSelector(getIsGasEstimatesLoading);
 
+  const gasFeeEstimates = chainGasFeeEstimates || gasFeeEstimatesFromRoot;
   const [customEstimatedTime, setCustomEstimatedTime] = useState(null);
   const t = useContext(I18nContext);
   const { estimateUsed } = useGasFeeContext();
@@ -132,13 +133,10 @@ export default function GasTiming({
 
   const estimateToUse =
     estimateUsed || transactionData.userFeeLevel || 'medium';
-  const estimateEmoji = isMMI() ? '' : PRIORITY_LEVEL_ICON_MAP[estimateToUse];
-  let text = `${estimateEmoji} ${t(estimateToUse)}`;
-  let time = '';
 
-  if (estimateToUse === 'low') {
-    text = `${estimateEmoji} ${t('gasTimingLow')}`;
-  }
+  const textTKey = estimateToUse === 'low' ? 'gasTimingLow' : estimateToUse;
+  let text = t(textTKey);
+  let time = '';
 
   // Anything medium or faster is positive
   if (
@@ -177,14 +175,16 @@ export default function GasTiming({
   }
 
   return (
-    <Box display={Display.Flex} flexWrap={FlexWrap.Wrap}>
-      <Text
-        color={TextColor.textAlternative}
-        variant={TextVariant.bodyMd}
-        paddingInlineEnd={1}
-      >
-        {text}
-      </Text>
+    <Box display={Display.Flex} marginBottom={1} flexWrap={FlexWrap.Wrap}>
+      {text && (
+        <Text
+          color={TextColor.textAlternative}
+          variant={TextVariant.bodyMd}
+          paddingInlineEnd={2}
+        >
+          {text}
+        </Text>
+      )}
 
       {time && (
         <Text variant={TextVariant.bodyMd} color={TextColor.textDefault}>
@@ -196,6 +196,7 @@ export default function GasTiming({
 }
 
 GasTiming.propTypes = {
+  chainId: PropTypes.string,
   maxPriorityFeePerGas: PropTypes.string,
   maxFeePerGas: PropTypes.string,
   gasWarnings: PropTypes.object,

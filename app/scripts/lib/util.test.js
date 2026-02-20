@@ -15,17 +15,31 @@ import {
 } from '../../../shared/constants/app';
 import { isPrefixedFormattedHexString } from '../../../shared/modules/network.utils';
 import * as FourBiteUtils from '../../../shared/lib/four-byte';
+import { withResolvers } from '../../../shared/lib/promise-with-resolvers';
 import {
   shouldEmitDappViewedEvent,
   addUrlProtocolPrefix,
-  deferredPromise,
   formatTxMetaForRpcResult,
   getEnvironmentType,
   getPlatform,
   getValidUrl,
   isWebUrl,
+  isWebOrigin,
   getMethodDataName,
+  getBooleanFlag,
+  extractRpcDomain,
+  isKnownDomain,
+  initializeRpcProviderDomains,
+  isPublicEndpointUrl,
+  isSpecialUseDomain,
 } from './util';
+
+// Mock the module
+jest.mock('./util', () => ({
+  ...jest.requireActual('./util'),
+  isKnownDomain: jest.fn(),
+  initializeRpcProviderDomains: jest.fn(),
+}));
 
 describe('app utils', () => {
   describe('getEnvironmentType', () => {
@@ -109,6 +123,31 @@ describe('app utils', () => {
       );
       expect(getValidUrl('https://exa%20mple.com')).toStrictEqual(null);
       expect(getValidUrl('')).toStrictEqual(null);
+    });
+
+    it('should test isWebOrigin', () => {
+      // Valid web origins
+      expect(isWebOrigin('http://example.com')).toStrictEqual(true);
+      expect(isWebOrigin('https://example.com')).toStrictEqual(true);
+      expect(isWebOrigin('http://localhost:8545')).toStrictEqual(true);
+      expect(isWebOrigin('https://metamask.io')).toStrictEqual(true);
+
+      // Non-web origins (browser internal pages)
+      expect(isWebOrigin('chrome://newtab')).toStrictEqual(false);
+      expect(isWebOrigin('chrome://settings')).toStrictEqual(false);
+      expect(isWebOrigin('about:blank')).toStrictEqual(false);
+      expect(isWebOrigin('about:debugging')).toStrictEqual(false);
+
+      // Extension pages
+      expect(isWebOrigin('chrome-extension://abc123')).toStrictEqual(false);
+      expect(isWebOrigin('moz-extension://abc123')).toStrictEqual(false);
+
+      // Edge cases
+      expect(isWebOrigin(null)).toStrictEqual(false);
+      expect(isWebOrigin(undefined)).toStrictEqual(false);
+      expect(isWebOrigin('')).toStrictEqual(false);
+      expect(isWebOrigin('file:///path/to/file')).toStrictEqual(false);
+      expect(isWebOrigin('ftp://example.com')).toStrictEqual(false);
     });
   });
 
@@ -204,9 +243,9 @@ describe('app utils', () => {
     });
   });
 
-  describe('deferredPromise', () => {
+  describe('Promise.withResolvers', () => {
     it('should allow rejecting a deferred Promise', async () => {
-      const { promise, reject } = deferredPromise();
+      const { promise, reject } = withResolvers();
 
       reject(new Error('test'));
 
@@ -214,7 +253,7 @@ describe('app utils', () => {
     });
 
     it('should allow resolving a deferred Promise', async () => {
-      const { promise, resolve } = deferredPromise();
+      const { promise, resolve } = withResolvers();
 
       resolve('test');
 
@@ -222,7 +261,7 @@ describe('app utils', () => {
     });
 
     it('should still be rejected after reject is called twice', async () => {
-      const { promise, reject } = deferredPromise();
+      const { promise, reject } = withResolvers();
 
       reject(new Error('test'));
       reject(new Error('different message'));
@@ -231,7 +270,7 @@ describe('app utils', () => {
     });
 
     it('should still be rejected after resolve is called post-rejection', async () => {
-      const { promise, resolve, reject } = deferredPromise();
+      const { promise, resolve, reject } = withResolvers();
 
       reject(new Error('test'));
       resolve('different message');
@@ -240,7 +279,7 @@ describe('app utils', () => {
     });
 
     it('should still be resolved after resolve is called twice', async () => {
-      const { promise, resolve } = deferredPromise();
+      const { promise, resolve } = withResolvers();
 
       resolve('test');
       resolve('different message');
@@ -249,7 +288,7 @@ describe('app utils', () => {
     });
 
     it('should still be resolved after reject is called post-resolution', async () => {
-      const { promise, resolve, reject } = deferredPromise();
+      const { promise, resolve, reject } = withResolvers();
 
       resolve('test');
       reject(new Error('different message'));
@@ -268,6 +307,17 @@ describe('app utils', () => {
       expect(
         shouldEmitDappViewedEvent('fake-metrics-id-invalid'),
       ).toStrictEqual(false);
+    });
+
+    it('should return false for Firefox', () => {
+      jest
+        .spyOn(window.navigator, 'userAgent', 'get')
+        .mockReturnValue(
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:95.0) Gecko/20100101 Firefox/95.0',
+        );
+      expect(shouldEmitDappViewedEvent('fake-metrics-id-fd20')).toStrictEqual(
+        false,
+      );
     });
   });
 
@@ -434,6 +484,271 @@ describe('app utils', () => {
       ).toStrictEqual({});
 
       expect(addKnownMethodData).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('getBooleanFlag', () => {
+    it('returns `true` for `true` and `"true"`', () => {
+      expect(getBooleanFlag(true)).toBe(true);
+      expect(getBooleanFlag('true')).toBe(true);
+    });
+
+    it('returns `false` for other values', () => {
+      expect(getBooleanFlag(false)).toBe(false);
+      expect(getBooleanFlag('false')).toBe(false);
+      expect(getBooleanFlag(undefined)).toBe(false);
+      expect(getBooleanFlag('foo')).toBe(false);
+    });
+  });
+
+  describe('RPC URL handling utilities', () => {
+    describe('isKnownDomain', () => {
+      beforeEach(() => {
+        const testKnownDomains = new Set([
+          'mainnet.infura.io',
+          'eth-mainnet.alchemyapi.io',
+        ]);
+
+        isKnownDomain.mockImplementation((domain) => {
+          if (!domain) {
+            return false;
+          }
+          return testKnownDomains.has(domain.toLowerCase());
+        });
+      });
+
+      afterEach(() => {
+        jest.clearAllMocks();
+      });
+
+      it('should correctly identify known domains', () => {
+        expect(isKnownDomain('mainnet.infura.io')).toBe(true);
+        expect(isKnownDomain('MAINNET.INFURA.IO')).toBe(true);
+        expect(isKnownDomain('unknown-domain.com')).toBe(false);
+        expect(isKnownDomain(null)).toBe(false);
+        expect(isKnownDomain('')).toBe(false);
+      });
+    });
+
+    describe('initializeRpcProviderDomains', () => {
+      let mockPromise;
+
+      beforeEach(() => {
+        mockPromise = Promise.resolve();
+        initializeRpcProviderDomains.mockReturnValue(mockPromise);
+      });
+
+      afterEach(() => {
+        jest.clearAllMocks();
+      });
+
+      it('should return a promise', async () => {
+        const result = initializeRpcProviderDomains();
+        expect(result).toBeInstanceOf(Promise);
+        await result;
+      });
+
+      it('should reuse the same promise on subsequent calls', () => {
+        const result1 = initializeRpcProviderDomains();
+        const result2 = initializeRpcProviderDomains();
+        expect(result1).toBe(result2);
+      });
+    });
+  });
+
+  describe('extractRpcDomain', () => {
+    const testKnownDomains = new Set([
+      'mainnet.infura.io',
+      'linea-goerli.infura.io',
+      'eth-mainnet.alchemyapi.io',
+      'rpc.tenderly.co',
+    ]);
+
+    it('should extract domain from known URLs', () => {
+      expect(
+        extractRpcDomain(
+          'https://mainnet.infura.io/v3/abc123',
+          testKnownDomains,
+        ),
+      ).toBe('mainnet.infura.io');
+
+      expect(
+        extractRpcDomain(
+          'https://eth-mainnet.alchemyapi.io/v2/key',
+          testKnownDomains,
+        ),
+      ).toBe('eth-mainnet.alchemyapi.io');
+
+      expect(
+        extractRpcDomain(
+          'https://MAINNET.INFURA.IO/v3/abc123',
+          testKnownDomains,
+        ),
+      ).toBe('mainnet.infura.io');
+    });
+
+    it('should handle URLs without protocol for known domains', () => {
+      expect(
+        extractRpcDomain('mainnet.infura.io/v3/abc123', testKnownDomains),
+      ).toBe('mainnet.infura.io');
+    });
+
+    it('should return private for any unknown domain', () => {
+      expect(extractRpcDomain('http://localhost:8545')).toBe('private');
+      expect(extractRpcDomain('https://unknown-domain.com')).toBe('private');
+      expect(extractRpcDomain('http://192.168.1.1:8545')).toBe('private');
+      expect(extractRpcDomain('ws://custom-domain.xyz')).toBe('private');
+      expect(extractRpcDomain('https://rpc.ankr.com/eth_goerli')).toBe(
+        'private',
+      );
+    });
+
+    it('should handle invalid URLs and edge cases', () => {
+      expect(extractRpcDomain('')).toBe('invalid');
+      expect(extractRpcDomain(null)).toBe('invalid');
+      expect(extractRpcDomain('http://')).toBe('invalid');
+      expect(extractRpcDomain('https://')).toBe('invalid');
+    });
+  });
+
+  describe('isPublicEndpointUrl', () => {
+    const MOCK_INFURA_PROJECT_ID = 'test-project-id';
+
+    it('should return true for Infura URLs', () => {
+      expect(
+        isPublicEndpointUrl(
+          `https://mainnet.infura.io/v3/${MOCK_INFURA_PROJECT_ID}`,
+          MOCK_INFURA_PROJECT_ID,
+        ),
+      ).toBe(true);
+    });
+
+    it('should return false for unknown URLs', () => {
+      expect(
+        isPublicEndpointUrl(
+          'https://unknown.example.com',
+          MOCK_INFURA_PROJECT_ID,
+        ),
+      ).toBe(false);
+    });
+
+    describe('localhost and IP addresses', () => {
+      it('should return false for localhost', () => {
+        expect(
+          isPublicEndpointUrl('http://localhost:8545', MOCK_INFURA_PROJECT_ID),
+        ).toBe(false);
+      });
+
+      it('should return false for any IPv4 address', () => {
+        // Loopback
+        expect(
+          isPublicEndpointUrl('http://127.0.0.1:8545', MOCK_INFURA_PROJECT_ID),
+        ).toBe(false);
+        // Private ranges
+        expect(
+          isPublicEndpointUrl('http://10.0.0.1:8545', MOCK_INFURA_PROJECT_ID),
+        ).toBe(false);
+        expect(
+          isPublicEndpointUrl(
+            'http://192.168.1.1:8545',
+            MOCK_INFURA_PROJECT_ID,
+          ),
+        ).toBe(false);
+        // Public IPs should also return false (public providers use domain names)
+        expect(
+          isPublicEndpointUrl('http://8.8.8.8:8545', MOCK_INFURA_PROJECT_ID),
+        ).toBe(false);
+      });
+
+      it('should return false for any IPv6 address', () => {
+        expect(
+          isPublicEndpointUrl('http://[::1]:8545', MOCK_INFURA_PROJECT_ID),
+        ).toBe(false);
+        expect(
+          isPublicEndpointUrl(
+            'http://[2001:db8::1]:8545',
+            MOCK_INFURA_PROJECT_ID,
+          ),
+        ).toBe(false);
+      });
+    });
+  });
+
+  describe('isSpecialUseDomain', () => {
+    describe('RFC 6761 special-use TLDs', () => {
+      it('should return true for .test TLD', () => {
+        expect(isSpecialUseDomain('myapp.test')).toBe(true);
+        expect(isSpecialUseDomain('rpc.myapp.test')).toBe(true);
+      });
+
+      it('should return true for .localhost TLD', () => {
+        expect(isSpecialUseDomain('myapp.localhost')).toBe(true);
+        expect(isSpecialUseDomain('rpc.myapp.localhost')).toBe(true);
+      });
+
+      it('should return true for .invalid TLD', () => {
+        expect(isSpecialUseDomain('myapp.invalid')).toBe(true);
+        expect(isSpecialUseDomain('rpc.myapp.invalid')).toBe(true);
+      });
+
+      it('should return true for .example TLD', () => {
+        expect(isSpecialUseDomain('myapp.example')).toBe(true);
+        expect(isSpecialUseDomain('rpc.myapp.example')).toBe(true);
+      });
+
+      it('should return true for .local TLD', () => {
+        expect(isSpecialUseDomain('myapp.local')).toBe(true);
+        expect(isSpecialUseDomain('rpc.myapp.local')).toBe(true);
+      });
+    });
+
+    describe('RFC 6761 reserved example domains', () => {
+      it('should return true for example.com', () => {
+        expect(isSpecialUseDomain('example.com')).toBe(true);
+        expect(isSpecialUseDomain('rpc.example.com')).toBe(true);
+        expect(isSpecialUseDomain('api.rpc.example.com')).toBe(true);
+      });
+
+      it('should return true for example.net', () => {
+        expect(isSpecialUseDomain('example.net')).toBe(true);
+        expect(isSpecialUseDomain('rpc.example.net')).toBe(true);
+        expect(isSpecialUseDomain('api.rpc.example.net')).toBe(true);
+      });
+
+      it('should return true for example.org', () => {
+        expect(isSpecialUseDomain('example.org')).toBe(true);
+        expect(isSpecialUseDomain('rpc.example.org')).toBe(true);
+        expect(isSpecialUseDomain('api.rpc.example.org')).toBe(true);
+      });
+    });
+
+    describe('case insensitivity', () => {
+      it('should be case insensitive', () => {
+        expect(isSpecialUseDomain('EXAMPLE.COM')).toBe(true);
+        expect(isSpecialUseDomain('MyApp.TEST')).toBe(true);
+        expect(isSpecialUseDomain('RPC.Example.Org')).toBe(true);
+      });
+    });
+
+    describe('valid public domains', () => {
+      it('should return false for regular domains', () => {
+        expect(isSpecialUseDomain('infura.io')).toBe(false);
+        expect(isSpecialUseDomain('mainnet.infura.io')).toBe(false);
+        expect(isSpecialUseDomain('alchemy.com')).toBe(false);
+        expect(isSpecialUseDomain('rpc.ankr.com')).toBe(false);
+      });
+
+      it('should return false for domains containing but not ending with special TLDs', () => {
+        expect(isSpecialUseDomain('test-rpc.com')).toBe(false);
+        expect(isSpecialUseDomain('example-provider.io')).toBe(false);
+        expect(isSpecialUseDomain('localhost-rpc.net')).toBe(false);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should return false for empty string', () => {
+        expect(isSpecialUseDomain('')).toBe(false);
+      });
     });
   });
 });

@@ -7,8 +7,8 @@ import UrlIcon from '../../../../components/ui/url-icon';
 import Button from '../../../../components/ui/button';
 import ActionableMessage from '../../../../components/ui/actionable-message/actionable-message';
 import { I18nContext } from '../../../../contexts/i18n';
+import { getCurrentChainId } from '../../../../../shared/modules/selectors/networks';
 import {
-  getCurrentChainId,
   getRpcPrefsForCurrentProvider,
   getUseCurrencyRateCheck,
 } from '../../../../selectors';
@@ -39,7 +39,7 @@ export default function ItemList({
     null;
   const useCurrencyRateCheck = useSelector(getUseCurrencyRateCheck);
   const blockExplorerHostName = getURLHostName(blockExplorerLink);
-  const trackEvent = useContext(MetaMetricsContext);
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   // If there is a token for import based on a contract address, it's the only one in the list.
   const hasTokenForImport = results.length === 1 && results[0].notImported;
