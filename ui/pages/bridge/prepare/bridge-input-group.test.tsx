@@ -145,6 +145,12 @@ const fillSearchInput = async (searchQuery: string, expectedValue?: string) => {
   });
 };
 
+const expectAssetListToMatch = (stringifiedSnapshot: string) => {
+  expect(
+    screen.getAllByTestId('bridge-asset').map(({ textContent }) => textContent),
+  ).toMatchInlineSnapshot(stringifiedSnapshot);
+};
+
 describe('BridgeInputGroup', () => {
   beforeEach(async () => {
     mockUseVirtualizer.mockReturnValue({
@@ -172,43 +178,37 @@ describe('BridgeInputGroup', () => {
 
     await openAssetPicker();
     expect(getByTestId('bridge-asset-picker-modal')).toMatchSnapshot();
-    expect(
-      screen
-        .getAllByTestId('bridge-asset')
-        .map(({ textContent }) => textContent),
-    ).toMatchInlineSnapshot(`
+    expectAssetListToMatch(
+      `
       [
         "USDCUSD Coin",
         "USDTUSDT",
       ]
-    `);
+    `,
+    );
 
     await fillSearchInput('U');
     await waitFor(() => {
-      expect(
-        screen
-          .getAllByTestId('bridge-asset')
-          .map(({ textContent }) => textContent),
-      ).toMatchInlineSnapshot(`
-              [
-                "UNI$0.00Uniswap<0.000001 UNI",
-              ]
-      `);
+      expectAssetListToMatch(
+        `
+        [
+          "UNI$0.00Uniswap<0.000001 UNI",
+        ]
+      `,
+      );
     });
 
     await fillSearchInput('SD', 'USD');
     await waitFor(() => {
-      expect(
-        screen
-          .getAllByTestId('bridge-asset')
-          .map(({ textContent }) => textContent),
-      ).toMatchInlineSnapshot(`
-              [
-                "USDCUSD Coin",
-                "USDTUSDT",
-                "USDCUSDC",
-              ]
-          `);
+      expectAssetListToMatch(
+        `
+        [
+          "USDCUSD Coin",
+          "USDTUSDT",
+          "USDCUSDC",
+        ]
+      `,
+      );
     });
 
     expect(mockHandleFetch.mock.calls.map((call) => [call[0], call[1].body]))
@@ -244,30 +244,26 @@ describe('BridgeInputGroup', () => {
     expect(getByTestId(ASSET_PICKER_BUTTON_TEST_ID)).toHaveTextContent('ETH');
 
     await openAssetPicker();
-    expect(
-      screen
-        .getAllByTestId('bridge-asset')
-        .map(({ textContent }) => textContent),
-    ).toMatchInlineSnapshot(`
+    expectAssetListToMatch(
+      `
       [
         "USDCUSD Coin",
         "USDTUSDT",
       ]
-    `);
+      `,
+    );
 
     await fillSearchInput('USD');
     await waitFor(() => {
-      expect(
-        screen
-          .getAllByTestId('bridge-asset')
-          .map(({ textContent }) => textContent),
-      ).toMatchInlineSnapshot(`
+      expectAssetListToMatch(
+        `
         [
           "USDCUSD Coin",
         ]
-      `);
+        `,
+      );
     });
-    expect(mockHandleFetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(mockHandleFetch).toHaveBeenCalledTimes(2);
     expect(getAllByTestId('bridge-asset-loading-skeleton')).toHaveLength(2);
 
     expect(mockUseVirtualizer).toHaveBeenCalledWith({
@@ -293,17 +289,15 @@ describe('BridgeInputGroup', () => {
     expect(getByTestId(ASSET_PICKER_BUTTON_TEST_ID)).toHaveTextContent('ETH');
 
     await openAssetPicker();
-    expect(
-      screen
-        .getAllByTestId('bridge-asset')
-        .map(({ textContent }) => textContent),
-    ).toMatchInlineSnapshot(`
+    expectAssetListToMatch(
+      `
       [
         "USDCUSD Coin",
         "USDTUSDT",
         "UNI$0.00Uniswap<0.000001 UNI",
       ]
-    `);
+    `,
+    );
 
     expect(mockHandleFetch.mock.calls.map((call) => [call[0], call[1].body]))
       .toMatchInlineSnapshot(`
@@ -399,17 +393,15 @@ describe('BridgeInputGroup', () => {
       );
 
       await openAssetPicker();
-      expect(
-        screen
-          .getAllByTestId('bridge-asset')
-          .map(({ textContent }) => textContent),
-      ).toMatchInlineSnapshot(`
-              [
-                "USDCUSD Coin",
-                "USDTUSDT",
-                "UNI$0.00Uniswap<0.000001 UNI",
-              ]
-          `);
+      expectAssetListToMatch(
+        `
+        [
+          "USDCUSD Coin",
+          "USDTUSDT",
+          "UNI$0.00Uniswap<0.000001 UNI",
+        ]
+      `,
+      );
 
       const networkPicker = getByTestId('multichain-asset-picker__network');
       await fillSearchInput('SD');
@@ -449,6 +441,7 @@ describe('BridgeInputGroup', () => {
         expect(mockHandleFetch).toHaveBeenCalledTimes(4);
       });
 
+      expect(await localforage.keys()).toMatchSnapshot();
       expect(mockHandleFetch.mock.calls).toMatchSnapshot();
     },
   );

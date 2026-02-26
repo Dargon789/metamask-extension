@@ -37,10 +37,7 @@ import type {
 } from '../../components/multichain/asset-picker-amount/asset-picker-modal/types';
 import { getAssetImageUrl, toAssetId } from '../../../shared/lib/asset-utils';
 import { MULTICHAIN_TOKEN_IMAGE_MAP } from '../../../shared/constants/multichain/networks';
-import {
-  isTronEnergyOrBandwidthResource,
-  getNativeAssetForChainIdSafe,
-} from '../../ducks/bridge/utils';
+import { isTronEnergyOrBandwidthResource } from '../../ducks/bridge/utils';
 
 // This transforms the token object from the bridge-api into the format expected by the AssetPicker
 const buildTokenData = (
@@ -266,16 +263,6 @@ export const useTokensWithFiltering = (
           }
           if (shouldAddToken(token.symbol, token.address, token.chainId)) {
             if (isNativeAddress(token.address) || token.isNative) {
-              const nativeAsset = getNativeAssetForChainIdSafe(token.chainId);
-              let assetImageUrl: string | undefined;
-              try {
-                assetImageUrl = getAssetImageUrl(
-                  token.address,
-                  formatChainIdToCaip(token.chainId),
-                );
-              } catch (err) {
-                assetImageUrl = undefined;
-              }
               yield {
                 symbol: token.symbol,
                 chainId: token.chainId,
@@ -292,8 +279,16 @@ export const useTokensWithFiltering = (
                   MULTICHAIN_TOKEN_IMAGE_MAP[
                     token.chainId as keyof typeof MULTICHAIN_TOKEN_IMAGE_MAP
                   ] ??
-                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through (https://github.com/MetaMask/metamask-extension/issues/31880)
-                  (nativeAsset?.icon || nativeAsset?.iconUrl || assetImageUrl),
+                  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+                  (getNativeAssetForChainId(token.chainId)?.icon ||
+                    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+                    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+                    getNativeAssetForChainId(token.chainId)?.iconUrl ||
+                    getAssetImageUrl(
+                      token.address,
+                      formatChainIdToCaip(token.chainId),
+                    )),
                 accountType: token.accountType,
               };
             } else {

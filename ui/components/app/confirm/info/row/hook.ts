@@ -3,8 +3,11 @@ import { useSelector } from 'react-redux';
 import { toChecksumHexAddress } from '../../../../../../shared/modules/hexstring-utils';
 import { shortenAddress } from '../../../../../helpers/utils/util';
 import {
+  getAccountName,
   getAddressBookEntry,
   getEnsResolutionByAddress,
+  getInternalAccounts,
+  getIsMultichainAccountsState2Enabled,
   getMetadataContractName,
 } from '../../../../../selectors';
 import { getAccountGroupsByAddress } from '../../../../../selectors/multichain-accounts/account-tree';
@@ -18,6 +21,9 @@ export const useFallbackDisplayName = function (address: string): {
   hexAddress: string;
 } {
   const hexAddress = toChecksumHexAddress(address);
+  const isMultichainAccountsState2Enabled = useSelector(
+    getIsMultichainAccountsState2Enabled,
+  );
   const accountGroups = useSelector((state) =>
     getAccountGroupsByAddress(state as MultichainAccountsState, [hexAddress]),
   );
@@ -25,7 +31,10 @@ export const useFallbackDisplayName = function (address: string): {
     ? accountGroups[0]
     : undefined;
 
-  const accountName = accountGroup?.metadata?.name;
+  const internalAccounts = useSelector(getInternalAccounts);
+  const accountName = isMultichainAccountsState2Enabled
+    ? accountGroup?.metadata?.name
+    : getAccountName(internalAccounts, hexAddress);
   const addressBookContact = useSelector((state) =>
     getAddressBookEntry(state, hexAddress),
   );

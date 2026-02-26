@@ -1,6 +1,6 @@
 import { Route, ZENDESK_URLS } from './route';
 
-export const onboarding = new Route({
+export default new Route({
   pathname: '/onboarding',
   getTitle: (_: URLSearchParams) => 'deepLink_theOnboardingPage',
   handler: function handler(_params: URLSearchParams) {

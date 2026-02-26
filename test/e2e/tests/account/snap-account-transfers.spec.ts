@@ -11,7 +11,6 @@ import { Driver } from '../../webdriver/driver';
 import AccountListPage from '../../page-objects/pages/account-list-page';
 import ActivityListPage from '../../page-objects/pages/home/activity-list';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import HomePage from '../../page-objects/pages/home/homepage';
 import SnapSimpleKeyringPage from '../../page-objects/pages/snap-simple-keyring-page';
@@ -160,7 +159,7 @@ describe.skip('Snap Account Transfers', function (this: Suite) {
   it('can import a private key and transfer 1 ETH (async flow reject)', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         testSpecificMock: mockSnapSimpleKeyringAndSiteWithSpotPrices,
         dappOptions: {
           customDappPaths: [DAPP_PATH.SNAP_SIMPLE_KEYRING_SITE],

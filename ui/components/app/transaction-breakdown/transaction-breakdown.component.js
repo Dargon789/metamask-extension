@@ -1,7 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import classnames from 'classnames';
-import { SuccessPill } from '../../component-library';
+import { Text, TextVariant } from '@metamask/design-system-react';
 import CurrencyDisplay from '../../ui/currency-display';
 import UserPreferencedCurrencyDisplay from '../user-preferenced-currency-display';
 import HexToDecimal from '../../ui/hex-to-decimal';
@@ -115,12 +115,15 @@ export default class TransactionBreakdown extends PureComponent {
 
         {isGasFeeSponsored && (
           <TransactionBreakdownRow title={t('networkFee')}>
-            <SuccessPill
-              label={t('paidByMetaMask')}
+            <Text
+              variant={TextVariant.BodyXs}
               className="transaction-breakdown__value"
-            />
+            >
+              {t('paidByMetaMask')}
+            </Text>
           </TransactionBreakdownRow>
         )}
+        {}
         {!isGasFeeSponsored && (
           <>
             {gasPaidByAddress && (

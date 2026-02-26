@@ -320,13 +320,6 @@ describe('OAuthService - getNewRefreshToken', () => {
       jest.fn(() => {
         return Promise.resolve({
           status: 401,
-          ok: false,
-          headers: new Headers({
-            'content-type': 'application/json',
-          }),
-          json: jest.fn().mockResolvedValue({
-            error: 'Unauthorized',
-          }),
         });
       }) as jest.Mock,
     );
@@ -349,9 +342,7 @@ describe('OAuthService - getNewRefreshToken', () => {
         connection: AuthConnection.Google,
         refreshToken: 'MOCK_REFRESH_TOKEN',
       }),
-    ).rejects.toThrow(
-      OAuthErrorMessages.FAILED_TO_GET_AUTH_TOKEN_REFRESH_ERROR,
-    );
+    ).rejects.toThrow('Failed to get auth token');
   });
 
   describe('OAuthService:getNewRefreshToken action', () => {
@@ -467,13 +458,6 @@ describe('OAuthService - renewRefreshToken', () => {
       jest.fn(() => {
         return Promise.resolve({
           status: 401,
-          ok: false,
-          headers: new Headers({
-            'content-type': 'application/json',
-          }),
-          json: jest.fn().mockResolvedValue({
-            error: 'Unauthorized',
-          }),
         });
       }) as jest.Mock,
     );
@@ -496,7 +480,7 @@ describe('OAuthService - renewRefreshToken', () => {
         connection: AuthConnection.Google,
         revokeToken: 'MOCK_REVOKE_TOKEN',
       }),
-    ).rejects.toThrow(OAuthErrorMessages.FAILED_TO_RENEW_REFRESH_TOKEN);
+    ).rejects.toThrow('Failed to renew refresh token');
   });
 });
 
@@ -557,12 +541,6 @@ describe('OAuthService - revokeRefreshToken', () => {
         return Promise.resolve({
           status: 401,
           ok: false,
-          headers: new Headers({
-            'content-type': 'application/json',
-          }),
-          json: jest.fn().mockResolvedValue({
-            error: 'Unauthorized',
-          }),
         });
       }) as jest.Mock,
     );
@@ -585,7 +563,7 @@ describe('OAuthService - revokeRefreshToken', () => {
         connection: AuthConnection.Google,
         revokeToken: 'MOCK_REVOKE_TOKEN',
       }),
-    ).rejects.toThrow(OAuthErrorMessages.FAILED_TO_REVOKE_TOKEN);
+    ).rejects.toThrow('Failed to revoke refresh token');
   });
 
   describe('OAuthService:renewRefreshToken action', () => {

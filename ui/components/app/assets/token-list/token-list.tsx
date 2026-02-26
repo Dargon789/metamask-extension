@@ -5,13 +5,19 @@ import { NON_EVM_TESTNET_IDS } from '@metamask/multichain-network-controller';
 import TokenCell from '../token-cell';
 import { ASSET_CELL_HEIGHT } from '../constants';
 import {
+  getEnabledNetworksByNamespace,
+  getIsMultichainAccountsState2Enabled,
   getPreferences,
+  getSelectedAccount,
   getShouldHideZeroBalanceTokens,
   getTokenSortConfig,
   getUseExternalServices,
 } from '../../../../selectors';
 import { endTrace, TraceName } from '../../../../../shared/lib/trace';
 import { type TokenWithFiatAmount } from '../types';
+import { filterAssets } from '../util/filter';
+import { sortAssets } from '../util/sort';
+import useMultiChainAssets from '../hooks/useMultichainAssets';
 import {
   getSelectedMultichainNetworkConfiguration,
   getIsEvmMultichainNetworkSelected,
@@ -19,6 +25,7 @@ import {
 } from '../../../../selectors/multichain/networks';
 import {
   getAssetsBySelectedAccountGroup,
+  getTokenBalancesEvm,
   selectAccountGroupBalanceForEmptyState,
 } from '../../../../selectors/assets';
 import {
@@ -46,6 +53,10 @@ function TokenList({ onTokenClick, safeChains }: TokenListProps) {
   const currentNetwork = useSelector(getSelectedMultichainNetworkConfiguration);
   const { privacyMode } = useSelector(getPreferences);
   const tokenSortConfig = useSelector(getTokenSortConfig);
+  const selectedAccount = useSelector(getSelectedAccount);
+  const evmBalances = useSelector((state) =>
+    getTokenBalancesEvm(state, selectedAccount.address),
+  );
   const shouldHideZeroBalanceTokens = useSelector(
     getShouldHideZeroBalanceTokens,
   );
@@ -54,6 +65,15 @@ function TokenList({ onTokenClick, safeChains }: TokenListProps) {
 
   const accountGroupIdAssets = useSelector(getAssetsBySelectedAccountGroup);
 
+  const multichainAssets = useMultiChainAssets();
+
+  // network filter to determine which tokens to show in list
+  const networksToShow = useSelector(getEnabledNetworksByNamespace);
+
+  const isMultichainAccountsState2Enabled = useSelector(
+    getIsMultichainAccountsState2Enabled,
+  );
+
   const useExternalServices = useSelector(getUseExternalServices);
 
   const allEnabledNetworksForAllNamespaces = useSelector(
@@ -61,6 +81,28 @@ function TokenList({ onTokenClick, safeChains }: TokenListProps) {
   );
 
   const sortedFilteredTokens = useMemo(() => {
+    if (!isMultichainAccountsState2Enabled) {
+      const balances = isEvm ? evmBalances : multichainAssets;
+      const filteredAssets = filterAssets(balances as TokenWithFiatAmount[], [
+        {
+          key: 'chainId',
+          opts: isEvm ? networksToShow : { [currentNetwork.chainId]: true },
+          filterCallback: 'inclusive',
+        },
+      ]);
+
+      // Filter out non-EVM assets when basic functionality toggle is OFF
+      // Exception: Keep assets for the currently selected non-EVM chain
+      const finalAssets = useExternalServices
+        ? filteredAssets
+        : filteredAssets.filter(
+            (asset) =>
+              isEvmChainId(asset.chainId) ||
+              (!isEvm && asset.chainId === currentNetwork.chainId),
+          );
+
+      return sortAssets([...finalAssets], tokenSortConfig);
+    }
     const accountAssetsPreSort = Object.entries(accountGroupIdAssets).flatMap(
       ([chainId, assets]) => {
         if (!allEnabledNetworksForAllNamespaces.includes(chainId)) {
@@ -109,8 +151,12 @@ function TokenList({ onTokenClick, safeChains }: TokenListProps) {
     });
   }, [
     isEvm,
+    evmBalances,
+    multichainAssets,
+    networksToShow,
     currentNetwork.chainId,
     tokenSortConfig,
+    isMultichainAccountsState2Enabled,
     accountGroupIdAssets,
     allEnabledNetworksForAllNamespaces,
     shouldHideZeroBalanceTokens,

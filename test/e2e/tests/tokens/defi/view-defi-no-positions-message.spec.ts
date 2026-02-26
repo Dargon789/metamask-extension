@@ -1,6 +1,6 @@
 import { withFixtures } from '../../../helpers';
 
-import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../../fixtures/fixture-builder';
 import HomePage from '../../../page-objects/pages/home/homepage';
 
 import DeFiTab from '../../../page-objects/pages/defi-tab';
@@ -15,7 +15,7 @@ describe('Check DeFi empty state when no defi positions', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
         testSpecificMock: mockNoDeFiPositionFeatureFlag,
       },

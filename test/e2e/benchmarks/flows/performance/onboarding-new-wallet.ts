@@ -3,6 +3,7 @@
  * Measures time for creating a new wallet during onboarding
  */
 
+import { Mockttp } from 'mockttp';
 import { Browser } from 'selenium-webdriver';
 import { ALL_POPULAR_NETWORKS } from '../../../../../app/scripts/fixtures/with-networks';
 import FixtureBuilder from '../../../fixtures/fixture-builder';
@@ -22,10 +23,7 @@ import StartOnboardingPage from '../../../page-objects/pages/onboarding/start-on
 import { Driver } from '../../../webdriver/driver';
 import { performanceTracker } from '../../utils/performance-tracker';
 import TimerHelper, { collectTimerResults } from '../../utils/timer-helper';
-import {
-  getTestSpecificMock,
-  shouldUseMockedRequests,
-} from '../../utils/mock-config';
+import { getCommonMocks } from '../../utils/common-mocks';
 import { BENCHMARK_PERSONA, BENCHMARK_TYPE } from '../../utils/constants';
 import type { BenchmarkRunResult } from '../../utils/types';
 
@@ -43,13 +41,15 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             infuraProjectId: process.env.INFURA_PROJECT_ID,
           },
         },
-        useMockingPassThrough: !shouldUseMockedRequests(),
+        useMockingPassThrough: true,
         disableServerMochaToBackground: true,
         extendedTimeoutMultiplier: 3,
         fixtures: new FixtureBuilder({ onboarding: true })
           .withEnabledNetworks(ALL_POPULAR_NETWORKS)
           .build(),
-        testSpecificMock: getTestSpecificMock(),
+        testSpecificMock: async (server: Mockttp) => {
+          return [...getCommonMocks(server)];
+        },
       },
       async ({ driver }: { driver: Driver }) => {
         const timerCreateWalletToSocial = new TimerHelper(

@@ -1,7 +1,6 @@
 import { Mockttp } from 'mockttp';
 import { withFixtures } from '../../helpers';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import { getProductionRemoteFlagApiResponse } from '../../feature-flags';
 import { Driver } from '../../webdriver/driver';
 import {
   enableNotificationsThroughGlobalMenu,
@@ -13,27 +12,6 @@ import { completeOnboardFlowIdentity } from '../identity/flows';
 import AccountListPage from '../../page-objects/pages/account-list-page';
 import { MockttpNotificationTriggerServer } from '../../helpers/notifications/mock-notification-trigger-server';
 import { mockNotificationServices, notificationsMockAccounts } from './mocks';
-
-const FEATURE_FLAGS_URL = 'https://client-config.api.cx.metamask.io/v1/flags';
-
-async function mockFeatureFlagsWithoutAutoEnableNotifications(server: Mockttp) {
-  const prodFlags = getProductionRemoteFlagApiResponse();
-  return await server
-    .forGet(FEATURE_FLAGS_URL)
-    .withQuery({
-      client: 'extension',
-      distribution: 'main',
-      environment: 'dev',
-    })
-    .thenCallback(() => ({
-      statusCode: 200,
-      json: [
-        ...prodFlags,
-        { assetsEnableNotificationsByDefault: false },
-        { assetsEnableNotificationsByDefaultV2: { value: false } },
-      ],
-    }));
-}
 
 describe('Enable Notifications - Without Accounts Syncing', function () {
   this.timeout(120000); // Notifications tests can take longer due to identity/sync operations
@@ -72,7 +50,6 @@ describe('Enable Notifications - Without Accounts Syncing', function () {
           title: this.test?.fullTitle(),
           testSpecificMock: async (server: Mockttp) => {
             await mockNotificationServices(server, triggerServer);
-            await mockFeatureFlagsWithoutAutoEnableNotifications(server);
           },
         },
         async ({ driver }) => {
@@ -102,8 +79,7 @@ describe('Enable Notifications - Without Accounts Syncing', function () {
           fixtures: new FixtureBuilder({ onboarding: true }).build(),
           title: this.test?.fullTitle(),
           testSpecificMock: async (server: Mockttp) => {
-            await mockNotificationServices(server, triggerServer);
-            await mockFeatureFlagsWithoutAutoEnableNotifications(server);
+            return [await mockNotificationServices(server, triggerServer)];
           },
         },
         async ({ driver }) => {

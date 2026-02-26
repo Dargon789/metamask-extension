@@ -239,44 +239,26 @@ export const ConfirmInfoRow: React.FC<ConfirmInfoRowProps> = ({
 
 export type ConfirmInfoRowSkeletonProps = {
   'data-testid'?: string;
-  label?: string;
-  rowVariant?: ConfirmInfoRowSize;
 };
 
 export const ConfirmInfoRowSkeleton: React.FC<ConfirmInfoRowSkeletonProps> = ({
   'data-testid': dataTestId,
-  label,
-  rowVariant = ConfirmInfoRowSize.Default,
 }) => {
-  const isSmall = rowVariant === ConfirmInfoRowSize.Small;
-
-  if (isSmall || !label) {
-    const skeleton = (
-      <Skeleton
-        width={80}
-        height={18}
-        style={{ marginTop: 3, marginBottom: 3 }}
-      />
-    );
-
-    return (
-      <ConfirmInfoRow
-        data-testid={dataTestId}
-        rowVariant={ConfirmInfoRowSize.Small}
-        labelChildren={skeleton}
-      >
-        {skeleton}
-      </ConfirmInfoRow>
-    );
-  }
+  const skeleton = (
+    <Skeleton
+      width={80}
+      height={18}
+      style={{ marginTop: 3, marginBottom: 3 }}
+    />
+  );
 
   return (
     <ConfirmInfoRow
       data-testid={dataTestId}
-      label={label}
-      rowVariant={rowVariant}
+      rowVariant={ConfirmInfoRowSize.Small}
+      labelChildren={skeleton}
     >
-      <Skeleton height="16px" width="60px" />
+      {skeleton}
     </ConfirmInfoRow>
   );
 };

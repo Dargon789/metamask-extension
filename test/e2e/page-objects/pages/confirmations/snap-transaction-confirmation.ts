@@ -20,11 +20,6 @@ class SnapTransactionConfirmation {
 
   private addressTestId = 'snap-ui-address';
 
-  private securityAlertsError = {
-    tag: 'p',
-    text: `Because of an error, we couldn't check for security alerts.`,
-  };
-
   constructor(driver: Driver) {
     this.driver = driver;
   }
@@ -53,20 +48,12 @@ class SnapTransactionConfirmation {
     console.log('Snap transaction confirmation page is loaded');
   }
 
-  async checkSecurityAlertsErrorIsDisplayed(): Promise<void> {
-    await this.driver.waitForSelector(this.securityAlertsError);
-  }
-
   async clickFooterCancelButton() {
-    await this.driver.clickElementAndWaitToDisappear(this.cancelButton);
+    await this.driver.clickElement(this.cancelButton);
   }
 
   async clickFooterConfirmButton() {
-    await this.driver.clickElementAndWaitToDisappear(this.confirmButton);
-  }
-
-  async clickFooterConfirmButtonAndWaitForWindowToClose() {
-    await this.driver.clickElementAndWaitForWindowToClose(this.confirmButton);
+    await this.driver.clickElement(this.confirmButton);
   }
 }
 export default SnapTransactionConfirmation;

@@ -1,7 +1,6 @@
 import { strict as assert } from 'assert';
 import { Suite } from 'mocha';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { WINDOW_TITLES } from '../../constants';
 import { regularDelayMs, withFixtures } from '../../helpers';
 import AddNetworkConfirmation from '../../page-objects/pages/confirmations/add-network-confirmations';
@@ -15,7 +14,7 @@ describe('Switch ethereum chain', function (this: Suite) {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         localNodeOptions: [

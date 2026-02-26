@@ -107,7 +107,7 @@ export default function useSubmitBridgeTransaction() {
       if (isNonEvmSource) {
         // Submit the transaction first, THEN navigate
         await dispatch(
-          await submitBridgeTx(
+          submitBridgeTx(
             fromAccount.address,
             quoteResponse,
             false,
@@ -127,7 +127,7 @@ export default function useSubmitBridgeTransaction() {
       }
 
       await dispatch(
-        await submitBridgeTx(
+        submitBridgeTx(
           fromAccount.address,
           quoteResponse,
           smartTransactionsEnabled,
@@ -146,9 +146,7 @@ export default function useSubmitBridgeTransaction() {
         dispatch(setWasTxDeclined(true));
         navigate(`${CROSS_CHAIN_SWAP_ROUTE}${PREPARE_SWAP_ROUTE}`);
       } else {
-        navigate(`${DEFAULT_ROUTE}?tab=activity`, {
-          state: { stayOnHomePage: true },
-        });
+        navigate(`${DEFAULT_ROUTE}?tab=activity`);
       }
       return;
     }

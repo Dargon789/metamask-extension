@@ -1,7 +1,7 @@
 import { AccountOverviewTabKey } from '../../../constants/app-state';
 import { DEFAULT_ROUTE, Route } from './route';
 
-export const nfts = new Route({
+export default new Route({
   pathname: '/nft',
   getTitle: (_: URLSearchParams) => 'deepLink_theNFTsPage',
   handler: function handler(_: URLSearchParams) {

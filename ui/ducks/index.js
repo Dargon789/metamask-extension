@@ -14,7 +14,6 @@ import rampsReducer from './ramps/ramps';
 import confirmAlertsReducer from './confirm-alerts/confirm-alerts';
 import smartAccountsReducer from './smart-accounts/smart-accounts';
 import rewardsReducer from './rewards';
-import { perpsTutorialReducer } from './perps';
 
 export default combineReducers({
   [AlertTypes.invalidCustomNetwork]: invalidCustomNetwork,
@@ -33,5 +32,4 @@ export default combineReducers({
   localeMessages: localeMessagesReducer,
   smartAccounts: smartAccountsReducer,
   rewards: rewardsReducer,
-  perpsTutorial: perpsTutorialReducer,
 });

@@ -1,6 +1,6 @@
 import { strict as assert } from 'assert';
 import { withFixtures } from '../../helpers';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import createStaticServer from '../../../../development/create-static-server';
 import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow';
 import TestDapp from '../../page-objects/pages/test-dapp';
@@ -18,7 +18,7 @@ describe('The provider', function () {
 
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }) => {

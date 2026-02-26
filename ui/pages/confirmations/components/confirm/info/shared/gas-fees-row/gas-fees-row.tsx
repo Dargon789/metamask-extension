@@ -62,7 +62,6 @@ export const GasFeesRow = ({
           {nativeFee}
         </Text>
         {(!isTestnet || showFiatInTestnets) &&
-          fiatFee &&
           (fiatFeeWith18SignificantDigits ? (
             <Tooltip title={fiatFeeWith18SignificantDigits}>
               <Text color={TextColor.textAlternative}>{fiatFee}</Text>

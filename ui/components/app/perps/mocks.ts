@@ -1,24 +1,15 @@
 /**
  * Mock data for Perps UI development
  * Used for building UI while PerpsController is being migrated to core
- *
- * @deprecated These mocks are being migrated to the controller layer.
- * Once integration is complete, import from:
- * `app/scripts/controllers/perps/mocks`
  */
 
-import {
-  FillType,
-  PerpsOrderTransactionStatus,
-  PerpsOrderTransactionStatusType,
-} from './types/transactionHistory';
-import type { PerpsTransaction } from './types';
 import {
   AccountState,
   Order,
   PerpsMarketData,
+  PerpsTransaction,
   Position,
-} from '@metamask/perps-controller';
+} from './types';
 
 /**
  * Mock account state data
@@ -38,7 +29,7 @@ export const mockAccountState: AccountState = {
  */
 export const mockPositions: Position[] = [
   {
-    symbol: 'ETH',
+    coin: 'ETH',
     size: '2.5',
     entryPrice: '2850.00',
     positionValue: '7125.00',
@@ -63,7 +54,7 @@ export const mockPositions: Position[] = [
     stopLossCount: 1,
   },
   {
-    symbol: 'BTC',
+    coin: 'BTC',
     size: '-0.5',
     entryPrice: '45000.00',
     positionValue: '22500.00',
@@ -87,7 +78,7 @@ export const mockPositions: Position[] = [
     stopLossCount: 1,
   },
   {
-    symbol: 'SOL',
+    coin: 'SOL',
     size: '50.0',
     entryPrice: '95.00',
     positionValue: '4750.00',
@@ -112,7 +103,7 @@ export const mockPositions: Position[] = [
     stopLossCount: 0,
   },
   {
-    symbol: 'ARB',
+    coin: 'ARB',
     size: '1000.0',
     entryPrice: '1.20',
     positionValue: '1200.00',
@@ -136,7 +127,7 @@ export const mockPositions: Position[] = [
     stopLossCount: 0,
   },
   {
-    symbol: 'POL',
+    coin: 'POL',
     size: '-5000.0',
     entryPrice: '0.75',
     positionValue: '3750.00',
@@ -162,7 +153,7 @@ export const mockPositions: Position[] = [
   },
   // HIP-3 Equity positions (stocks)
   {
-    symbol: 'xyz:TSLA',
+    coin: 'xyz:TSLA',
     size: '10.0',
     entryPrice: '240.00',
     positionValue: '2400.00',
@@ -187,7 +178,7 @@ export const mockPositions: Position[] = [
     stopLossCount: 1,
   },
   {
-    symbol: 'xyz:NVDA',
+    coin: 'xyz:NVDA',
     size: '-5.0',
     entryPrice: '480.00',
     positionValue: '2400.00',
@@ -212,7 +203,7 @@ export const mockPositions: Position[] = [
   },
   // HIP-3 Commodity position
   {
-    symbol: 'xyz:GOLD',
+    coin: 'xyz:GOLD',
     size: '2.0',
     entryPrice: '2030.00',
     positionValue: '4060.00',
@@ -238,7 +229,7 @@ export const mockPositions: Position[] = [
   },
   // HIP-3 Forex position
   {
-    symbol: 'xyz:EUR',
+    coin: 'xyz:EUR',
     size: '50000.0',
     entryPrice: '1.0820',
     positionValue: '54100.00',
@@ -691,305 +682,228 @@ export const mockTransactions: PerpsTransaction[] = [
   {
     id: 'tx-001',
     type: 'trade',
-    category: 'position_open',
     symbol: 'ETH',
     title: 'Opened long',
     subtitle: '2.5 ETH @ $2,850.00',
     timestamp: Date.now() - 3600000, // 1 hour ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Opened long',
-      amount: '+$7,125.00',
-      amountNumber: 7125,
-      isPositive: true,
       size: '2.5',
-      entryPrice: '2850.00',
-      points: '0',
-      pnl: '0',
+      price: '2850.00',
       fee: '7.13',
-      action: 'Opened',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'buy',
     },
   },
   {
     id: 'tx-002',
     type: 'trade',
-    category: 'position_close',
     symbol: 'BTC',
     title: 'Closed short',
     subtitle: '0.5 BTC @ $45,250.00',
     timestamp: Date.now() - 7200000, // 2 hours ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Closed short',
-      amount: '+$125.00',
-      amountNumber: 125,
-      isPositive: true,
       size: '0.5',
-      entryPrice: '45250.00',
-      points: '0',
-      pnl: '+125.00',
+      price: '45250.00',
       fee: '22.63',
-      action: 'Closed',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'buy',
+      realizedPnl: '+125.00',
     },
   },
   {
     id: 'tx-002b',
     type: 'trade',
-    category: 'position_close',
     symbol: 'SOL',
     title: 'Closed long',
     subtitle: '15 SOL @ $92.50',
     timestamp: Date.now() - 9000000, // 2.5 hours ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Closed long',
-      amount: '-$45.50',
-      amountNumber: -45.5,
-      isPositive: false,
       size: '15',
-      entryPrice: '92.50',
-      points: '0',
-      pnl: '-45.50',
+      price: '92.50',
       fee: '1.39',
-      action: 'Closed',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'sell',
+      realizedPnl: '-45.50',
     },
   },
   {
     id: 'tx-003',
     type: 'funding',
-    category: 'funding_fee',
     symbol: 'ETH',
     title: 'Received funding fee',
     subtitle: 'ETH',
     timestamp: Date.now() - 10800000, // 3 hours ago
-    fundingAmount: {
-      isPositive: true,
-      fee: '+8.30',
-      feeNumber: 8.3,
+    status: 'confirmed',
+    funding: {
+      amount: '8.30',
       rate: '0.0001',
     },
   },
   {
     id: 'tx-004',
     type: 'order',
-    category: 'limit_order',
     symbol: 'SOL',
     title: 'Limit long',
     subtitle: '25 SOL @ $95.00',
     timestamp: Date.now() - 14400000, // 4 hours ago
+    status: 'pending',
     order: {
-      text: PerpsOrderTransactionStatus.Open,
-      statusType: PerpsOrderTransactionStatusType.Pending,
-      type: 'limit',
-      size: '$2,375.00',
-      limitPrice: '95.00',
-      filled: '0%',
+      orderId: 'order-003',
+      orderType: 'limit',
+      status: 'open',
     },
   },
   {
     id: 'tx-004b',
     type: 'order',
-    category: 'limit_order',
     symbol: 'BTC',
     title: 'Market close short',
     subtitle: '0.1 BTC @ $45,000.00',
     timestamp: Date.now() - 16200000, // 4.5 hours ago
+    status: 'confirmed',
     order: {
-      text: PerpsOrderTransactionStatus.Filled,
-      statusType: PerpsOrderTransactionStatusType.Filled,
-      type: 'market',
-      size: '$4,500.00',
-      limitPrice: '45000.00',
-      filled: '100%',
+      orderId: 'order-004b',
+      orderType: 'market',
+      status: 'filled',
     },
   },
   {
     id: 'tx-004c',
     type: 'order',
-    category: 'limit_order',
     symbol: 'ARB',
     title: 'Stop market close long',
     subtitle: '500 ARB @ $1.10',
     timestamp: Date.now() - 18000000, // 5 hours ago
+    status: 'pending',
     order: {
-      text: PerpsOrderTransactionStatus.Canceled,
-      statusType: PerpsOrderTransactionStatusType.Canceled,
-      type: 'market',
-      size: '$550.00',
-      limitPrice: '1.10',
-      filled: '0%',
+      orderId: 'order-004c',
+      orderType: 'market',
+      status: 'canceled',
     },
   },
   {
     id: 'tx-004d',
     type: 'order',
-    category: 'limit_order',
     symbol: 'ETH',
     title: 'Market long',
     subtitle: '1.5 ETH @ $2,900.00',
     timestamp: Date.now() - 19800000, // 5.5 hours ago
+    status: 'pending',
     order: {
-      text: PerpsOrderTransactionStatus.Queued,
-      statusType: PerpsOrderTransactionStatusType.Pending,
-      type: 'market',
-      size: '$4,350.00',
-      limitPrice: '2900.00',
-      filled: '0%',
+      orderId: 'order-004d',
+      orderType: 'market',
+      status: 'queued',
     },
   },
   {
     id: 'tx-005',
     type: 'deposit',
-    category: 'deposit',
     symbol: 'USDC',
     title: 'Deposited 5000 USDC',
     subtitle: 'Completed',
     timestamp: Date.now() - 86400000, // 1 day ago
+    status: 'confirmed',
     depositWithdrawal: {
       amount: '5000.00',
-      amountNumber: 5000,
-      isPositive: true,
-      asset: 'USDC',
       txHash: '0x1234567890abcdef1234567890abcdef12345678',
-      status: 'completed',
-      type: 'deposit',
     },
   },
   {
     id: 'tx-006',
     type: 'trade',
-    category: 'position_open',
     symbol: 'ARB',
     title: 'Opened long',
     subtitle: '1000 ARB @ $1.20',
     timestamp: Date.now() - 90000000, // ~1 day ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Opened long',
-      amount: '+$1,200.00',
-      amountNumber: 1200,
-      isPositive: true,
       size: '1000',
-      entryPrice: '1.20',
-      points: '0',
-      pnl: '0',
+      price: '1.20',
       fee: '1.20',
-      action: 'Opened',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'buy',
     },
   },
   {
     id: 'tx-007',
     type: 'funding',
-    category: 'funding_fee',
     symbol: 'BTC',
     title: 'Paid funding fee',
     subtitle: 'BTC',
     timestamp: Date.now() - 97200000, // ~1 day ago
-    fundingAmount: {
-      isPositive: false,
-      fee: '-3.10',
-      feeNumber: -3.1,
+    status: 'confirmed',
+    funding: {
+      amount: '-3.10',
       rate: '-0.00005',
     },
   },
   {
     id: 'tx-008',
     type: 'trade',
-    category: 'position_open',
     symbol: 'POL',
     title: 'Opened short',
     subtitle: '5000 POL @ $0.75',
     timestamp: Date.now() - 172800000, // 2 days ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Opened short',
-      amount: '-$3,750.00',
-      amountNumber: -3750,
-      isPositive: false,
       size: '5000',
-      entryPrice: '0.75',
-      points: '0',
-      pnl: '0',
+      price: '0.75',
       fee: '3.75',
-      action: 'Opened',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'sell',
     },
   },
   {
     id: 'tx-009',
     type: 'withdrawal',
-    category: 'withdrawal',
     symbol: 'USDC',
     title: 'Withdrew 2000 USDC',
     subtitle: 'Completed',
     timestamp: Date.now() - 259200000, // 3 days ago
+    status: 'confirmed',
     depositWithdrawal: {
       amount: '2000.00',
-      amountNumber: 2000,
-      isPositive: false,
-      asset: 'USDC',
       txHash: '0xabcdef1234567890abcdef1234567890abcdef12',
-      status: 'completed',
-      type: 'withdrawal',
     },
   },
   {
     id: 'tx-010',
     type: 'order',
-    category: 'limit_order',
     symbol: 'ETH',
     title: 'Limit close long',
     subtitle: '1.0 ETH @ $3,000.00',
     timestamp: Date.now() - 345600000, // 4 days ago
+    status: 'confirmed',
     order: {
-      text: PerpsOrderTransactionStatus.Filled,
-      statusType: PerpsOrderTransactionStatusType.Filled,
-      type: 'limit',
-      size: '$3,000.00',
-      limitPrice: '3000.00',
-      filled: '100%',
+      orderId: 'order-006',
+      orderType: 'limit',
+      status: 'filled',
     },
   },
   // HIP-3 transactions
   {
     id: 'tx-011',
     type: 'trade',
-    category: 'position_open',
     symbol: 'xyz:TSLA',
     title: 'Opened long',
     subtitle: '10 TSLA @ $240.00',
     timestamp: Date.now() - 432000000, // 5 days ago
+    status: 'confirmed',
     fill: {
-      shortTitle: 'Opened long',
-      amount: '+$2,400.00',
-      amountNumber: 2400,
-      isPositive: true,
       size: '10',
-      entryPrice: '240.00',
-      points: '0',
-      pnl: '0',
+      price: '240.00',
       fee: '2.40',
-      action: 'Opened',
-      feeToken: 'USDC',
-      fillType: FillType.Standard,
+      side: 'buy',
     },
   },
   {
     id: 'tx-012',
     type: 'funding',
-    category: 'funding_fee',
     symbol: 'xyz:GOLD',
     title: 'Received funding fee',
     subtitle: 'Gold',
     timestamp: Date.now() - 518400000, // 6 days ago
-    fundingAmount: {
-      isPositive: true,
-      fee: '+0.80',
-      feeNumber: 0.8,
+    status: 'confirmed',
+    funding: {
+      amount: '0.80',
       rate: '0.00008',
     },
   },

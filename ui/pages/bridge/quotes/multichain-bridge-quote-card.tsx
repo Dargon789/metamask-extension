@@ -8,7 +8,6 @@ import {
 } from '@metamask/bridge-controller';
 import { bpsToPercentage } from '../../../ducks/bridge/utils';
 import {
-  SuccessPill,
   Text,
   PopoverPosition,
   IconName,
@@ -314,7 +313,12 @@ export const MultichainBridgeQuoteCard = ({
             </Row>
             {shouldShowGasSponsored && (
               <Row gap={1} data-testid="network-fees-sponsored">
-                <SuccessPill label={t('swapGasFeesSponsored')} />
+                <Text
+                  variant={TextVariant.bodySm}
+                  color={TextColor.textDefault}
+                >
+                  {t('swapGasFeesSponsored')}
+                </Text>
               </Row>
             )}
             {!shouldShowGasSponsored && activeQuote.quote.gasIncluded && (

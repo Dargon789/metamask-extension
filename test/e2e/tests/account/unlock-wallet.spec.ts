@@ -19,13 +19,12 @@ import PrivacySettings from '../../page-objects/pages/settings/privacy-settings'
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import ChangePasswordPage from '../../page-objects/pages/settings/change-password-page';
 import StartOnboardingPage from '../../page-objects/pages/onboarding/start-onboarding-page';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 
 describe('Unlock wallet - ', function () {
   it('handle incorrect password during unlock and login successfully', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
         ignoredConsoleErrors: ['unable to proceed, wallet is locked'],
       },

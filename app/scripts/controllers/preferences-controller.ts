@@ -109,6 +109,7 @@ export type Preferences = {
   showNativeTokenAsMainBalance: boolean;
   showTestNetworks: boolean;
   skipDeepLinkInterstitial: boolean;
+  smartAccountOptIn: boolean;
   smartTransactionsOptInStatus: boolean;
   smartTransactionsMigrationApplied: boolean;
   tokenNetworkFilter: Record<string, boolean>;
@@ -214,6 +215,7 @@ export const getDefaultPreferencesControllerState =
       showNativeTokenAsMainBalance: false,
       showTestNetworks: false,
       skipDeepLinkInterstitial: false,
+      smartAccountOptIn: true,
       smartTransactionsOptInStatus: true,
       smartTransactionsMigrationApplied: false,
       tokenNetworkFilter: {},

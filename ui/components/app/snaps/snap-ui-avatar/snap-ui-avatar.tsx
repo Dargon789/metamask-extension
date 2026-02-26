@@ -4,6 +4,7 @@ import { AvatarAccountSize } from '@metamask/design-system-react';
 import { CaipAccountId, parseCaipAccountId } from '@metamask/utils';
 import { isEvmAccountType } from '@metamask/keyring-api';
 import { PreferredAvatar } from '../../preferred-avatar';
+import { getIsMultichainAccountsState2Enabled } from '../../../../selectors/multichain-accounts';
 import { getAccountGroupsByAddress } from '../../../../selectors/multichain-accounts/account-tree';
 import { MultichainAccountsState } from '../../../../selectors/multichain-accounts/account-tree.types';
 
@@ -21,6 +22,8 @@ export const SnapUIAvatar: React.FunctionComponent<SnapUIAvatarProps> = ({
     return parseCaipAccountId(caipAddress as CaipAccountId);
   }, [caipAddress]);
 
+  const useAccountGroups = useSelector(getIsMultichainAccountsState2Enabled);
+
   const accountGroups = useSelector((state: MultichainAccountsState) =>
     getAccountGroupsByAddress(state, [address]),
   );
@@ -30,7 +33,8 @@ export const SnapUIAvatar: React.FunctionComponent<SnapUIAvatarProps> = ({
   )?.address;
 
   // Display the account group address if it exists as the default.
-  const displayAddress = accountGroupAddress ?? caipAddress;
+  const displayAddress =
+    useAccountGroups && accountGroupAddress ? accountGroupAddress : caipAddress;
 
   return <PreferredAvatar address={displayAddress} size={size} />;
 };

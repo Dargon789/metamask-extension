@@ -1,7 +1,6 @@
 import { Suite } from 'mocha';
 import { Driver } from '../../webdriver/driver';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { WINDOW_TITLES } from '../../constants';
 import { withFixtures } from '../../helpers';
 import { loginWithoutBalanceValidation } from '../../page-objects/flows/login.flow';
@@ -91,7 +90,7 @@ describe('Network Manager', function (this: Suite) {
   it('should default to custom tab when custom network is enabled', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }: { driver: Driver }) => {

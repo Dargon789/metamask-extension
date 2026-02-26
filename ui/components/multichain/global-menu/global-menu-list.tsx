@@ -4,7 +4,6 @@ import {
   Text,
   TextColor,
   TextVariant,
-  FontWeight,
   BoxFlexDirection,
   BoxAlignItems,
   BoxJustifyContent,
@@ -46,7 +45,7 @@ const renderMenuItemContent = (
       <Box
         flexDirection={BoxFlexDirection.Row}
         alignItems={BoxAlignItems.Center}
-        marginLeft={2}
+        gap={2}
         className="flex-shrink-0"
       >
         {hasBadge && badge}
@@ -74,11 +73,7 @@ export const GlobalMenuList = ({
       {sections.map((section, sectionIndex) => (
         <Box key={section.id} flexDirection={BoxFlexDirection.Column}>
           {/* Section Separator - Show before section if it's not the first section */}
-          {sectionIndex > 0 && !section.hideDividerAbove && (
-            <Box className="w-full px-2 py-2">
-              <Box className="w-full border-t border-muted" />
-            </Box>
-          )}
+          {sectionIndex > 0 && <Box className="w-full border-t border-muted" />}
 
           {/* Section Header */}
           {section.title && (
@@ -89,7 +84,6 @@ export const GlobalMenuList = ({
             >
               <Text
                 variant={TextVariant.BodyMd}
-                fontWeight={FontWeight.Medium}
                 color={TextColor.TextAlternative}
               >
                 {section.title}
@@ -99,24 +93,21 @@ export const GlobalMenuList = ({
 
           {/* Section Items */}
           {section.items.map((item) => {
-            // Show chevron for route items or when explicitly requested (e.g. notifications)
-            const showChevron = isRouteItem(item) || item.showChevron === true;
+            // Show chevron for route items that have a valid route
+            const showChevron = isRouteItem(item);
             return (
               <MenuItem
                 key={item.id}
                 iconName={item.iconName}
                 iconSize={item.iconSize ?? IconSize.Lg}
-                iconColor={item.iconColor ?? IconColor.IconAlternative}
-                textVariant={TextVariant.BodyMd}
-                fontWeight={FontWeight.Medium}
+                iconColor={item.iconColor}
                 textColor={item.textColor}
                 to={isRouteItem(item) ? item.to : undefined}
-                state={isRouteItem(item) ? item.state : undefined}
                 onClick={item.onClick}
                 disabled={item.disabled}
                 showInfoDot={item.showInfoDot}
                 subtitle={item.subtitle}
-                data-testid={item.id}
+                data-testid={`global-menu-item-${item.id}`}
               >
                 {renderMenuItemContent(item.label, item.badge, showChevron)}
               </MenuItem>

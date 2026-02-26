@@ -80,6 +80,8 @@ describe('Gas Fee Tokens - EIP-7702', function (this: Suite) {
         await transactionConfirmation.closeGasFeeToastMessage();
 
         await transactionConfirmation.checkGasFeeSymbol('USDC');
+        await transactionConfirmation.checkGasFeeFiat('$1.23');
+        await transactionConfirmation.checkGasFee('1.23');
         await transactionConfirmation.checkGasFeeTokenFee('$0.43');
         await transactionConfirmation.clickFooterConfirmButton();
 
@@ -267,7 +269,6 @@ async function mockTransactionRelayStatus(
 ) {
   await mockServer
     .forGet(`${TX_SENTINEL_URL}/smart-transactions/${UUID}`)
-    .always()
     .thenCallback(() => {
       return {
         ok: true,

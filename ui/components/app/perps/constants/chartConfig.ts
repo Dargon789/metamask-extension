@@ -1,7 +1,3 @@
-// These enums mirror the identically-named enums in @metamask/perps-controller.
-// We define them locally because the controller package uses `export type *`
-// for its chart module, which makes the enums available only as types, not as
-// runtime values. The string values MUST stay in sync with the controller.
 export enum CandlePeriod {
   OneMinute = '1m',
   ThreeMinutes = '3m',
@@ -17,15 +13,6 @@ export enum CandlePeriod {
   ThreeDays = '3d',
   OneWeek = '1w',
   OneMonth = '1M',
-}
-
-export enum TimeDuration {
-  OneHour = '1hr',
-  OneDay = '1d',
-  OneWeek = '1w',
-  OneMonth = '1m',
-  YearToDate = 'ytd',
-  Max = 'max',
 }
 
 export const CANDLE_PERIODS = [
@@ -101,22 +88,32 @@ export const PERIOD_TO_MINUTES: Record<CandlePeriod, number> = {
   [CandlePeriod.OneMonth]: 43200,
 } as const;
 
+// Duration options for chart time range
+export enum ChartDuration {
+  OneHour = '1hr',
+  OneDay = '1d',
+  OneWeek = '1w',
+  OneMonth = '1m',
+  Ytd = 'ytd',
+  Max = 'max',
+}
+
 // Duration to minutes mapping
-export const DURATION_TO_MINUTES: Record<TimeDuration, number> = {
-  [TimeDuration.OneHour]: 60,
-  [TimeDuration.OneDay]: 1440,
-  [TimeDuration.OneWeek]: 10080,
-  [TimeDuration.OneMonth]: 43200,
-  [TimeDuration.YearToDate]: 525600,
-  [TimeDuration.Max]: 1051200,
+export const DURATION_TO_MINUTES: Record<ChartDuration, number> = {
+  [ChartDuration.OneHour]: 60,
+  [ChartDuration.OneDay]: 1440,
+  [ChartDuration.OneWeek]: 10080,
+  [ChartDuration.OneMonth]: 43200,
+  [ChartDuration.Ytd]: 525600,
+  [ChartDuration.Max]: 1051200,
 } as const;
 
 // Recommended candle periods for each duration
 export const DURATION_CANDLE_PERIODS: Record<
-  TimeDuration,
+  ChartDuration,
   { periods: CandlePeriod[]; default: CandlePeriod }
 > = {
-  [TimeDuration.OneHour]: {
+  [ChartDuration.OneHour]: {
     periods: [
       CandlePeriod.OneMinute,
       CandlePeriod.ThreeMinutes,
@@ -125,7 +122,7 @@ export const DURATION_CANDLE_PERIODS: Record<
     ],
     default: CandlePeriod.OneMinute,
   },
-  [TimeDuration.OneDay]: {
+  [ChartDuration.OneDay]: {
     periods: [
       CandlePeriod.FifteenMinutes,
       CandlePeriod.OneHour,
@@ -134,7 +131,7 @@ export const DURATION_CANDLE_PERIODS: Record<
     ],
     default: CandlePeriod.OneHour,
   },
-  [TimeDuration.OneWeek]: {
+  [ChartDuration.OneWeek]: {
     periods: [
       CandlePeriod.OneHour,
       CandlePeriod.TwoHours,
@@ -144,7 +141,7 @@ export const DURATION_CANDLE_PERIODS: Record<
     ],
     default: CandlePeriod.FourHours,
   },
-  [TimeDuration.OneMonth]: {
+  [ChartDuration.OneMonth]: {
     periods: [
       CandlePeriod.EightHours,
       CandlePeriod.TwelveHours,
@@ -153,11 +150,11 @@ export const DURATION_CANDLE_PERIODS: Record<
     ],
     default: CandlePeriod.OneDay,
   },
-  [TimeDuration.YearToDate]: {
+  [ChartDuration.Ytd]: {
     periods: [CandlePeriod.OneDay, CandlePeriod.OneWeek],
     default: CandlePeriod.OneWeek,
   },
-  [TimeDuration.Max]: {
+  [ChartDuration.Max]: {
     periods: [CandlePeriod.OneWeek],
     default: CandlePeriod.OneWeek,
   },
@@ -170,12 +167,12 @@ export const DURATION_CANDLE_PERIODS: Record<
  * the number of candles needed. Result is capped between MIN (10) and
  * TOTAL (500) for memory management.
  *
- * @param duration - Time duration (e.g., TimeDuration.OneDay)
+ * @param duration - Chart duration (e.g., ChartDuration.OneDay)
  * @param candlePeriod - Candle period (e.g., CandlePeriod.OneHour)
  * @returns Number of candles (clamped between MIN and TOTAL)
  */
 export function calculateCandleCount(
-  duration: TimeDuration,
+  duration: ChartDuration,
   candlePeriod: CandlePeriod,
 ): number {
   const periodInMinutes = PERIOD_TO_MINUTES[candlePeriod] ?? 60;

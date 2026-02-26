@@ -1,5 +1,5 @@
 const { strict: assert } = require('assert');
-const { default: FixtureBuilderV2 } = require('../fixtures/fixture-builder-v2');
+const FixtureBuilder = require('../fixtures/fixture-builder');
 const {
   loginWithBalanceValidation,
 } = require('../page-objects/flows/login.flow');
@@ -17,7 +17,7 @@ describe('EIP-6963 Provider', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         title: this.test.fullTitle(),

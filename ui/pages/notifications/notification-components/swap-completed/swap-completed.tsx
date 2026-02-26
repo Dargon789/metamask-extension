@@ -27,8 +27,7 @@ import {
   createTextItems,
   getAmount,
   formatIsoDateString,
-  getNativeCurrencyLogoByChainId,
-  getNetworkDetailsFromNotifPayload,
+  getNetworkDetailsByChainId,
   getUsdAmount,
 } from '../../../../helpers/utils/notification.util';
 import {
@@ -117,7 +116,7 @@ export const components: NotificationComponent<SwapCompletedNotification> = {
         );
       },
       Asset: ({ notification }) => {
-        const nativeCurrencyLogo = getNativeCurrencyLogoByChainId(
+        const { nativeCurrencyLogo } = getNetworkDetailsByChainId(
           notification.payload.chain_id,
         );
         return (
@@ -145,7 +144,7 @@ export const components: NotificationComponent<SwapCompletedNotification> = {
         );
       },
       AssetReceived: ({ notification }) => {
-        const nativeCurrencyLogo = getNativeCurrencyLogoByChainId(
+        const { nativeCurrencyLogo } = getNetworkDetailsByChainId(
           notification.payload.chain_id,
         );
         return (
@@ -191,19 +190,15 @@ export const components: NotificationComponent<SwapCompletedNotification> = {
         />
       ),
       Network: ({ notification }) => {
-        const nativeCurrencyLogo = getNativeCurrencyLogoByChainId(
-          notification.payload.chain_id,
-        );
-        const { networkName } = getNetworkDetailsFromNotifPayload(
-          notification.payload.network,
-        );
+        const { nativeCurrencyName, nativeCurrencyLogo } =
+          getNetworkDetailsByChainId(notification.payload.chain_id);
         return (
           <NotificationDetailAsset
             icon={{
               src: nativeCurrencyLogo,
             }}
             label={t('notificationItemNetwork') ?? ''}
-            detail={networkName}
+            detail={nativeCurrencyName}
           />
         );
       },

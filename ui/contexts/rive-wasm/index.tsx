@@ -6,11 +6,9 @@ import { RuntimeLoader } from '@rive-app/react-canvas';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useAsyncResult } from '../../hooks/useAsync';
 
-const RIVE_WASM_URL = new URL(
-  '@rive-app/canvas/rive.wasm',
-  // @ts-expect-error TS1470: 'import.meta' is not allowed in CommonJS
-  import.meta.url,
-);
+// WASM file URL - the file is copied to dist/chrome/images/ by the build process
+// We don't import it as a module to avoid browserify resolution issues
+const RIVE_WASM_URL = './images/riv_animations/rive.wasm';
 
 export const useRiveWasmReady = () => {
   const [isWasmReady, setIsWasmReady] = useState(false);

@@ -1,20 +1,22 @@
 import React, { useCallback, useContext, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import type { OnChainRawNotification } from '@metamask/notification-services-controller/notification-services';
+import type { NotificationServicesController } from '@metamask/notification-services-controller';
 import { toHex } from '@metamask/controller-utils';
 import { getNetworkConfigurationsByChainId } from '../../../../shared/modules/selectors/networks';
 import { ButtonVariant } from '../../component-library';
 import { useI18nContext } from '../../../hooks/useI18nContext';
+import { getNetworkDetailsByChainId } from '../../../helpers/utils/notification.util';
 import { NotificationDetailButton } from '../notification-detail-button';
 import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { getNetworkDetailsFromNotifPayload } from '../../../helpers/utils/notification.util';
+
+type Notification = NotificationServicesController.Types.INotification;
 
 type NotificationDetailBlockExplorerButtonProps = {
-  notification: OnChainRawNotification;
+  notification: Notification;
   chainId: number;
   txHash: string;
 };
@@ -28,11 +30,7 @@ export const NotificationDetailBlockExplorerButton = ({
   const { trackEvent } = useContext(MetaMetricsContext);
 
   const chainIdHex = toHex(chainId);
-  const { network } = notification.payload;
-  const {
-    blockExplorerUrl: notificationBlockExplorer,
-    blockExplorerName: notificationBlockExplorerName,
-  } = getNetworkDetailsFromNotifPayload(network);
+  const { blockExplorerConfig } = getNetworkDetailsByChainId(chainId);
 
   const networkConfigurations = useSelector(getNetworkConfigurationsByChainId);
   const networkConfiguration = networkConfigurations[chainIdHex];
@@ -41,18 +39,18 @@ export const NotificationDetailBlockExplorerButton = ({
       networkConfiguration.defaultBlockExplorerUrlIndex ?? -1
     ];
 
-  const blockExplorerUrl = configuredBlockExplorer ?? notificationBlockExplorer;
+  const blockExplorerUrl = configuredBlockExplorer ?? blockExplorerConfig?.url;
   const blockExplorerButtonText = useMemo(() => {
     if (configuredBlockExplorer) {
       return t('notificationItemCheckBlockExplorer');
     }
-    if (notificationBlockExplorerName) {
+    if (blockExplorerConfig?.name) {
       return t('notificationTransactionSuccessView', [
-        notificationBlockExplorerName,
+        blockExplorerConfig.name,
       ]);
     }
     return t('notificationItemCheckBlockExplorer');
-  }, [notificationBlockExplorerName, configuredBlockExplorer, t]);
+  }, [blockExplorerConfig?.name, configuredBlockExplorer, t]);
 
   const analyticsEvent = useCallback(() => {
     trackEvent({

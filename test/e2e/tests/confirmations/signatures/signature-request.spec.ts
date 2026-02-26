@@ -1,7 +1,7 @@
 import SignTypedData from '../../../page-objects/pages/confirmations/sign-typed-data-confirmation';
 
 import { withFixtures } from '../../../helpers';
-import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../../fixtures/fixture-builder';
 import TestDapp from '../../../page-objects/pages/test-dapp';
 import { Driver } from '../../../webdriver/driver';
 import {
@@ -34,7 +34,7 @@ describe('Sign Typed Data Signature Request', function () {
       await withFixtures(
         {
           dappOptions: { numberOfTestDapps: 1 },
-          fixtures: new FixtureBuilderV2()
+          fixtures: new FixtureBuilder()
             .withPermissionControllerConnectedToTestDapp()
             .build(),
           title: this.test?.fullTitle(),
@@ -82,7 +82,7 @@ describe('Sign Typed Data Signature Request', function () {
       await withFixtures(
         {
           dappOptions: { numberOfTestDapps: 1 },
-          fixtures: new FixtureBuilderV2()
+          fixtures: new FixtureBuilder()
             .withPermissionControllerConnectedToTestDapp()
             .build(),
           title: this.test?.fullTitle(),

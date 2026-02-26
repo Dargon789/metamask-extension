@@ -17,7 +17,7 @@ import {
 } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import { useFormatters } from '../../../../hooks/useFormatters';
-import { usePerpsLiveAccount } from '../../../../hooks/perps/stream';
+import { mockAccountState } from '../mocks';
 
 export type PerpsTabControlBarProps = {
   /** Callback when balance row is clicked */
@@ -41,16 +41,7 @@ export const PerpsTabControlBar: React.FC<PerpsTabControlBarProps> = ({
   const t = useI18nContext();
   const { formatCurrencyWithMinThreshold, formatPercentWithMinThreshold } =
     useFormatters();
-  const { account } = usePerpsLiveAccount();
-
-  // Use account data or defaults
-  const totalBalance = account?.totalBalance ?? '0';
-  const unrealizedPnl = account?.unrealizedPnl ?? '0';
-  const returnOnEquity = account?.returnOnEquity ?? '0';
-
-  // Account value = totalBalance + unrealizedPnl (includes open position PnL)
-  const accountValue = parseFloat(totalBalance) + parseFloat(unrealizedPnl);
-
+  const { totalBalance, unrealizedPnl, returnOnEquity } = mockAccountState;
   const pnlNum = parseFloat(unrealizedPnl);
   const isProfit = pnlNum >= 0;
   const pnlPrefix = isProfit ? '+' : '-';
@@ -99,7 +90,7 @@ export const PerpsTabControlBar: React.FC<PerpsTabControlBarProps> = ({
             gap={2}
           >
             <Text variant={TextVariant.BodySm} fontWeight={FontWeight.Medium}>
-              {formatCurrencyWithMinThreshold(accountValue, 'USD')}
+              {formatCurrencyWithMinThreshold(parseFloat(totalBalance), 'USD')}
             </Text>
             <Icon
               name={IconName.ArrowRight}

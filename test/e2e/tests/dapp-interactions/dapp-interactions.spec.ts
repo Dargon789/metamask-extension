@@ -6,21 +6,21 @@ import {
   WINDOW_TITLES,
 } from '../../constants';
 import { withFixtures } from '../../helpers';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import AddNetworkConfirmation from '../../page-objects/pages/confirmations/add-network-confirmations';
 import ConnectAccountConfirmation from '../../page-objects/pages/confirmations/connect-account-confirmation';
 import Homepage from '../../page-objects/pages/home/homepage';
 import LoginPage from '../../page-objects/pages/login-page';
 import PermissionListPage from '../../page-objects/pages/permission/permission-list-page';
 import TestDapp from '../../page-objects/pages/test-dapp';
-import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow';
+import { loginWithoutBalanceValidation } from '../../page-objects/flows/login.flow';
 
 describe('Dapp interactions', function () {
   it('should trigger the add chain confirmation despite MetaMask being locked', async function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         localNodeOptions: [
           {
             type: 'anvil',
@@ -58,15 +58,13 @@ describe('Dapp interactions', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 2 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }) => {
         await driver.navigate();
-        const loginPage = new LoginPage(driver);
-        await loginPage.checkPageIsLoaded();
 
         // Connect to 2nd dapp => DAPP_ONE
         const testDapp = new TestDapp(driver);
@@ -75,6 +73,7 @@ describe('Dapp interactions', function () {
         await testDapp.clickConnectAccountButton();
 
         await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
+        const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
         await loginPage.loginToHomepage();
         const connectAccountConfirmation = new ConnectAccountConfirmation(
@@ -113,7 +112,7 @@ describe('Dapp interactions', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         // to avoid a race condition where some authentication requests are triggered once the wallet is locked
@@ -121,7 +120,7 @@ describe('Dapp interactions', function () {
         title: this.test?.fullTitle(),
       },
       async ({ driver }) => {
-        await loginWithBalanceValidation(driver);
+        await loginWithoutBalanceValidation(driver);
         const testDapp = new TestDapp(driver);
         await testDapp.openTestDappPage();
 
@@ -132,14 +131,12 @@ describe('Dapp interactions', function () {
         const homepage = new Homepage(driver);
         await homepage.headerNavbar.lockMetaMask();
 
-        const loginPage = new LoginPage(driver);
-        await loginPage.checkPageIsLoaded();
-
         // Attempt interaction with DApp
         await driver.switchToWindowWithTitle(WINDOW_TITLES.TestDApp);
         await testDapp.clickCreateToken();
 
         await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
+        const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
         console.log('Prompted to unlock the wallet');
         await loginPage.loginToHomepage('123456');

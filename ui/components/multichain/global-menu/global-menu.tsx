@@ -1,5 +1,5 @@
 import React, { useContext, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import browser from 'webextension-polyfill';
 import {
@@ -51,6 +51,9 @@ import {
 } from '../../../../shared/constants/app';
 import { getBrowserName } from '../../../../shared/modules/browser-runtime.utils';
 import { SUPPORT_LINK } from '../../../../shared/lib/ui-utils';
+///: BEGIN:ONLY_INCLUDE_IF(build-beta,build-flask)
+import { SUPPORT_REQUEST_LINK } from '../../../helpers/constants/common';
+///: END:ONLY_INCLUDE_IF
 
 import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
@@ -80,7 +83,12 @@ import {
   TextColor,
   TextVariant,
 } from '../../../helpers/constants/design-system';
-import { AccountDetailsMenuItem, DiscoverMenuItem } from '../menu-items';
+import {
+  AccountDetailsMenuItem,
+  DiscoverMenuItem,
+  ViewExplorerMenuItem,
+} from '../menu-items';
+import { getIsMultichainAccountsState2Enabled } from '../../../selectors/multichain-accounts/feature-flags';
 import { useUserSubscriptions } from '../../../hooks/subscription/useSubscription';
 import {
   getIsShieldSubscriptionActive,
@@ -89,7 +97,6 @@ import {
   getSubscriptionPaymentData,
 } from '../../../../shared/lib/shield';
 import { useSubscriptionMetrics } from '../../../hooks/shield/metrics/useSubscriptionMetrics';
-import { isBeta, isFlask } from '../../../helpers/utils/build-types';
 
 const METRICS_LOCATION = 'Global Menu';
 
@@ -111,7 +118,6 @@ export const GlobalMenu = ({
     useSubscriptionMetrics();
   const basicFunctionality = useSelector(getUseExternalServices);
 
-  const location = useLocation();
   const navigate = useNavigate();
 
   const { notificationsUnreadCount } = useUnreadNotificationsCounter();
@@ -124,6 +130,10 @@ export const GlobalMenu = ({
     getIsShieldSubscriptionPaused(subscriptions);
 
   const account = useSelector(getSelectedInternalAccount);
+
+  const isMultichainAccountsState2Enabled = useSelector(
+    getIsMultichainAccountsState2Enabled,
+  );
 
   const unapprovedTransactions = useSelector(getUnapprovedTransactions);
 
@@ -245,9 +255,12 @@ export const GlobalMenu = ({
     }
   };
 
-  const supportText =
-    isBeta() || isFlask() ? t('needHelpSubmitTicket') : t('support');
-  const supportLink = SUPPORT_LINK || '';
+  let supportText = t('support');
+  let supportLink = SUPPORT_LINK || '';
+  ///: BEGIN:ONLY_INCLUDE_IF(build-beta,build-flask)
+  supportText = t('needHelpSubmitTicket');
+  supportLink = SUPPORT_REQUEST_LINK || '';
+  ///: END:ONLY_INCLUDE_IF
 
   // Accessibility improvement for popover
   const lastItemRef = React.useRef<HTMLButtonElement>(null);
@@ -308,9 +321,7 @@ export const GlobalMenu = ({
         read_count: notificationsReadCount,
       },
     });
-    navigate(
-      `${NOTIFICATIONS_ROUTE}?from=${encodeURIComponent(location.pathname)}`,
-    );
+    navigate(NOTIFICATIONS_ROUTE);
     closeMenu();
   };
 
@@ -423,6 +434,13 @@ export const GlobalMenu = ({
             closeMenu={closeMenu}
             address={account.address}
           />
+          {isMultichainAccountsState2Enabled ? null : (
+            <ViewExplorerMenuItem
+              metricsLocation={METRICS_LOCATION}
+              closeMenu={closeMenu}
+              account={account}
+            />
+          )}
         </>
       )}
       <Box
@@ -459,8 +477,8 @@ export const GlobalMenu = ({
       <MenuItem
         to={
           isGatorPermissionsRevocationFeatureEnabled()
-            ? `${GATOR_PERMISSIONS}?from=${encodeURIComponent(location.pathname)}`
-            : `${PERMISSIONS}?from=${encodeURIComponent(location.pathname)}`
+            ? GATOR_PERMISSIONS
+            : PERMISSIONS
         }
         iconNameLegacy={IconName.SecurityTick}
         onClick={() => {
@@ -489,7 +507,7 @@ export const GlobalMenu = ({
         {t('networks')}
       </MenuItem>
       <MenuItem
-        to={`${SNAPS_ROUTE}?from=${encodeURIComponent(location.pathname)}`}
+        to={SNAPS_ROUTE}
         iconNameLegacy={IconName.Snaps}
         onClick={closeMenu}
         showInfoDot={snapsUpdatesAvailable}

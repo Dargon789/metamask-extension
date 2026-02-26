@@ -33,19 +33,7 @@ import {
   MockAuthPubKey2,
 } from './data';
 
-/**
- * Generate a mock JWT token for OAuth Service.
- *
- * @param userId - The user ID.
- * @param expiresIn - The expiration time in seconds.
- * @param mode - Indicates if the token is a newly issued token or a refreshed token.
- * @returns The mock JWT token.
- */
-function generateMockJwtToken(
-  userId: string,
-  expiresIn: number = 120,
-  mode: 'new' | 'refreshed' = 'new',
-) {
+function generateMockJwtToken(userId: string) {
   const iat = Math.floor(Date.now() / 1000);
   const payload = {
     iss: 'torus-key-test',
@@ -54,12 +42,11 @@ function generateMockJwtToken(
     email: userId,
     scope: 'email',
     iat,
-    mode, // Note: The actual tokens issued/refreshed do not have this `mode` field, it's only used for testing purposes to differentiate between newly issued and refreshed tokens.
-    eat: iat + expiresIn,
+    eat: iat + 120,
   };
 
   return sign(payload, MockJwtPrivateKey, {
-    expiresIn,
+    expiresIn: 120,
     algorithm: 'ES256',
   });
 }
@@ -179,41 +166,15 @@ export class OAuthMockttpService {
 
   #numbOfRequestTokensCalls: number = 0;
 
-  async mockAuthServerToken(
-    request: CompletedRequest,
-    overrides?: {
-      statusCode?: number;
-      json?: Record<string, unknown>;
-      userEmail?: string;
-      passwordOutdated?: boolean;
-      throwAuthenticationErrorAtUnlock?: boolean;
-      forceTokenExpiration?: boolean;
-    },
-  ) {
+  mockAuthServerToken(overrides?: {
+    statusCode?: number;
+    json?: Record<string, unknown>;
+    userEmail?: string;
+    passwordOutdated?: boolean;
+    throwAuthenticationErrorAtUnlock?: boolean;
+  }) {
     const userEmail = overrides?.userEmail || `e2e-user-${crypto.randomUUID()}`;
-    const jsonRpcRequestBody = await request.body.getJson();
-    // eslint-disable-next-line camelcase
-    const { grant_type: grantType } = jsonRpcRequestBody as {
-      grant_type: string;
-    };
-
-    // Check whether the request is for refresh token or social login authentication based on the grant type
-    // We wanna generate a different token payload for the access token based on the grant type, for example:
-    // - For social login authentication, the access token should have a `mode` field with value `new`
-    // - For refresh token, the access token should have a `mode` field with value `refreshed`
-    const isRefreshTokenGrantType = grantType === 'refresh_token';
-    const forceTokenExpiration = isRefreshTokenGrantType
-      ? false
-      : overrides?.forceTokenExpiration;
-    const expiresIn = forceTokenExpiration ? 0 : 120; // setting a very short expiration time for testing purposes if forceTokenExpiration is true
-
-    // Generate the mock JWT tokens for the request
-    const idToken = generateMockJwtToken(userEmail, expiresIn);
-    const accessToken = generateMockJwtToken(
-      userEmail,
-      expiresIn,
-      isRefreshTokenGrantType ? 'refreshed' : 'new',
-    );
+    const idToken = generateMockJwtToken(userEmail);
 
     // keep track of the number of request tokens calls
     this.#numbOfRequestTokensCalls += 1;
@@ -237,7 +198,7 @@ export class OAuthMockttpService {
       json: {
         // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        access_token: accessToken,
+        access_token: idToken,
         // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
         // eslint-disable-next-line @typescript-eslint/naming-convention
         id_token: idToken,
@@ -260,26 +221,20 @@ export class OAuthMockttpService {
   /**
    * Mock the Auth Server's Request Token response.
    *
-   * @param request - The Mockttp request object.
    * @param overrides - The overrides for the mock response.
    * @param overrides.statusCode - The status code for the mock response.
    * @param overrides.userEmail - The email of the user to mock. If not provided, random generated email will be used.
    * @param overrides.passwordOutdated - Whether the password is outdated. If not provided, false will be used.
    * @param overrides.throwAuthenticationErrorAtUnlock - Whether to throw an authentication error at unlock. If not provided, false will be used.
-   * @param overrides.forceTokenExpiration - Whether to force the token expiration. If not provided, false will be used.
    * @returns The mock response for the Request Token endpoint.
    */
-  onPostToken(
-    request: CompletedRequest,
-    overrides?: {
-      statusCode?: number;
-      userEmail?: string;
-      passwordOutdated?: boolean;
-      throwAuthenticationErrorAtUnlock?: boolean;
-      forceTokenExpiration?: boolean;
-    },
-  ) {
-    return this.mockAuthServerToken(request, overrides);
+  onPostToken(overrides?: {
+    statusCode?: number;
+    userEmail?: string;
+    passwordOutdated?: boolean;
+    throwAuthenticationErrorAtUnlock?: boolean;
+  }) {
+    return this.mockAuthServerToken(overrides);
   }
 
   /**
@@ -435,7 +390,6 @@ export class OAuthMockttpService {
    * @param options.userEmail - The email of the user to mock. If not provided, random generated email will be used.
    * @param options.passwordOutdated - Whether the password is outdated. If not provided, false will be used.
    * @param options.throwAuthenticationErrorAtUnlock - Whether to throw an authentication error at unlock. If not provided, false will be used.
-   * @param options.forceTokenExpiration - Whether to force the token expiration. If not provided, false will be used.
    */
   async setup(
     server: Mockttp,
@@ -443,57 +397,54 @@ export class OAuthMockttpService {
       userEmail?: string;
       passwordOutdated?: boolean;
       throwAuthenticationErrorAtUnlock?: boolean;
-      forceTokenExpiration?: boolean;
     },
   ) {
-    const authServerMockResponses = [
-      await server
-        .forPost(AuthServer.RequestToken)
-        .always()
-        .thenCallback(async (request) => {
-          return this.onPostToken(request, options);
-        }),
+    server
+      .forPost(AuthServer.RequestToken)
+      .always()
+      .thenCallback(() => {
+        return this.onPostToken(options);
+      });
 
-      await server
-        .forPost(AuthServer.RevokeToken)
-        .always()
-        .thenCallback(() => {
-          return this.onPostRevokeToken();
-        }),
+    server
+      .forPost(AuthServer.RevokeToken)
+      .always()
+      .thenCallback(() => {
+        return this.onPostRevokeToken();
+      });
 
-      await server
-        .forGet(AuthServer.GetMarketingOptInStatus)
-        .always()
-        .thenCallback(() => {
-          return {
-            statusCode: 200,
-            json: {
-              is_opt_in: true,
-            },
-          };
-        }),
-      await server
-        .forPost(AuthServer.GetMarketingOptInStatus)
-        .always()
-        .thenCallback(() => {
-          return {
-            statusCode: 200,
-            json: {
-              is_opt_in: true,
-            },
-          };
-        }),
+    server
+      .forGet(AuthServer.GetMarketingOptInStatus)
+      .always()
+      .thenCallback(() => {
+        return {
+          statusCode: 200,
+          json: {
+            is_opt_in: true,
+          },
+        };
+      });
+    server
+      .forPost(AuthServer.GetMarketingOptInStatus)
+      .always()
+      .thenCallback(() => {
+        return {
+          statusCode: 200,
+          json: {
+            is_opt_in: true,
+          },
+        };
+      });
 
-      await server
-        .forPost(AuthServer.RenewRefreshToken)
-        .always()
-        .thenCallback(() => {
-          return this.onPostRenewRefreshToken();
-        }),
-    ];
+    server
+      .forPost(AuthServer.RenewRefreshToken)
+      .always()
+      .thenCallback(() => {
+        return this.onPostRenewRefreshToken();
+      });
 
     // Intercept the TOPRF requests (Authentication, KeyGen, Eval, etc.) and mock the responses
-    const toprfMockResponses = await server
+    server
       .forPost(SSSBaseUrlRgx)
       .always()
       .thenCallback(async (request) => {
@@ -501,14 +452,7 @@ export class OAuthMockttpService {
       });
 
     // Intercept the Metadata requests and mock the responses
-    const metadataMockResponses =
-      await this.#handleMetadataMockResponses(server);
-
-    return [
-      ...authServerMockResponses,
-      ...metadataMockResponses,
-      toprfMockResponses,
-    ];
+    await this.#handleMetadataMockResponses(server);
   }
 
   /**
@@ -595,55 +539,57 @@ export class OAuthMockttpService {
   }
 
   async #handleMetadataMockResponses(server: Mockttp) {
-    return [
-      await server.forPost(MetadataService.Set).always().thenJson(200, {
-        success: true,
-        message: 'Metadata set successfully',
-      }),
-      await server
-        .forPost(MetadataService.Get)
-        .always()
-        .thenCallback(async (_request) => {
-          return this.onPostMetadataGet();
-        }),
-      await server
-        .forPost(MetadataService.AcquireLock)
-        .always()
-        .thenCallback(async (_request) => {
-          return {
-            statusCode: 200,
-            json: {
-              success: true,
-              status: 1,
-              id: 'MOCK_LOCK_ID',
-            },
-          };
-        }),
-      await server
-        .forPost(MetadataService.ReleaseLock)
-        .always()
-        .thenCallback(async (_request) => {
-          return {
-            statusCode: 200,
-            json: {
-              success: true,
-              status: 1,
-            },
-          };
-        }),
-      await server
-        .forPost(MetadataService.BatchSet)
-        .always()
-        .thenCallback(async (_request) => {
-          return {
-            statusCode: 200,
-            json: {
-              success: true,
-              message: 'Metadata set successfully',
-            },
-          };
-        }),
-    ];
+    server.forPost(MetadataService.Set).always().thenJson(200, {
+      success: true,
+      message: 'Metadata set successfully',
+    });
+
+    server
+      .forPost(MetadataService.Get)
+      .always()
+      .thenCallback(async (_request) => {
+        return this.onPostMetadataGet();
+      });
+
+    server
+      .forPost(MetadataService.AcquireLock)
+      .always()
+      .thenCallback(async (_request) => {
+        return {
+          statusCode: 200,
+          json: {
+            success: true,
+            status: 1,
+            id: 'MOCK_LOCK_ID',
+          },
+        };
+      });
+
+    server
+      .forPost(MetadataService.ReleaseLock)
+      .always()
+      .thenCallback(async (_request) => {
+        return {
+          statusCode: 200,
+          json: {
+            success: true,
+            status: 1,
+          },
+        };
+      });
+
+    server
+      .forPost(MetadataService.BatchSet)
+      .always()
+      .thenCallback(async (_request) => {
+        return {
+          statusCode: 200,
+          json: {
+            success: true,
+            message: 'Metadata set successfully',
+          },
+        };
+      });
   }
 
   /**

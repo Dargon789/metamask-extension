@@ -1,7 +1,7 @@
 import { BaseUrl } from '../../../constants/urls';
 import { Route } from './route';
 
-export const predict = new Route({
+export default new Route({
   pathname: '/predict',
   getTitle: (_: URLSearchParams) => 'deepLink_thePredictPage',
   handler: function handler(params: URLSearchParams) {

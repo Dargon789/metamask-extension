@@ -23,13 +23,12 @@ const sliderStyles = {
   },
   rail: {
     borderRadius: 50,
-    background: 'var(--color-border-muted)',
+    background: 'var(--color-background-hover)',
     height: 6,
-    opacity: 1,
   },
   track: {
     borderRadius: 50,
-    background: 'var(--color-text-default)',
+    background: 'var(--color-background-muted)',
     height: 6,
   },
   thumb: {
@@ -37,8 +36,8 @@ const sliderStyles = {
     width: 20,
     marginTop: -7,
     marginLeft: -7,
-    backgroundColor: 'var(--color-background-default)',
-    border: '2px solid var(--color-text-default)',
+    backgroundColor: 'var(--color-primary-inverse)',
+    border: '2px solid var(--color-primary-inverse)',
     boxSizing: 'border-box' as const,
     boxShadow: 'var(--shadow-size-md) var(--color-shadow-default)',
     '&:focus, &$active': {
@@ -53,8 +52,8 @@ const sliderStyles = {
       width: 22,
       marginTop: -8,
       marginLeft: -8,
-      backgroundColor: 'var(--color-background-default)',
-      border: '2px solid var(--color-text-default)',
+      backgroundColor: 'var(--color-primary-inverse)',
+      border: '2px solid var(--color-primary-inverse)',
       boxShadow: 'var(--shadow-size-md) var(--color-shadow-default)',
     },
   },

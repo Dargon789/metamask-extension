@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 import { withFixtures } from '../../helpers';
 import { PAGES, Driver } from '../../webdriver/driver';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { isManifestV3 } from '../../../../shared/modules/mv3.utils';
 
 // Detect scuttling by prodding globals until found
@@ -53,7 +53,7 @@ describe('lockdown', function (this: Mocha.Suite) {
   it('the UI environment is locked down', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }: { driver: Driver }) => {
@@ -69,7 +69,7 @@ describe('lockdown', function (this: Mocha.Suite) {
   it('the background environment is locked down', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         ignoredConsoleErrors: [
           'Error: Could not establish connection.',
           'Error: Premature close', // issue #35241
