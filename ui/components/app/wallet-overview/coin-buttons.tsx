@@ -27,6 +27,7 @@ import {
   getNetworkConfigurationIdByChainId,
   getSwapsDefaultToken,
 } from '../../../selectors';
+import { getIsMultichainAccountsState2Enabled } from '../../../selectors/multichain-accounts/feature-flags';
 import { getSelectedAccountGroup } from '../../../selectors/multichain-accounts/account-tree';
 import Tooltip from '../../ui/tooltip';
 import {
@@ -120,6 +121,11 @@ const CoinButtons = ({
     string
   >;
   const currentChainId = useSelector(getCurrentChainId);
+
+  // Multichain accounts feature flag and selected account group
+  const isMultichainAccountsState2Enabled = useSelector(
+    getIsMultichainAccountsState2Enabled,
+  );
   const selectedAccountGroup = useSelector(getSelectedAccountGroup);
 
   const defaultSwapsToken = useSelector((state) =>
@@ -230,7 +236,11 @@ const CoinButtons = ({
   const { openBridgeExperience } = useBridging();
 
   const setCorrectChain = useCallback(async () => {
-    if (currentChainId !== chainId && multichainChainId !== chainId) {
+    if (
+      currentChainId !== chainId &&
+      multichainChainId !== chainId &&
+      !isMultichainAccountsState2Enabled
+    ) {
       try {
         const networkConfigurationId = networks[chainId];
         await dispatch(setActiveNetworkWithError(networkConfigurationId));
@@ -245,7 +255,14 @@ const CoinButtons = ({
         throw err;
       }
     }
-  }, [currentChainId, multichainChainId, chainId, networks, dispatch]);
+  }, [
+    isMultichainAccountsState2Enabled,
+    currentChainId,
+    multichainChainId,
+    chainId,
+    networks,
+    dispatch,
+  ]);
 
   const handleSendOnClick = useCallback(async () => {
     trackEvent(
@@ -343,7 +360,7 @@ const CoinButtons = ({
       },
     });
 
-    if (selectedAccountGroup) {
+    if (isMultichainAccountsState2Enabled && selectedAccountGroup) {
       // Navigate to the multichain address list page with receive source
       navigate(
         `${MULTICHAIN_ACCOUNT_ADDRESS_LIST_PAGE_ROUTE}/${encodeURIComponent(selectedAccountGroup)}?${AddressListQueryParams.Source}=${AddressListSource.Receive}`,
@@ -352,7 +369,14 @@ const CoinButtons = ({
       // Show the traditional receive modal
       setShowReceiveModal(true);
     }
-  }, [selectedAccountGroup, navigate, trackEvent, trackingLocation, chainId]);
+  }, [
+    isMultichainAccountsState2Enabled,
+    selectedAccountGroup,
+    navigate,
+    trackEvent,
+    trackingLocation,
+    chainId,
+  ]);
 
   return (
     <Box

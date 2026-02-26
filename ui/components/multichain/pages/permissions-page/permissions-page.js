@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { isSnapId } from '@metamask/snaps-utils';
 import { Content, Footer, Header, Page } from '../page';
@@ -30,7 +30,6 @@ import {
 } from '../../../../helpers/constants/design-system';
 import {
   DEFAULT_ROUTE,
-  PREVIOUS_ROUTE,
   REVIEW_PERMISSIONS,
   GATOR_PERMISSIONS,
 } from '../../../../helpers/constants/routes';
@@ -48,24 +47,9 @@ import { ConnectionListItem } from './connection-list-item';
 const PermissionsPage = () => {
   const t = useI18nContext();
   const theme = useTheme();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const headerRef = useRef();
-
-  const fromPath = searchParams.get('from') ?? undefined;
-
-  const handleBack = () => {
-    if (fromPath === DEFAULT_ROUTE) {
-      navigate(PREVIOUS_ROUTE);
-    } else {
-      navigate(
-        isGatorPermissionsRevocationFeatureEnabled()
-          ? GATOR_PERMISSIONS
-          : DEFAULT_ROUTE,
-      );
-    }
-  };
   const [totalConnections, setTotalConnections] = useState(0);
   const [showDisconnectAllModal, setShowDisconnectAllModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -149,7 +133,13 @@ const PermissionsPage = () => {
             iconName={IconName.ArrowLeft}
             className="connections-header__start-accessory"
             color={Color.iconDefault}
-            onClick={handleBack}
+            onClick={() =>
+              navigate(
+                isGatorPermissionsRevocationFeatureEnabled()
+                  ? GATOR_PERMISSIONS
+                  : DEFAULT_ROUTE,
+              )
+            }
             size={ButtonIconSize.Sm}
             data-testid="permissions-page-back"
           />

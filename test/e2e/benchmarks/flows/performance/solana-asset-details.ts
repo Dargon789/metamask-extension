@@ -12,10 +12,6 @@ import { Driver } from '../../../webdriver/driver';
 import { performanceTracker } from '../../utils/performance-tracker';
 import TimerHelper, { collectTimerResults } from '../../utils/timer-helper';
 import {
-  getTestSpecificMock,
-  shouldUseMockedRequests,
-} from '../../utils/mock-config';
-import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
   WITH_STATE_POWER_USER,
@@ -41,10 +37,9 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
             infuraProjectId: process.env.INFURA_PROJECT_ID,
           },
         },
-        useMockingPassThrough: !shouldUseMockedRequests(),
+        useMockingPassThrough: true,
         disableServerMochaToBackground: true,
         extendedTimeoutMultiplier: 3,
-        testSpecificMock: getTestSpecificMock(),
       },
       async ({ driver }: { driver: Driver }) => {
         const timer = new TimerHelper('assetClickToPriceChart');
@@ -54,9 +49,9 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
         const assetListPage = new AssetListPage(driver);
         await assetListPage.checkTokenListIsDisplayed();
 
-        await assetListPage.clickOnAsset('Solana');
         // Measure: Asset click to price chart loaded
         await timer.measure(async () => {
+          await assetListPage.clickOnAsset('Solana');
           await assetListPage.checkPriceChartIsShown();
           await assetListPage.checkPriceChartLoaded(SOL_TOKEN_ADDRESS);
         });

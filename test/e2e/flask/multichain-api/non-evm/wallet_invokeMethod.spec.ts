@@ -79,7 +79,7 @@ describe('Multichain API - Non EVM', function () {
             const confirmation = new SnapTransactionConfirmation(driver);
             await confirmation.checkPageIsLoaded();
             await confirmation.checkAccountIsDisplayed('Account 1');
-            await confirmation.clickFooterConfirmButtonAndWaitForWindowToClose();
+            await confirmation.clickFooterConfirmButton();
 
             await driver.switchToWindowWithTitle(
               WINDOW_TITLES.MultichainTestDApp,

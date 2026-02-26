@@ -18,6 +18,8 @@ import { useGasFeeEstimates } from '../../../hooks/useGasFeeEstimates';
 
 import { editGasModeIsSpeedUpOrCancel } from '../../../helpers/utils/gas';
 import { hexToDecimal } from '../../../../shared/modules/conversion.utils';
+import { Numeric } from '../../../../shared/modules/Numeric';
+import { EtherDenomination } from '../../../../shared/constants/common';
 import { useGasFeeErrors } from './useGasFeeErrors';
 import { useGasPriceInput } from './useGasPriceInput';
 import { useMaxFeePerGasInput } from './useMaxFeePerGasInput';
@@ -92,6 +94,7 @@ import { useTransactionFunctions } from './useTransactionFunctions';
  * ).GasEstimates} gas fee input state and the GasFeeEstimates object
  */
 
+const GAS_LIMIT_TOO_HIGH_IN_ETH = '1';
 export function useGasFeeInputs(
   defaultEstimateToUse = GasRecommendations.medium,
   _transaction,
@@ -179,6 +182,20 @@ export function useGasFeeInputs(
     if (supportsEIP1559) {
       if (transaction?.userFeeLevel) {
         setInternalEstimateToUse(transaction?.userFeeLevel);
+      }
+
+      const maximumGas = new Numeric(transaction?.txParams?.gas ?? '0x0', 16)
+        .times(new Numeric(transaction?.txParams?.maxFeePerGas ?? '0x0', 16))
+        .toPrefixedHexString();
+
+      const fee = new Numeric(maximumGas, 16, EtherDenomination.WEI)
+        .toDenomination(EtherDenomination.ETH)
+        .toBase(10)
+        .toString();
+
+      if (Number(fee) > Number(GAS_LIMIT_TOO_HIGH_IN_ETH)) {
+        setEstimateUsed(PriorityLevels.dappSuggestedHigh);
+      } else if (transaction?.userFeeLevel) {
         setEstimateUsed(transaction?.userFeeLevel);
       }
 

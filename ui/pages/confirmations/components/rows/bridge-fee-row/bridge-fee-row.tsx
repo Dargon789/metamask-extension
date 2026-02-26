@@ -11,7 +11,6 @@ import {
   ConfirmInfoRowSize,
   ConfirmInfoRowSkeleton,
 } from '../../../../../components/app/confirm/info/row/row';
-import { ConfirmInfoRowText } from '../../../../../components/app/confirm/info/row/text';
 import {
   useIsTransactionPayLoading,
   useTransactionPayQuotes,
@@ -20,14 +19,8 @@ import {
 import { useI18nContext } from '../../../../../hooks/useI18nContext';
 import { useFiatFormatter } from '../../../../../hooks/useFiatFormatter';
 
-export type BridgeFeeRowProps = {
-  variant?: ConfirmInfoRowSize;
-};
-
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export function BridgeFeeRow({
-  variant = ConfirmInfoRowSize.Default,
-}: BridgeFeeRowProps) {
+export function BridgeFeeRow() {
   const t = useI18nContext();
   const formatFiat = useFiatFormatter();
   const isLoading = useIsTransactionPayLoading();
@@ -48,24 +41,11 @@ export function BridgeFeeRow({
 
   const metamaskFeeUsd = useMemo(() => formatFiat(0), [formatFiat]);
 
-  const isSmall = variant === ConfirmInfoRowSize.Small;
-  const textVariant = isSmall ? TextVariant.bodyMd : TextVariant.bodyMdMedium;
-
   if (isLoading) {
     return (
       <>
-        <ConfirmInfoRowSkeleton
-          data-testid="bridge-fee-row-skeleton"
-          label={t('transactionFee')}
-          rowVariant={variant}
-        />
-        {isSmall && (
-          <ConfirmInfoRowSkeleton
-            data-testid="metamask-fee-row-skeleton"
-            label={t('metamaskFee')}
-            rowVariant={variant}
-          />
-        )}
+        <ConfirmInfoRowSkeleton data-testid="bridge-fee-row-skeleton" />
+        <ConfirmInfoRowSkeleton data-testid="metamask-fee-row-skeleton" />
       </>
     );
   }
@@ -77,35 +57,28 @@ export function BridgeFeeRow({
       <ConfirmInfoRow
         data-testid="bridge-fee-row"
         label={t('transactionFee')}
-        rowVariant={variant}
+        rowVariant={ConfirmInfoRowSize.Small}
         tooltip={
           hasQuotes && totals
             ? renderTooltipContent(t, totals, formatFiat)
             : undefined
         }
       >
-        {isSmall ? (
-          <Text
-            variant={textVariant}
-            color={TextColor.textAlternative}
-            data-testid="transaction-fee-value"
-          >
-            {feeTotalUsd}
-          </Text>
-        ) : (
-          <ConfirmInfoRowText
-            text={feeTotalUsd}
-            data-testid="transaction-fee-value"
-          />
-        )}
+        <Text
+          variant={TextVariant.bodyMd}
+          color={TextColor.textAlternative}
+          data-testid="transaction-fee-value"
+        >
+          {feeTotalUsd}
+        </Text>
       </ConfirmInfoRow>
-      {hasQuotes && isSmall && (
+      {hasQuotes && (
         <ConfirmInfoRow
           data-testid="metamask-fee-row"
           label={t('metamaskFee')}
-          rowVariant={variant}
+          rowVariant={ConfirmInfoRowSize.Small}
         >
-          <Text variant={textVariant} color={TextColor.textAlternative}>
+          <Text variant={TextVariant.bodyMd} color={TextColor.textAlternative}>
             {metamaskFeeUsd}
           </Text>
         </ConfirmInfoRow>

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import {
   twMerge,
   Box,
@@ -13,9 +13,13 @@ import {
 } from '@metamask/design-system-react';
 import { useNavigate } from 'react-router-dom';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import { useFormatters } from '../../../../hooks/useFormatters';
 import { PerpsTokenLogo } from '../perps-token-logo';
-import { formatOrderType, getDisplayName } from '../utils';
+import {
+  getDisplayName,
+  formatOrderType,
+  formatStatus,
+  getStatusColor,
+} from '../utils';
 import type { Order } from '../types';
 import { PERPS_MARKET_DETAIL_ROUTE } from '../../../../helpers/constants/routes';
 
@@ -27,7 +31,7 @@ export type OrderCardProps = {
 
 /**
  * OrderCard component displays individual order information
- * Two rows: symbol/type/side + size on left, USD value + limit price on right
+ * Two rows: symbol/type/side + size on left, price + status on right
  *
  * @param options0 - Component props
  * @param options0.order - The order data to display
@@ -41,7 +45,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const t = useI18nContext();
-  const { formatCurrencyWithMinThreshold } = useFormatters();
   const isBuy = order.side === 'buy';
   const displayName = getDisplayName(order.symbol);
 
@@ -56,17 +59,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     }
   }, [navigate, order, onClick]);
 
-  // Calculate order value in USD (size * price), formatted like position values
-  const orderValueUsd = useMemo(() => {
-    const size = parseFloat(order.size) || 0;
-    const price = parseFloat(order.price) || 0;
-    if (size > 0 && price > 0) {
-      return formatCurrencyWithMinThreshold(size * price, 'USD');
-    }
-    return null;
-  }, [order.size, order.price, formatCurrencyWithMinThreshold]);
-
-  const baseStyles = 'cursor-pointer pt-2 pb-2 px-4 h-[62px]';
+  const baseStyles = 'cursor-pointer px-4 py-3';
   const variantStyles =
     variant === 'muted'
       ? 'bg-muted hover:bg-muted-hover active:bg-muted-pressed'
@@ -76,9 +69,9 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     <ButtonBase
       className={twMerge(
         // Reset ButtonBase defaults for card layout
-        'justify-start rounded-none min-w-0',
-        // Card styles (matches tokens tab: 62px height, 8px v-padding, 16px h-padding, 16px gap)
-        'gap-4 text-left',
+        'justify-start rounded-none min-w-0 h-auto',
+        // Card styles
+        'gap-3 text-left',
         baseStyles,
         variantStyles,
       )}
@@ -107,7 +100,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         >
           <Text fontWeight={FontWeight.Medium}>{displayName}</Text>
           <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-            {isBuy ? t('perpsLong') : t('perpsShort')}
+            {formatOrderType(order.orderType)}{' '}
+            {isBuy ? t('perpsBuy') : t('perpsSell')}
           </Text>
         </Box>
         <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
@@ -115,7 +109,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         </Text>
       </Box>
 
-      {/* Right side: USD value + limit price */}
+      {/* Right side: Price and status */}
       <Box
         className="shrink-0"
         flexDirection={BoxFlexDirection.Column}
@@ -123,10 +117,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         gap={1}
       >
         <Text variant={TextVariant.BodySm} fontWeight={FontWeight.Medium}>
-          {orderValueUsd ?? t('perpsMarket')}
+          {order.orderType === 'limit' && order.price !== '0'
+            ? `$${order.price}`
+            : t('perpsMarket')}
         </Text>
-        <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
-          {formatOrderType(order.orderType)}
+        <Text variant={TextVariant.BodySm} color={getStatusColor(order.status)}>
+          {formatStatus(order.status)}
         </Text>
       </Box>
     </ButtonBase>

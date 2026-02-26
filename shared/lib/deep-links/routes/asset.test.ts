@@ -1,4 +1,4 @@
-import { asset, AssetQueryParams } from './asset';
+import assetRoute, { AssetQueryParams } from './asset';
 import { Destination } from './route';
 
 function assertPathDestination(
@@ -47,7 +47,7 @@ describe('assetRoute', () => {
               [AssetQueryParams.AssetId]: searchParamVal,
             });
 
-      const result = asset.handler(params);
+      const result = assetRoute.handler(params);
 
       assertPathDestination(result);
       expect(result.path).toBe(expectedPath);
@@ -79,7 +79,7 @@ describe('assetRoute', () => {
               [AssetQueryParams.AssetId]: assetIdParam,
             });
 
-      expect(() => asset.handler(params)).toThrow(expectedError);
+      expect(() => assetRoute.handler(params)).toThrow(expectedError);
     },
   );
 });

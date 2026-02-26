@@ -45,8 +45,8 @@ describe('Test Snap Notification', function () {
         );
         await headerNavbar.checkNotificationCountInMenuOption(1);
 
-        // close the drawer by clicking the back button
-        await headerNavbar.clickDrawerBackButton();
+        // this click will close the menu
+        await headerNavbar.openThreeDotMenu();
 
         // click the notification options and validate the message in the notification list
         await headerNavbar.clickNotificationsOptions();
@@ -93,7 +93,7 @@ describe('Test Snap Notification', function () {
         await headerNavbar.checkNotificationCountInMenuOption(1);
 
         // this click will close the menu
-        await headerNavbar.clickDrawerBackButton();
+        await headerNavbar.mouseClickOnThreeDotMenu();
 
         // click the notification options
         await headerNavbar.clickNotificationsOptions();

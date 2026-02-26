@@ -39,7 +39,6 @@ jest.mock('../../../hooks/useIsOriginalNativeTokenSymbol', () => {
 });
 
 jest.mock('../../../ducks/locale/locale', () => ({
-  ...jest.requireActual('../../../ducks/locale/locale'),
   getIntlLocale: jest.fn(),
 }));
 
@@ -74,7 +73,6 @@ describe('EthOverview', () => {
     options: {},
     methods: ETH_EOA_METHODS,
     type: EthAccountType.Eoa,
-    scopes: ['eip155:0'],
   };
 
   const mockEvmAccount2 = {
@@ -89,40 +87,17 @@ describe('EthOverview', () => {
     options: {},
     methods: ETH_EOA_METHODS,
     type: EthAccountType.Eoa,
-    scopes: ['eip155:0'],
   };
 
   const mockStore = {
     appState: {
       confirmationExchangeRates: {},
     },
-    localeMessages: {
-      currentLocale: 'en-US',
-    },
     metamask: {
       ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
       accountTree: {
-        wallets: {
-          'entropy:wallet1': {
-            id: 'entropy:wallet1',
-            groups: {
-              'entropy:wallet1/group1': {
-                id: 'entropy:wallet1/group1',
-                type: 'multichain-account',
-                accounts: [mockEvmAccount1.id],
-                metadata: {
-                  name: 'Account 1',
-                  hidden: false,
-                  pinned: false,
-                },
-              },
-            },
-          },
-        },
-        selectedAccountGroup: 'entropy:wallet1/group1',
-      },
-      tokenBalances: {
-        [CHAIN_IDS.MAINNET]: {},
+        wallets: {},
+        selectedAccountGroup: null,
       },
       remoteFeatureFlags: {
         bridgeConfig: {
@@ -249,7 +224,7 @@ describe('EthOverview', () => {
 
       const primaryBalance = queryByTestId(ETH_OVERVIEW_PRIMARY_CURRENCY);
       expect(primaryBalance).toBeInTheDocument();
-      expect(primaryBalance).toHaveTextContent('0 ETH');
+      expect(primaryBalance).toHaveTextContent('<0.000001ETH');
       expect(queryByText('*')).not.toBeInTheDocument();
     });
 
@@ -281,7 +256,7 @@ describe('EthOverview', () => {
 
       const primaryBalance = queryByTestId(ETH_OVERVIEW_PRIMARY_CURRENCY);
       expect(primaryBalance).toBeInTheDocument();
-      expect(primaryBalance).toHaveTextContent('0.0104 ETH');
+      expect(primaryBalance).toHaveTextContent('0.0104ETH');
       expect(queryByText('*')).not.toBeInTheDocument();
     });
 

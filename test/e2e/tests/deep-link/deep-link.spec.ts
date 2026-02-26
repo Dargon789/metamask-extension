@@ -10,7 +10,7 @@ import SwapPage from '../../page-objects/pages/swap/swap-page';
 import HomePage from '../../page-objects/pages/home/homepage';
 import RewardsPage from '../../page-objects/pages/rewards/rewards-page';
 import { emptyHtmlPage } from '../../mock-e2e';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { BaseUrl } from '../../../../shared/constants/urls';
 import { REWARDS_ROUTE } from '../../../../ui/helpers/constants/routes';
 import type { Anvil } from '../../seeder/anvil';
@@ -48,7 +48,7 @@ describe('Deep Link', function () {
    */
   async function getConfig(title?: string) {
     return {
-      fixtures: new FixtureBuilderV2().build(),
+      fixtures: new FixtureBuilder().build(),
       title,
       manifestFlags: {
         testing: {

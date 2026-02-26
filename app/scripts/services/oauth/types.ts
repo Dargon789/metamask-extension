@@ -2,7 +2,6 @@ import {
   Web3AuthNetwork,
   AuthConnection,
   SeedlessOnboardingControllerGetStateAction,
-  SeedlessOnboardingControllerGetAccessTokenAction,
 } from '@metamask/seedless-onboarding-controller';
 import { Messenger } from '@metamask/messenger';
 import type {
@@ -69,7 +68,6 @@ export type OAuthServiceAction =
   | OAuthServiceRevokeRefreshTokenAction
   | OAuthServiceRenewRefreshTokenAction
   | SeedlessOnboardingControllerGetStateAction
-  | SeedlessOnboardingControllerGetAccessTokenAction
   | OnboardingControllerGetStateAction;
 
 /**

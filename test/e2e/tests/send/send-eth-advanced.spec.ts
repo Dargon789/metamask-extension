@@ -13,7 +13,6 @@ import { loginWithBalanceValidation } from '../../page-objects/flows/login.flow'
 import { WINDOW_TITLES } from '../../constants';
 import { withFixtures } from '../../helpers';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { mockSpotPrices } from '../tokens/utils/mocks';
 import { Driver } from '../../webdriver/driver';
 import GasFeeModal from '../../page-objects/pages/confirmations/gas-fee-modal';
@@ -39,7 +38,7 @@ describe('Send ETH - Advanced', function () {
       const smartContract = SMART_CONTRACTS.MULTISIG;
       await withFixtures(
         {
-          fixtures: new FixtureBuilderV2().build(),
+          fixtures: new FixtureBuilder().build(),
           smartContract,
           title: this.test?.fullTitle(),
         },

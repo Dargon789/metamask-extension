@@ -61,7 +61,7 @@ describe('Carousel', () => {
     isLoading: false,
     onSlideClose: jest.fn(),
     onSlideClick: jest.fn(),
-    onActiveSlideChange: jest.fn(),
+    onRenderSlides: jest.fn(),
     className: '',
   };
 
@@ -106,16 +106,11 @@ describe('Carousel', () => {
     expect(container.firstChild).toHaveClass(customClass);
   });
 
-  it('calls onActiveSlideChange with the current slide when slides are provided', () => {
-    const onActiveSlideChangeMock = jest.fn();
-    render(
-      <Carousel
-        {...defaultProps}
-        onActiveSlideChange={onActiveSlideChangeMock}
-      />,
-    );
+  it('calls onRenderSlides when slides are provided', () => {
+    const onRenderSlidesMock = jest.fn();
+    render(<Carousel {...defaultProps} onRenderSlides={onRenderSlidesMock} />);
 
-    expect(onActiveSlideChangeMock).toHaveBeenCalledWith(mockSlides[0]);
+    expect(onRenderSlidesMock).toHaveBeenCalledWith(mockSlides);
   });
 
   it('filters out dismissed slides', () => {

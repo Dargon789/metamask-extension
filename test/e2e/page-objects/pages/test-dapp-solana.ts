@@ -9,36 +9,9 @@ const DAPP_URL = `http://${DAPP_HOST_ADDRESS}`;
 export class TestDappSolana {
   private readonly driver: Driver;
 
-  private readonly accountLocator = (text: string) => ({
-    testId: dataTestIds.testPage.header.account,
-    text,
-  });
-
-  private readonly connectionStatusLocator = (
-    text: 'Connected' | 'Disconnected',
-  ) => ({
-    testId: dataTestIds.testPage.header.connectionStatus,
-    text,
-  });
-
-  private readonly connectButtonLocator = {
-    testId: dataTestIds.testPage.header.connect,
-    tag: 'button',
-  };
-
-  private readonly disconnectButtonLocator = {
-    testId: dataTestIds.testPage.header.disconnect,
-    tag: 'button',
-  };
-
   private readonly solanaChainDisplay = {
     text: 'solana:devnet',
     css: 'div',
-  };
-
-  private readonly updateEndpointButtonLocator = {
-    testId: dataTestIds.testPage.header.updateEndpoint,
-    tag: 'button',
   };
 
   private readonly walletModalSelector = '.wallet-adapter-modal-list';
@@ -86,7 +59,10 @@ export class TestDappSolana {
   }
 
   async clickUpdateEndpointButton() {
-    await this.driver.clickElement(this.updateEndpointButtonLocator);
+    await this.driver.clickElement({
+      testId: dataTestIds.testPage.header.updateEndpoint,
+      tag: 'button',
+    });
   }
 
   /**
@@ -128,20 +104,26 @@ export class TestDappSolana {
           dataTestIds.testPage.header.endpoint,
           endpoint,
         ),
-      verifyConnectionStatus: async (
-        expectedStatus: 'Connected' | 'Disconnected',
-      ) => {
-        await this.driver.waitForSelector(
-          this.connectionStatusLocator(expectedStatus),
+      getConnectionStatus: async () => {
+        const element = await this.driver.findElement(
+          this.getElementSelectorTestId(
+            dataTestIds.testPage.header.connectionStatus,
+          ),
         );
+        return element.getText();
       },
       connect: async () =>
-        await this.driver.clickElement(this.connectButtonLocator),
+        await this.driver.clickElement({
+          testId: dataTestIds.testPage.header.connect,
+          tag: 'button',
+        }),
       disconnect: async () =>
-        await this.driver.clickElement(this.disconnectButtonLocator),
-      verifyAccount: async (expectedAccount: string) => {
-        await this.driver.waitForSelector(this.accountLocator(expectedAccount));
-      },
+        await this.driver.clickElement({
+          testId: dataTestIds.testPage.header.disconnect,
+          tag: 'button',
+        }),
+      getAccount: async () =>
+        await this.getSolscanShortContent(dataTestIds.testPage.header.account),
     };
   }
 

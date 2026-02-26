@@ -1,11 +1,5 @@
 import { Json } from '@metamask/utils';
-import type {
-  DeviceType,
-  EnvironmentType,
-  InstallType,
-  Os,
-  Platform,
-} from './app';
+import type { EnvironmentType, InstallType, Platform } from './app';
 import { LedgerTransportTypes } from './hardware-wallets';
 
 type JsonWithUndefined =
@@ -581,16 +575,6 @@ export type MetaMetricsUserTraits = {
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
   // eslint-disable-next-line @typescript-eslint/naming-convention
   install_type?: InstallType;
-  /**
-   * Whether the device is mobile or desktop.
-   */
-  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  device_type?: DeviceType;
-  /**
-   * The operating system (normalized).
-   */
-  os?: Os;
 };
 
 export enum MetaMetricsUserTrait {
@@ -715,16 +699,6 @@ export enum MetaMetricsUserTrait {
    * The installation type of the extension.
    */
   InstallType = 'install_type',
-  /**
-   * Whether the device is mobile or desktop.
-   */
-  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  DeviceType = 'device_type',
-  /**
-   * The operating system (normalized).
-   */
-  Os = 'os',
 }
 
 /**
@@ -918,7 +892,6 @@ export enum MetaMetricsEventName {
   TokenSortPreference = 'Token Sort Preference Updated',
   EmptyNFTTabButtonClicked = 'Empty NFT Tab Button Clicked',
   TokenDetected = 'Token Detected',
-  AssetsFirstInitFetchCompleted = 'Assets First Init Fetch Completed',
   TokenHidden = 'Token Hidden',
   TokenImportCanceled = 'Token Import Canceled',
   TokenImportClicked = 'Token Import Clicked',

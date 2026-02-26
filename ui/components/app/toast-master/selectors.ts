@@ -1,3 +1,5 @@
+import { InternalAccount } from '@metamask/keyring-internal-api';
+import { isEvmAccountType } from '@metamask/keyring-api';
 import {
   getAllScopesFromCaip25CaveatValue,
   isInternalAccountInPermittedAccountIds,
@@ -13,6 +15,7 @@ import {
   getAllPermittedAccountsForCurrentTab,
   getOriginOfCurrentTab,
   getPermissions,
+  isSolanaAccount,
 } from '../../../selectors';
 import { MetaMaskReduxState } from '../../../store/store';
 import {
@@ -108,6 +111,33 @@ export function selectNftDetectionEnablementToast(
   state: Pick<State, 'appState'>,
 ): boolean {
   return Boolean(state.appState.showNftDetectionEnablementToast);
+}
+
+// If there is more than one connected account to activeTabOrigin,
+// *BUT* the current account is not one of them, show the banner
+export function selectShowConnectAccountToast(
+  state: State & Pick<MetaMaskReduxState, 'activeTab'>,
+  account: InternalAccount,
+): boolean {
+  const allowShowAccountSetting = getAlertEnabledness(state).unconnectedAccount;
+  const activeTabOrigin = getOriginOfCurrentTab(state);
+  const connectedAccounts = getAllPermittedAccountsForCurrentTab(state);
+
+  // We only support connection with EVM or Solana accounts
+  // This check prevents Bitcoin snap accounts from showing the toast
+  const isEvmAccount = isEvmAccountType(account?.type);
+  const isSolanaAccountSelected = isSolanaAccount(account);
+  const isConnectableAccount = isEvmAccount || isSolanaAccountSelected;
+
+  const showConnectAccountToast =
+    allowShowAccountSetting &&
+    account &&
+    activeTabOrigin &&
+    isConnectableAccount &&
+    connectedAccounts.length > 0 &&
+    !isInternalAccountInPermittedAccountIds(account, connectedAccounts);
+
+  return Boolean(showConnectAccountToast);
 }
 
 // If there is more than one connected account to activeTabOrigin,

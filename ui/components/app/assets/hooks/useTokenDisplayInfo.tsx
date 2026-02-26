@@ -4,6 +4,7 @@ import { formatChainIdToCaip } from '@metamask/bridge-controller';
 import { isCaipChainId } from '@metamask/utils';
 import {
   getEnabledNetworksByNamespace,
+  getIsMultichainAccountsState2Enabled,
   getShowFiatInTestnets,
   getTokenList,
   selectERC20TokensByChain,
@@ -43,6 +44,9 @@ export const useTokenDisplayInfo = ({
     getInternalAccountBySelectedAccountGroupAndCaip(state, caipChainId),
   );
 
+  const isMultichainAccountsState2Enabled = useSelector(
+    getIsMultichainAccountsState2Enabled,
+  );
   const showFiat = useMultichainSelector(
     makeGetMultichainShouldShowFiatByChainId(token.chainId),
     selectedAccount,
@@ -122,8 +126,10 @@ export const useTokenDisplayInfo = ({
 
   // TODO BIP44 Refactor: type for secondary is wrongly set as number | null, when it is a string | null
   // Just changing it causes a number of errors all over the codebase
-  // The BIP44 flag is enabled and stable, so this can be refactored to use the type from the new selector
-  const nonEvmSecondary = secondary as unknown as number;
+  // When BIP44 flag is enabled and stable, this can be refactored to use the type from the new selector
+  const nonEvmSecondary = isMultichainAccountsState2Enabled
+    ? (secondary as unknown as number)
+    : token.secondary;
 
   // TODO non-evm assets. this is only the native token
   return {

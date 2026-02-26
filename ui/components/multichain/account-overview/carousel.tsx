@@ -26,9 +26,7 @@ export const Carousel = () => {
     remoteFeatureFlags && remoteFeatureFlags.carouselBanners,
   );
   const { trackEvent } = useContext(MetaMetricsContext);
-  const [displayedSlideIds, setDisplayedSlideIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [hasRendered, setHasRendered] = useState(false);
 
   const [showCreateSolanaAccountModal, setShowCreateSolanaAccountModal] =
     useState(false);
@@ -88,22 +86,24 @@ export const Carousel = () => {
     dispatch(removeSlide(slideId));
   };
 
-  const handleActiveSlideChange = useCallback(
-    (slide: CarouselSlide) => {
-      if (!displayedSlideIds.has(slide.id)) {
-        trackEvent({
-          event: MetaMetricsEventName.BannerDisplay,
-          category: MetaMetricsEventCategory.Banner,
-          properties: {
-            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            banner_name: slide.id,
-          },
-        });
-        setDisplayedSlideIds((prev) => new Set(prev).add(slide.id));
+  const handleRenderSlides = useCallback(
+    (renderedSlides: CarouselSlide[]) => {
+      if (!hasRendered) {
+        for (const slide of renderedSlides) {
+          trackEvent({
+            event: MetaMetricsEventName.BannerDisplay,
+            category: MetaMetricsEventCategory.Banner,
+            properties: {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              banner_name: slide.id,
+            },
+          });
+        }
+        setHasRendered(true);
       }
     },
-    [displayedSlideIds, trackEvent],
+    [hasRendered, trackEvent],
   );
 
   if (!isCarouselEnabled) {
@@ -117,7 +117,7 @@ export const Carousel = () => {
         isLoading={isLoading}
         onSlideClick={handleCarouselClick}
         onSlideClose={handleRemoveSlide}
-        onActiveSlideChange={handleActiveSlideChange}
+        onRenderSlides={handleRenderSlides}
       />
       {showCreateSolanaAccountModal && (
         <CreateSolanaAccountModal

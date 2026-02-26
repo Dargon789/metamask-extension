@@ -453,8 +453,6 @@ const TransactionListItem = (props) => {
 
 TransactionListItem.propTypes = {
   transactionGroup: PropTypes.object.isRequired,
-  isEarliestNonce: PropTypes.bool,
-  chainId: PropTypes.string,
 };
 
 export default TransactionListItem;

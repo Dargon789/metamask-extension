@@ -15,8 +15,7 @@ import {
 } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import { useFormatters } from '../../../../hooks/useFormatters';
-import { usePerpsEligibility } from '../../../../hooks/perps';
-import { usePerpsLiveAccount } from '../../../../hooks/perps/stream';
+import { mockAccountState } from '../mocks';
 
 type PerpsMarketBalanceActionsProps = {
   /** Whether to show the action buttons (Add funds, Withdraw) */
@@ -37,24 +36,14 @@ const PerpsMarketBalanceActions: React.FC<PerpsMarketBalanceActionsProps> = ({
 }) => {
   const t = useI18nContext();
   const { formatCurrency } = useFormatters();
-  const { account } = usePerpsLiveAccount();
-  const { isEligible } = usePerpsEligibility();
 
-  // Use account data or defaults
-  const totalBalance = account?.totalBalance ?? '0';
-  const unrealizedPnl = account?.unrealizedPnl ?? '0';
-  const availableBalance = account?.availableBalance ?? '0';
-
-  // Account value = totalBalance + unrealizedPnl (includes open position PnL)
-  const accountValue = parseFloat(totalBalance) + parseFloat(unrealizedPnl);
-  const isBalanceEmpty = accountValue === 0;
+  // Use mock data for now
+  const { totalBalance } = mockAccountState;
+  const isBalanceEmpty = parseFloat(totalBalance) === 0;
 
   const handleAddFunds = useCallback(() => {
-    if (!isEligible) {
-      return;
-    }
     onAddFunds?.();
-  }, [isEligible, onAddFunds]);
+  }, [onAddFunds]);
 
   const handleWithdraw = useCallback(() => {
     onWithdraw?.();
@@ -118,8 +107,6 @@ const PerpsMarketBalanceActions: React.FC<PerpsMarketBalanceActionsProps> = ({
             variant={ButtonVariant.Primary}
             size={ButtonSize.Lg}
             onClick={handleAddFunds}
-            disabled={!isEligible}
-            title={isEligible ? undefined : t('perpsGeoBlockedTooltip')}
             style={{ width: '100%' }}
             data-testid="perps-balance-actions-add-funds-empty"
           >
@@ -146,13 +133,13 @@ const PerpsMarketBalanceActions: React.FC<PerpsMarketBalanceActionsProps> = ({
       flexDirection={BoxFlexDirection.Column}
       data-testid="perps-balance-actions"
     >
-      {/* Account Value (includes unrealized PnL) */}
+      {/* Total Balance */}
       <Text
         variant={TextVariant.DisplayMd}
         fontWeight={FontWeight.Medium}
         data-testid="perps-balance-actions-total"
       >
-        {formatCurrency(accountValue, 'USD')}
+        {formatCurrency(parseFloat(totalBalance), 'USD')}
       </Text>
 
       {/* Available Balance */}
@@ -162,8 +149,7 @@ const PerpsMarketBalanceActions: React.FC<PerpsMarketBalanceActionsProps> = ({
           color={TextColor.TextAlternative}
           data-testid="perps-balance-actions-available"
         >
-          {formatCurrency(parseFloat(availableBalance), 'USD')}{' '}
-          {t('perpsAvailable').toLowerCase()}
+          {t('perpsAvailable')}
         </Text>
       </Box>
 
@@ -184,8 +170,6 @@ const PerpsMarketBalanceActions: React.FC<PerpsMarketBalanceActionsProps> = ({
             variant={ButtonVariant.Primary}
             size={ButtonSize.Lg}
             onClick={handleAddFunds}
-            disabled={!isEligible}
-            title={isEligible ? undefined : t('perpsGeoBlockedTooltip')}
             style={{ flex: 1 }}
             data-testid="perps-balance-actions-add-funds"
           >

@@ -58,8 +58,6 @@ export { PickerNetwork } from './picker-network';
 export type { PickerNetworkProps } from './picker-network';
 export { Tag } from './tag';
 export type { TagProps } from './tag';
-export { SuccessPill } from './success-pill';
-export type { SuccessPillProps } from './success-pill';
 export { TagUrl } from './tag-url';
 export type { TagUrlProps } from './tag-url';
 export { Text, ValidTag, TextDirection, InvisibleCharacter } from './text';

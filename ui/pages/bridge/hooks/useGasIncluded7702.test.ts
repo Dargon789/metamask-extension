@@ -20,7 +20,7 @@ const renderUseGasIncluded7702 = (
   return renderHookWithProvider(
     () => useGasIncluded7702(params),
     mockStoreOverrides ?? {
-      metamask: { preferences: {} },
+      metamask: { preferences: { smartAccountOptIn: true } },
     },
   );
 };
@@ -314,7 +314,7 @@ describe('useGasIncluded7702', () => {
           initialProps: {
             children: { address: addresses[0], chainId: chainIds[0] },
           },
-          state: { metamask: { preferences: {} } },
+          state: { metamask: { preferences: { smartAccountOptIn: true } } },
         },
       );
 

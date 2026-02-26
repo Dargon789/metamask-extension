@@ -469,7 +469,7 @@ async function mockFeatureFlags(
       return {
         ok: true,
         statusCode: 200,
-        json: [{ bridgeConfig: featureFlags, extensionUxPna25: true }],
+        json: [{ bridgeConfig: featureFlags }],
       };
     });
 }
@@ -887,9 +887,6 @@ export const getBridgeFixtures = (
       metaMetricsId: MOCK_META_METRICS_ID,
       participateInMetaMetrics: true,
     })
-    .withAppStateController({
-      pna25Acknowledged: true,
-    })
     .withCurrencyController(MOCK_CURRENCY_RATES)
     .withBridgeControllerDefaultState()
     .withPreferencesControllerSmartTransactionsOptedOut()
@@ -1053,7 +1050,6 @@ export const getQuoteNegativeCasesFixtures = (
         await mockTokensLinea(mockServer),
         await mockGetPopularTokens(mockServer),
         await mockPriceSpotPrices(mockServer),
-        await mockFeatureFlags(mockServer, featureFlags),
       ].concat(...(await mockSearchTokens(mockServer))),
     manifestFlags: {
       remoteFeatureFlags: {
@@ -1103,7 +1099,6 @@ export const getBridgeNegativeCasesFixtures = (
         await mockETHtoETH(mockServer),
         await mockGetTxStatusInvalid(mockServer, options),
         await mockPriceSpotPrices(mockServer),
-        await mockFeatureFlags(mockServer, featureFlags),
       ].concat(...(await mockSearchTokens(mockServer))),
     manifestFlags: {
       remoteFeatureFlags: {
@@ -1151,7 +1146,6 @@ export const getInsufficientFundsFixtures = (
         await mockGetPopularTokens(mockServer),
         await mockETHtoWETH(mockServer),
         await mockPriceSpotPrices(mockServer),
-        await mockFeatureFlags(mockServer, featureFlags),
       ].concat(...(await mockSearchTokens(mockServer))),
     manifestFlags: {
       remoteFeatureFlags: {

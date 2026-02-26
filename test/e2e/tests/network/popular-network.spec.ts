@@ -4,7 +4,6 @@ import { toHex } from '@metamask/controller-utils';
 import { MockttpServer } from 'mockttp';
 import { withFixtures } from '../../helpers';
 import FixtureBuilder from '../../fixtures/fixture-builder';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import AddEditNetworkModal from '../../page-objects/pages/dialog/add-edit-network';
 import AddNetworkRpcUrlModal from '../../page-objects/pages/dialog/add-network-rpc-url';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
@@ -69,7 +68,7 @@ describe('Popular Networks', function (this: Suite) {
   it('add custom network and switch the network', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }) => {
@@ -157,7 +156,7 @@ describe('Popular Networks', function (this: Suite) {
     }
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
         testSpecificMock: mockRPCURLAndChainId,
       },
@@ -223,7 +222,7 @@ describe('Popular Networks', function (this: Suite) {
     }
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
         testSpecificMock: mockRPCURLAndChainId,
       },

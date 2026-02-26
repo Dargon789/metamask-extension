@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   type INotification,
   TRIGGER_TYPES,
@@ -17,7 +17,6 @@ import {
 import { Tabs, Tab } from '../../components/ui/tabs';
 import {
   DEFAULT_ROUTE,
-  PREVIOUS_ROUTE,
   NOTIFICATIONS_SETTINGS_ROUTE,
 } from '../../helpers/constants/routes';
 import { Content, Header, Page } from '../../components/multichain/pages/page';
@@ -137,20 +136,9 @@ export const filterNotifications = (
 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export default function Notifications() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const t = useI18nContext();
   const dispatch = useDispatch();
-
-  const fromPath = searchParams.get('from') ?? undefined;
-
-  const handleBack = () => {
-    if (fromPath === DEFAULT_ROUTE) {
-      navigate(PREVIOUS_ROUTE);
-    } else {
-      navigate(DEFAULT_ROUTE);
-    }
-  };
 
   const { isLoading, error } = useMetamaskNotificationsContext();
 
@@ -178,7 +166,9 @@ export default function Notifications() {
             ariaLabel="Back"
             iconName={IconName.ArrowLeft}
             size={ButtonIconSize.Md}
-            onClick={handleBack}
+            onClick={() => {
+              navigate(DEFAULT_ROUTE);
+            }}
             data-testid="back-button"
           />
         }

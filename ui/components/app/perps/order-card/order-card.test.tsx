@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import configureStore from '../../../../store/store';
 import mockState from '../../../../../test/data/mock-state.json';
@@ -49,57 +49,80 @@ describe('OrderCard', () => {
     expect(screen.getByText('TSLA')).toBeInTheDocument();
   });
 
-  it('displays Long for buy side order', () => {
-    const order = createMockOrder({ side: 'buy' });
+  it('displays buy side order correctly', () => {
+    const order = createMockOrder({ side: 'buy', orderType: 'limit' });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
-    expect(screen.getByText('Long')).toBeInTheDocument();
+    expect(screen.getByText('Limit buy')).toBeInTheDocument();
   });
 
-  it('displays Short for sell side order', () => {
-    const order = createMockOrder({ side: 'sell' });
+  it('displays sell side order correctly', () => {
+    const order = createMockOrder({ side: 'sell', orderType: 'limit' });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
-    expect(screen.getByText('Short')).toBeInTheDocument();
+    expect(screen.getByText('Limit sell')).toBeInTheDocument();
   });
 
-  it('displays the order type', () => {
-    const order = createMockOrder({ orderType: 'limit' });
+  it('displays market order type correctly', () => {
+    const order = createMockOrder({ orderType: 'market', side: 'buy' });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
-    expect(screen.getByText('Limit')).toBeInTheDocument();
+    expect(screen.getByText('Market buy')).toBeInTheDocument();
   });
 
-  it('displays the order size with symbol', () => {
+  it('displays the order size', () => {
     const order = createMockOrder({ symbol: 'ETH', size: '2.5' });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
     expect(screen.getByText('2.5 ETH')).toBeInTheDocument();
   });
 
-  it('displays formatted USD value for limit orders', () => {
+  it('displays limit price for limit orders', () => {
     const order = createMockOrder({
       orderType: 'limit',
-      size: '1.0',
       price: '3500.00',
     });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
-    // formatCurrencyWithMinThreshold formats with commas
-    expect(screen.getByText('$3,500.00')).toBeInTheDocument();
+    expect(screen.getByText('$3500.00')).toBeInTheDocument();
   });
 
-  it('displays Market label when order value is zero', () => {
+  it('displays Market text for market orders', () => {
     const order = createMockOrder({
       orderType: 'market',
       price: '0',
-      size: '1.0',
     });
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
-    // "Market" appears in both the value slot and the order type slot
-    const marketElements = screen.getAllByText('Market');
-    expect(marketElements.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Market')).toBeInTheDocument();
+  });
+
+  it('displays open status correctly', () => {
+    const order = createMockOrder({ status: 'open' });
+    renderWithProvider(<OrderCard order={order} />, mockStore);
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+  });
+
+  it('displays filled status correctly', () => {
+    const order = createMockOrder({ status: 'filled' });
+    renderWithProvider(<OrderCard order={order} />, mockStore);
+
+    expect(screen.getByText('Filled')).toBeInTheDocument();
+  });
+
+  it('displays canceled status correctly', () => {
+    const order = createMockOrder({ status: 'canceled' });
+    renderWithProvider(<OrderCard order={order} />, mockStore);
+
+    expect(screen.getByText('Canceled')).toBeInTheDocument();
+  });
+
+  it('displays queued status correctly', () => {
+    const order = createMockOrder({ status: 'queued' });
+    renderWithProvider(<OrderCard order={order} />, mockStore);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
   });
 
   it('renders the token logo', () => {
@@ -107,19 +130,5 @@ describe('OrderCard', () => {
     renderWithProvider(<OrderCard order={order} />, mockStore);
 
     expect(screen.getByTestId('perps-token-logo-SOL')).toBeInTheDocument();
-  });
-
-  it('calls onClick when card is clicked', () => {
-    const order = createMockOrder();
-    const onClick = jest.fn();
-    renderWithProvider(
-      <OrderCard order={order} onClick={onClick} />,
-      mockStore,
-    );
-
-    fireEvent.click(screen.getByTestId('order-card-test-order-001'));
-
-    expect(onClick).toHaveBeenCalledTimes(1);
-    expect(onClick).toHaveBeenCalledWith(order);
   });
 });

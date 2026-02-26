@@ -1,6 +1,6 @@
 import { withFixtures } from '../../../helpers';
 import { SMART_CONTRACTS } from '../../../seeder/smart-contracts';
-import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../../fixtures/fixture-builder';
 import Homepage from '../../../page-objects/pages/home/homepage';
 import NftListPage from '../../../page-objects/pages/home/nft-list';
 import { loginWithBalanceValidation } from '../../../page-objects/flows/login.flow';
@@ -12,7 +12,7 @@ describe('Import ERC1155 NFT', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         smartContract,
@@ -40,7 +40,7 @@ describe('Import ERC1155 NFT', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         smartContract,

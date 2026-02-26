@@ -41,8 +41,6 @@ export function useFeeCalculations(transactionMeta: TransactionMeta) {
   const conversionRate = useSelector((state) =>
     selectConversionRateByChainId(state, chainId),
   );
-  const hasValidConversionRate =
-    Number.isFinite(conversionRate) && Number(conversionRate) > 0;
 
   let quotedGasLimit;
   if (isQuotedSwapDisplayedInInfo) {
@@ -74,15 +72,6 @@ export function useFeeCalculations(transactionMeta: TransactionMeta) {
           numberOfDecimals: 4,
         }) || 0
       }`;
-
-      if (!hasValidConversionRate) {
-        return {
-          currentCurrencyFee: EMPTY_FEE,
-          currentCurrencyFeeWith18SignificantDigits: null,
-          hexFee,
-          nativeCurrencyFee,
-        };
-      }
 
       const decimalCurrentCurrencyFee = Number(
         getValueFromWeiHex({
@@ -116,7 +105,7 @@ export function useFeeCalculations(transactionMeta: TransactionMeta) {
         nativeCurrencyFee,
       };
     },
-    [conversionRate, currentCurrency, fiatFormatter, hasValidConversionRate],
+    [conversionRate, currentCurrency, fiatFormatter],
   );
 
   const { maxFeePerGas, maxPriorityFeePerGas } =
@@ -220,8 +209,8 @@ export function useFeeCalculations(transactionMeta: TransactionMeta) {
     layer1GasFee,
     maxFeePerGas,
     maxPriorityFeePerGas,
-    optimizedGasLimit,
     supportsEIP1559,
+    transactionMeta,
   ]);
 
   const calculateGasEstimateCallback = useCallback(

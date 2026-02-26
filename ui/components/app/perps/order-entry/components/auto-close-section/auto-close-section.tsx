@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   twMerge,
   Box,
@@ -8,10 +8,7 @@ import {
   BoxFlexDirection,
   BoxJustifyContent,
   BoxAlignItems,
-  FontWeight,
-  Button,
-  ButtonVariant,
-  ButtonSize,
+  ButtonBase,
 } from '@metamask/design-system-react';
 import { TextField, TextFieldSize } from '../../../../../component-library';
 import {
@@ -21,19 +18,10 @@ import {
 import ToggleButton from '../../../../../ui/toggle-button';
 import { useI18nContext } from '../../../../../../hooks/useI18nContext';
 import { useFormatters } from '../../../../../../hooks/useFormatters';
-import type { AutoCloseSectionProps } from '../../order-entry.types';
-
-// Preset percentage options for quick selection
-const TP_PRESETS = [10, 25, 50, 100];
-const SL_PRESETS = [10, 25, 50, 75];
+import type { AutoCloseSectionProps, TPSLUnit } from '../../order-entry.types';
 
 /**
  * AutoCloseSection - Collapsible section for Take Profit and Stop Loss configuration
- *
- * Features:
- * - Bidirectional input: Enter price ($) or percentage (%), the other updates automatically
- * - Preset percentage buttons for quick selection
- * - Direction-aware calculations (long vs short)
  *
  * @param props - Component props
  * @param props.enabled - Whether auto-close is enabled
@@ -43,8 +31,7 @@ const SL_PRESETS = [10, 25, 50, 75];
  * @param props.stopLossPrice - Stop loss price
  * @param props.onStopLossPriceChange - Callback when SL price changes
  * @param props.direction - Current order direction
- * @param props.currentPrice - Current asset price (used as entry price for new orders)
- * @param props.entryPrice - Position entry price (modify mode - use for accurate % calc)
+ * @param props.currentPrice - Current asset price
  */
 export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
   enabled,
@@ -55,13 +42,11 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
   onStopLossPriceChange,
   direction,
   currentPrice,
-  entryPrice: entryPriceProp,
 }) => {
   const t = useI18nContext();
   const { formatNumber } = useFormatters();
-
-  // In modify mode use position's entry price; otherwise use current price
-  const entryPrice = entryPriceProp ?? currentPrice;
+  const [tpUnit, setTpUnit] = useState<TPSLUnit>('percent');
+  const [slUnit, setSlUnit] = useState<TPSLUnit>('percent');
 
   // Format price for display (with locale-aware formatting)
   const formatPrice = useCallback(
@@ -74,62 +59,39 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     [formatNumber],
   );
 
-  // Format percentage for display
-  const formatPercent = useCallback(
-    (value: number): string => {
-      return formatNumber(value, {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      });
-    },
-    [formatNumber],
-  );
+  // Formatted placeholder for the price inputs
+  const formattedPlaceholder = useMemo(() => formatPrice(0), [formatPrice]);
 
-  // Calculate percentage from price
-  const priceToPercent = useCallback(
+  // Calculate gain/loss based on price and direction
+  const calculateGainLoss = useCallback(
     (price: string, isTP: boolean): string => {
-      if (!price || !entryPrice) {
+      if (!price || !currentPrice) {
         return '';
       }
+      // Remove commas from formatted price for parsing
       const cleanPrice = price.replace(/,/gu, '');
       const priceNum = parseFloat(cleanPrice);
-      if (isNaN(priceNum) || priceNum <= 0) {
+      if (isNaN(priceNum)) {
         return '';
       }
 
-      const diff = priceNum - entryPrice;
-      const percentChange = (diff / entryPrice) * 100;
+      const diff = priceNum - currentPrice;
+      const percentChange = (diff / currentPrice) * 100;
 
-      // For long: TP is above entry (positive %), SL is below entry (show as positive loss %)
-      // For short: TP is below entry (show as positive profit %), SL is above entry (show as positive loss %)
+      // For long: TP is above entry (positive), SL is below entry (negative)
+      // For short: TP is below entry (negative gain = profit), SL is above entry
+      let value: number;
       if (direction === 'long') {
-        return formatPercent(isTP ? percentChange : -percentChange);
-      }
-      return formatPercent(isTP ? -percentChange : percentChange);
-    },
-    [entryPrice, direction, formatPercent],
-  );
-
-  // Calculate price from percentage
-  const percentToPrice = useCallback(
-    (percent: number, isTP: boolean): string => {
-      if (!entryPrice || percent === 0) {
-        return '';
-      }
-
-      // For long: TP = entry * (1 + %), SL = entry * (1 - %)
-      // For short: TP = entry * (1 - %), SL = entry * (1 + %)
-      let multiplier: number;
-      if (direction === 'long') {
-        multiplier = isTP ? 1 + percent / 100 : 1 - percent / 100;
+        value = isTP ? percentChange : Math.abs(percentChange);
       } else {
-        multiplier = isTP ? 1 - percent / 100 : 1 + percent / 100;
+        value = isTP ? Math.abs(percentChange) : percentChange;
       }
-
-      const price = entryPrice * multiplier;
-      return formatPrice(price);
+      return formatNumber(value, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
     },
-    [entryPrice, direction, formatPrice],
+    [currentPrice, direction, formatNumber],
   );
 
   const handleToggle = useCallback(
@@ -139,10 +101,10 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     [onEnabledChange],
   );
 
-  // Handle TP price input change
   const handleTpPriceChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const { value } = event.target;
+      // Allow empty string, valid numbers, or numbers with commas (for formatted input)
       if (value === '' || /^[\d,]*\.?\d*$/u.test(value)) {
         onTakeProfitPriceChange(value);
       }
@@ -150,7 +112,7 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     [onTakeProfitPriceChange],
   );
 
-  // Handle TP price blur - format the value
+  // Handle blur - format the TP price when user finishes typing
   const handleTpPriceBlur = useCallback(() => {
     if (takeProfitPrice) {
       const numValue = parseFloat(takeProfitPrice.replace(/,/gu, ''));
@@ -160,27 +122,10 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     }
   }, [takeProfitPrice, onTakeProfitPriceChange, formatPrice]);
 
-  // Handle TP percentage input change
-  const handleTpPercentChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const { value } = event.target;
-      if (value === '' || /^-?\d*\.?\d*$/u.test(value)) {
-        const numValue = parseFloat(value);
-        if (value === '' || value === '-') {
-          onTakeProfitPriceChange('');
-        } else if (!isNaN(numValue)) {
-          const newPrice = percentToPrice(numValue, true);
-          onTakeProfitPriceChange(newPrice);
-        }
-      }
-    },
-    [onTakeProfitPriceChange, percentToPrice],
-  );
-
-  // Handle SL price input change
   const handleSlPriceChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const { value } = event.target;
+      // Allow empty string, valid numbers, or numbers with commas (for formatted input)
       if (value === '' || /^[\d,]*\.?\d*$/u.test(value)) {
         onStopLossPriceChange(value);
       }
@@ -188,7 +133,7 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     [onStopLossPriceChange],
   );
 
-  // Handle SL price blur - format the value
+  // Handle blur - format the SL price when user finishes typing
   const handleSlPriceBlur = useCallback(() => {
     if (stopLossPrice) {
       const numValue = parseFloat(stopLossPrice.replace(/,/gu, ''));
@@ -198,51 +143,13 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
     }
   }, [stopLossPrice, onStopLossPriceChange, formatPrice]);
 
-  // Handle SL percentage input change
-  const handleSlPercentChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const { value } = event.target;
-      if (value === '' || /^-?\d*\.?\d*$/u.test(value)) {
-        const numValue = parseFloat(value);
-        if (value === '' || value === '-') {
-          onStopLossPriceChange('');
-        } else if (!isNaN(numValue)) {
-          const newPrice = percentToPrice(numValue, false);
-          onStopLossPriceChange(newPrice);
-        }
-      }
-    },
-    [onStopLossPriceChange, percentToPrice],
-  );
+  const toggleTpUnit = useCallback(() => {
+    setTpUnit((prev) => (prev === 'percent' ? 'usd' : 'percent'));
+  }, []);
 
-  // Handle preset button click for TP
-  const handleTpPreset = useCallback(
-    (percent: number) => {
-      const newPrice = percentToPrice(percent, true);
-      onTakeProfitPriceChange(newPrice);
-    },
-    [percentToPrice, onTakeProfitPriceChange],
-  );
-
-  // Handle preset button click for SL
-  const handleSlPreset = useCallback(
-    (percent: number) => {
-      const newPrice = percentToPrice(percent, false);
-      onStopLossPriceChange(newPrice);
-    },
-    [percentToPrice, onStopLossPriceChange],
-  );
-
-  // Calculate current percentages for display
-  const tpPercent = useMemo(
-    () => priceToPercent(takeProfitPrice, true),
-    [priceToPercent, takeProfitPrice],
-  );
-
-  const slPercent = useMemo(
-    () => priceToPercent(stopLossPrice, false),
-    [priceToPercent, stopLossPrice],
-  );
+  const toggleSlUnit = useCallback(() => {
+    setSlUnit((prev) => (prev === 'percent' ? 'usd' : 'percent'));
+  }, []);
 
   return (
     <Box flexDirection={BoxFlexDirection.Column} gap={3}>
@@ -264,167 +171,117 @@ export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
 
       {/* TP/SL Inputs - shown when enabled */}
       {enabled && (
-        <Box flexDirection={BoxFlexDirection.Column} gap={4}>
-          {/* Take Profit Section */}
-          <Box flexDirection={BoxFlexDirection.Column} gap={2}>
-            <Text
-              variant={TextVariant.BodySm}
-              color={TextColor.TextAlternative}
-              fontWeight={FontWeight.Medium}
-            >
-              {t('perpsTakeProfit')}
-            </Text>
-
-            {/* Preset Buttons */}
-            <Box flexDirection={BoxFlexDirection.Row} gap={2}>
-              {TP_PRESETS.map((preset) => (
-                <Button
-                  key={`tp-${preset}`}
-                  variant={ButtonVariant.Secondary}
-                  size={ButtonSize.Sm}
-                  onClick={() => handleTpPreset(preset)}
-                  className={twMerge('flex-1', 'rounded-md')}
-                  data-testid={`tp-preset-${preset}`}
-                >
-                  +{preset}%
-                </Button>
-              ))}
+        <Box flexDirection={BoxFlexDirection.Column} gap={3}>
+          {/* Take Profit Row */}
+          <Box
+            flexDirection={BoxFlexDirection.Row}
+            gap={2}
+            alignItems={BoxAlignItems.Center}
+          >
+            {/* TP Price Input */}
+            <Box className="flex-1">
+              <TextField
+                size={TextFieldSize.Md}
+                value={takeProfitPrice}
+                onChange={handleTpPriceChange}
+                onBlur={handleTpPriceBlur}
+                placeholder={formattedPlaceholder}
+                borderRadius={BorderRadius.MD}
+                borderWidth={0}
+                backgroundColor={BackgroundColor.backgroundMuted}
+                className="w-full"
+                data-testid="tp-price-input"
+              />
             </Box>
 
-            {/* Input Row: Price ($) left, Percent (%) right */}
-            <Box
-              flexDirection={BoxFlexDirection.Row}
-              gap={2}
-              alignItems={BoxAlignItems.Center}
-            >
-              {/* TP Price Input */}
-              <Box className="flex-1">
-                <TextField
-                  size={TextFieldSize.Md}
-                  value={takeProfitPrice}
-                  onChange={handleTpPriceChange}
-                  onBlur={handleTpPriceBlur}
-                  placeholder="0.00"
-                  borderRadius={BorderRadius.MD}
-                  borderWidth={0}
-                  backgroundColor={BackgroundColor.backgroundMuted}
-                  className="w-full"
-                  data-testid="tp-price-input"
-                  startAccessory={
-                    <Text
-                      variant={TextVariant.BodyMd}
-                      color={TextColor.TextAlternative}
-                    >
-                      $
-                    </Text>
-                  }
-                />
-              </Box>
-
-              {/* TP Percent Input */}
-              <Box className="flex-1">
-                <TextField
-                  size={TextFieldSize.Md}
-                  value={tpPercent}
-                  onChange={handleTpPercentChange}
-                  placeholder="0.0"
-                  borderRadius={BorderRadius.MD}
-                  borderWidth={0}
-                  backgroundColor={BackgroundColor.backgroundMuted}
-                  className="w-full"
-                  data-testid="tp-percent-input"
-                  endAccessory={
-                    <Text
-                      variant={TextVariant.BodyMd}
-                      color={TextColor.TextAlternative}
-                    >
-                      %
-                    </Text>
-                  }
-                />
-              </Box>
+            {/* Gain Input (read-only display) */}
+            <Box className="flex-1">
+              <TextField
+                size={TextFieldSize.Md}
+                value={calculateGainLoss(takeProfitPrice, true)}
+                placeholder={formattedPlaceholder}
+                borderRadius={BorderRadius.MD}
+                borderWidth={0}
+                backgroundColor={BackgroundColor.backgroundMuted}
+                className="w-full"
+                readOnly
+                data-testid="tp-gain-input"
+              />
             </Box>
+
+            {/* Unit Toggle */}
+            <ButtonBase
+              onClick={toggleTpUnit}
+              className={twMerge(
+                'px-3 h-10 rounded-lg bg-muted',
+                'hover:bg-hover active:bg-pressed',
+                'min-w-[50px]',
+              )}
+              data-testid="tp-unit-toggle"
+            >
+              <Text
+                variant={TextVariant.BodySm}
+                color={TextColor.TextAlternative}
+              >
+                {tpUnit === 'percent' ? '%' : '$'} ▾
+              </Text>
+            </ButtonBase>
           </Box>
 
-          {/* Stop Loss Section */}
-          <Box flexDirection={BoxFlexDirection.Column} gap={2}>
-            <Text
-              variant={TextVariant.BodySm}
-              color={TextColor.TextAlternative}
-              fontWeight={FontWeight.Medium}
-            >
-              {t('perpsStopLoss')}
-            </Text>
-
-            {/* Preset Buttons */}
-            <Box flexDirection={BoxFlexDirection.Row} gap={2}>
-              {SL_PRESETS.map((preset) => (
-                <Button
-                  key={`sl-${preset}`}
-                  variant={ButtonVariant.Secondary}
-                  size={ButtonSize.Sm}
-                  onClick={() => handleSlPreset(preset)}
-                  className={twMerge('flex-1', 'rounded-md')}
-                  data-testid={`sl-preset-${preset}`}
-                >
-                  -{preset}%
-                </Button>
-              ))}
+          {/* Stop Loss Row */}
+          <Box
+            flexDirection={BoxFlexDirection.Row}
+            gap={2}
+            alignItems={BoxAlignItems.Center}
+          >
+            {/* SL Price Input */}
+            <Box className="flex-1">
+              <TextField
+                size={TextFieldSize.Md}
+                value={stopLossPrice}
+                onChange={handleSlPriceChange}
+                onBlur={handleSlPriceBlur}
+                placeholder={formattedPlaceholder}
+                borderRadius={BorderRadius.MD}
+                borderWidth={0}
+                backgroundColor={BackgroundColor.backgroundMuted}
+                className="w-full"
+                data-testid="sl-price-input"
+              />
             </Box>
 
-            {/* Input Row: Price ($) left, Percent (%) right */}
-            <Box
-              flexDirection={BoxFlexDirection.Row}
-              gap={2}
-              alignItems={BoxAlignItems.Center}
-            >
-              {/* SL Price Input */}
-              <Box className="flex-1">
-                <TextField
-                  size={TextFieldSize.Md}
-                  value={stopLossPrice}
-                  onChange={handleSlPriceChange}
-                  onBlur={handleSlPriceBlur}
-                  placeholder="0.00"
-                  borderRadius={BorderRadius.MD}
-                  borderWidth={0}
-                  backgroundColor={BackgroundColor.backgroundMuted}
-                  className="w-full"
-                  data-testid="sl-price-input"
-                  startAccessory={
-                    <Text
-                      variant={TextVariant.BodyMd}
-                      color={TextColor.TextAlternative}
-                    >
-                      $
-                    </Text>
-                  }
-                />
-              </Box>
-
-              {/* SL Percent Input */}
-              <Box className="flex-1">
-                <TextField
-                  size={TextFieldSize.Md}
-                  value={slPercent}
-                  onChange={handleSlPercentChange}
-                  placeholder="0.0"
-                  borderRadius={BorderRadius.MD}
-                  borderWidth={0}
-                  backgroundColor={BackgroundColor.backgroundMuted}
-                  className="w-full"
-                  data-testid="sl-percent-input"
-                  endAccessory={
-                    <Text
-                      variant={TextVariant.BodyMd}
-                      color={TextColor.TextAlternative}
-                    >
-                      %
-                    </Text>
-                  }
-                />
-              </Box>
+            {/* Loss Input (read-only display) */}
+            <Box className="flex-1">
+              <TextField
+                size={TextFieldSize.Md}
+                value={calculateGainLoss(stopLossPrice, false)}
+                placeholder={formattedPlaceholder}
+                borderRadius={BorderRadius.MD}
+                borderWidth={0}
+                backgroundColor={BackgroundColor.backgroundMuted}
+                className="w-full"
+                readOnly
+                data-testid="sl-loss-input"
+              />
             </Box>
+
+            {/* Unit Toggle */}
+            <ButtonBase
+              onClick={toggleSlUnit}
+              className={twMerge(
+                'px-3 h-10 rounded-lg bg-muted',
+                'hover:bg-hover active:bg-pressed',
+                'min-w-[50px]',
+              )}
+              data-testid="sl-unit-toggle"
+            >
+              <Text
+                variant={TextVariant.BodySm}
+                color={TextColor.TextAlternative}
+              >
+                {slUnit === 'percent' ? '%' : '$'} ▾
+              </Text>
+            </ButtonBase>
           </Box>
         </Box>
       )}

@@ -4,11 +4,6 @@ import { renderWithProvider } from '../../../../../test/lib/render-helpers-navig
 import configureStore from '../../../../store/store';
 import mockState from '../../../../../test/data/mock-state.json';
 import type { PerpsTransaction } from '../types';
-import {
-  FillType,
-  PerpsOrderTransactionStatus,
-  PerpsOrderTransactionStatusType,
-} from '../types/transactionHistory';
 import { TransactionCard } from './transaction-card';
 
 const mockStore = configureStore({
@@ -22,24 +17,16 @@ const createMockTransaction = (
 ): PerpsTransaction => ({
   id: 'tx-test-001',
   type: 'trade',
-  category: 'position_open',
   symbol: 'ETH',
   title: 'Opened long',
   subtitle: '2.5 ETH @ $2,850.00',
   timestamp: Date.now() - 3600000,
+  status: 'confirmed',
   fill: {
-    shortTitle: 'Opened long',
-    amount: '+$7,125.00',
-    amountNumber: 7125,
-    isPositive: true,
     size: '2.5',
-    entryPrice: '2850.00',
-    points: '0',
-    pnl: '0',
+    price: '2850.00',
     fee: '7.13',
-    action: 'Opened',
-    feeToken: 'USDC',
-    fillType: FillType.Standard,
+    side: 'buy',
   },
   ...overrides,
 });
@@ -76,23 +63,15 @@ describe('TransactionCard', () => {
   });
 
   describe('Trade transactions', () => {
-    it('shows pnl with profit color for positive values', () => {
+    it('shows realizedPnl with profit color for positive values', () => {
       const transaction = createMockTransaction({
         type: 'trade',
-        category: 'position_close',
         fill: {
-          shortTitle: 'Closed short',
-          amount: '+$125.00',
-          amountNumber: 125,
-          isPositive: true,
           size: '0.5',
-          entryPrice: '45250.00',
-          points: '0',
-          pnl: '+125.00',
+          price: '45250.00',
           fee: '22.63',
-          action: 'Closed',
-          feeToken: 'USDC',
-          fillType: FillType.Standard,
+          side: 'buy',
+          realizedPnl: '+125.00',
         },
       });
       renderWithProvider(
@@ -103,23 +82,15 @@ describe('TransactionCard', () => {
       expect(screen.getByText('+$125.00')).toBeInTheDocument();
     });
 
-    it('shows pnl with loss color for negative values', () => {
+    it('shows realizedPnl with loss color for negative values', () => {
       const transaction = createMockTransaction({
         type: 'trade',
-        category: 'position_close',
         fill: {
-          shortTitle: 'Closed long',
-          amount: '-$45.50',
-          amountNumber: -45.5,
-          isPositive: false,
           size: '15',
-          entryPrice: '92.50',
-          points: '0',
-          pnl: '-45.50',
+          price: '92.50',
           fee: '1.39',
-          action: 'Closed',
-          feeToken: 'USDC',
-          fillType: FillType.Standard,
+          side: 'sell',
+          realizedPnl: '-45.50',
         },
       });
       renderWithProvider(
@@ -135,18 +106,10 @@ describe('TransactionCard', () => {
         type: 'trade',
         symbol: 'ETH',
         fill: {
-          shortTitle: 'Opened long',
-          amount: '+$7,125.00',
-          amountNumber: 7125,
-          isPositive: true,
           size: '2.5',
-          entryPrice: '2850.00',
-          points: '0',
-          pnl: '0',
+          price: '2850.00',
           fee: '7.13',
-          action: 'Opened',
-          feeToken: 'USDC',
-          fillType: FillType.Standard,
+          side: 'buy',
         },
       });
       renderWithProvider(
@@ -162,13 +125,10 @@ describe('TransactionCard', () => {
     it('shows amount with positive sign and success color', () => {
       const transaction = createMockTransaction({
         type: 'funding',
-        category: 'funding_fee',
         title: 'Received funding fee',
         fill: undefined,
-        fundingAmount: {
-          isPositive: true,
-          fee: '+8.30',
-          feeNumber: 8.3,
+        funding: {
+          amount: '8.30',
           rate: '0.0001',
         },
       });
@@ -183,13 +143,10 @@ describe('TransactionCard', () => {
     it('shows amount with negative sign and error color', () => {
       const transaction = createMockTransaction({
         type: 'funding',
-        category: 'funding_fee',
         title: 'Paid funding fee',
         fill: undefined,
-        fundingAmount: {
-          isPositive: false,
-          fee: '-3.10',
-          feeNumber: -3.1,
+        funding: {
+          amount: '-3.10',
           rate: '-0.00005',
         },
       });
@@ -207,18 +164,12 @@ describe('TransactionCard', () => {
       const transaction = createMockTransaction({
         id: 'tx-deposit',
         type: 'deposit',
-        category: 'deposit',
         symbol: 'USDC',
         title: 'Deposited 5000 USDC',
         fill: undefined,
         depositWithdrawal: {
           amount: '5000.00',
-          amountNumber: 5000,
-          isPositive: true,
-          asset: 'USDC',
           txHash: '0x1234567890abcdef',
-          status: 'completed',
-          type: 'deposit',
         },
       });
       renderWithProvider(
@@ -233,18 +184,12 @@ describe('TransactionCard', () => {
       const transaction = createMockTransaction({
         id: 'tx-withdrawal',
         type: 'withdrawal',
-        category: 'withdrawal',
         symbol: 'USDC',
         title: 'Withdrew 2000 USDC',
         fill: undefined,
         depositWithdrawal: {
           amount: '2000.00',
-          amountNumber: 2000,
-          isPositive: false,
-          asset: 'USDC',
           txHash: '0xabcdef1234567890',
-          status: 'completed',
-          type: 'withdrawal',
         },
       });
       renderWithProvider(
@@ -258,18 +203,11 @@ describe('TransactionCard', () => {
     it('shows "Completed" status for deposits', () => {
       const transaction = createMockTransaction({
         type: 'deposit',
-        category: 'deposit',
         symbol: 'USDC',
         title: 'Deposited 5000 USDC',
         fill: undefined,
         depositWithdrawal: {
           amount: '5000.00',
-          amountNumber: 5000,
-          isPositive: true,
-          asset: 'USDC',
-          txHash: '0x1234567890abcdef',
-          status: 'completed',
-          type: 'deposit',
         },
       });
       renderWithProvider(
@@ -285,16 +223,12 @@ describe('TransactionCard', () => {
     it('shows "Filled" status text for filled orders', () => {
       const transaction = createMockTransaction({
         type: 'order',
-        category: 'limit_order',
         title: 'Limit close long',
         fill: undefined,
         order: {
-          text: PerpsOrderTransactionStatus.Filled,
-          statusType: PerpsOrderTransactionStatusType.Filled,
-          type: 'limit',
-          size: '$3,000.00',
-          limitPrice: '3000.00',
-          filled: '100%',
+          orderId: 'order-006',
+          orderType: 'limit',
+          status: 'filled',
         },
       });
       renderWithProvider(
@@ -308,16 +242,12 @@ describe('TransactionCard', () => {
     it('shows "Canceled" status text for canceled orders', () => {
       const transaction = createMockTransaction({
         type: 'order',
-        category: 'limit_order',
         title: 'Stop market close long',
         fill: undefined,
         order: {
-          text: PerpsOrderTransactionStatus.Canceled,
-          statusType: PerpsOrderTransactionStatusType.Canceled,
-          type: 'market',
-          size: '$550.00',
-          limitPrice: '1.10',
-          filled: '0%',
+          orderId: 'order-004c',
+          orderType: 'market',
+          status: 'canceled',
         },
       });
       renderWithProvider(
@@ -331,16 +261,12 @@ describe('TransactionCard', () => {
     it('shows "Queued" status text for queued orders', () => {
       const transaction = createMockTransaction({
         type: 'order',
-        category: 'limit_order',
         title: 'Market long',
         fill: undefined,
         order: {
-          text: PerpsOrderTransactionStatus.Queued,
-          statusType: PerpsOrderTransactionStatusType.Pending,
-          type: 'market',
-          size: '$4,350.00',
-          limitPrice: '2900.00',
-          filled: '0%',
+          orderId: 'order-004d',
+          orderType: 'market',
+          status: 'queued',
         },
       });
       renderWithProvider(
@@ -354,18 +280,14 @@ describe('TransactionCard', () => {
     it('extracts size and symbol from subtitle for orders', () => {
       const transaction = createMockTransaction({
         type: 'order',
-        category: 'limit_order',
         symbol: 'SOL',
         title: 'Limit long',
         subtitle: '25 SOL @ $95.00',
         fill: undefined,
         order: {
-          text: PerpsOrderTransactionStatus.Open,
-          statusType: PerpsOrderTransactionStatusType.Pending,
-          type: 'limit',
-          size: '$2,375.00',
-          limitPrice: '95.00',
-          filled: '0%',
+          orderId: 'order-003',
+          orderType: 'limit',
+          status: 'open',
         },
       });
       renderWithProvider(
@@ -446,22 +368,13 @@ describe('TransactionCard', () => {
     it('displays correct symbol for HIP-3 assets', () => {
       const transaction = createMockTransaction({
         type: 'trade',
-        category: 'position_open',
         symbol: 'xyz:TSLA',
         title: 'Opened long',
         fill: {
-          shortTitle: 'Opened long',
-          amount: '+$2,400.00',
-          amountNumber: 2400,
-          isPositive: true,
           size: '10',
-          entryPrice: '240.00',
-          points: '0',
-          pnl: '0',
+          price: '240.00',
           fee: '2.40',
-          action: 'Opened',
-          feeToken: 'USDC',
-          fillType: FillType.Standard,
+          side: 'buy',
         },
       });
       renderWithProvider(

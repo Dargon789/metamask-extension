@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 import { WINDOW_TITLES } from '../constants';
 import { withFixtures } from '../helpers';
-import FixtureBuilderV2 from '../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../fixtures/fixture-builder';
 import Confirmation from '../page-objects/pages/confirmations/confirmation';
 import TestDapp from '../page-objects/pages/test-dapp';
 import { loginWithBalanceValidation } from '../page-objects/flows/login.flow';
@@ -16,7 +16,7 @@ describe('eth_sendTransaction', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         localNodeOptions: { hardfork: 'london' },
@@ -67,7 +67,7 @@ describe('eth_sendTransaction', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         localNodeOptions: { hardfork: 'london' },
@@ -127,7 +127,7 @@ describe('eth_sendTransaction', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2()
+        fixtures: new FixtureBuilder()
           .withPermissionControllerConnectedToTestDapp()
           .build(),
         localNodeOptions: { hardfork: 'london' },

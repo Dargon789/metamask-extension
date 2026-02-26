@@ -17,6 +17,7 @@ import { Title } from '../components/confirm/title';
 import { ConfirmContextProvider, useConfirmContext } from '../context/confirm';
 import { ConfirmNav } from '../components/confirm/nav/nav';
 import { GasFeeTokenToast } from '../components/confirm/info/shared/gas-fee-token-toast/gas-fee-token-toast';
+import { Splash } from '../components/confirm/splash';
 import { DappSwapContextProvider } from '../context/dapp-swap';
 import {
   GasFeeModalContextProvider,
@@ -55,6 +56,7 @@ const Confirm: React.FC<{ confirmationId?: string }> = ({ confirmationId }) => (
                   </ScrollToBottom>
                   <GasFeeTokenToast />
                   <Footer />
+                  <Splash />
                 </Page>
                 <GasFeeModalWrapper />
               </>

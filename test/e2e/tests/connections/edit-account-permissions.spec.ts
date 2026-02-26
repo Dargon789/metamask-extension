@@ -4,7 +4,7 @@ import {
   WINDOW_TITLES,
 } from '../../constants';
 import { withFixtures } from '../../helpers';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import AccountListPage from '../../page-objects/pages/account-list-page';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import Homepage from '../../page-objects/pages/home/homepage';
@@ -21,7 +21,7 @@ describe('Edit Accounts Permissions', function () {
     await withFixtures(
       {
         dappOptions: { numberOfTestDapps: 1 },
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }) => {

@@ -54,10 +54,6 @@ type GlobalMenuItemBase = {
    * Optional info dot indicator
    */
   showInfoDot?: boolean;
-  /**
-   * When true, show a chevron (>) on the right to indicate navigation
-   */
-  showChevron?: boolean;
 };
 
 /**
@@ -71,10 +67,6 @@ export type GlobalMenuRouteItem = GlobalMenuItemBase & {
    * Route path to navigate to
    */
   to: string;
-  /**
-   * Optional React Router location state (e.g. { prevPath } for back navigation)
-   */
-  state?: object;
   /**
    * Optional onClick handler for side effects (e.g., closing menu, analytics)
    * Navigation happens automatically via the `to` prop
@@ -120,10 +112,6 @@ export type GlobalMenuSection = {
    * Optional section title (uppercase header)
    */
   title?: string;
-  /**
-   * When true, do not show the divider line above this section
-   */
-  hideDividerAbove?: boolean;
   /**
    * Items in this section
    */

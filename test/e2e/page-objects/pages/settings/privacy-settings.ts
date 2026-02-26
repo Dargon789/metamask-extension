@@ -10,9 +10,6 @@ class PrivacySettings {
   private readonly autoDetectToken =
     '[data-testid="autoDetectTokens"] .toggle-button';
 
-  private readonly blockaidAlertsToggle =
-    '[data-testid="securityAlert"] .toggle-button';
-
   private readonly closeRevealSrpDialogButton = {
     text: tEn('close'),
     tag: 'button',
@@ -292,11 +289,6 @@ class PrivacySettings {
   async toggleAutodetectNft(): Promise<void> {
     console.log('Toggle autodetect NFT on privacy settings page');
     await this.driver.clickElement(this.autodetectNftToggleButton);
-  }
-
-  async toggleBlockaidAlerts(): Promise<void> {
-    console.log('Toggle blockaid alerts on privacy settings page');
-    await this.driver.clickElement(this.blockaidAlertsToggle);
   }
 
   async toggleEnsDomainResolution(): Promise<void> {

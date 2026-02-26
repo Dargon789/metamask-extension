@@ -4,14 +4,11 @@ import { Dropdown, type DropdownOption } from '../dropdown';
 import type { SortField, SortDirection } from '../../../utils/sortMarkets';
 
 export type SortOptionId =
-  | 'volumeHigh'
-  | 'volumeLow'
+  | 'volume'
   | 'priceChangeHigh'
   | 'priceChangeLow'
-  | 'openInterestHigh'
-  | 'openInterestLow'
-  | 'fundingRateHigh'
-  | 'fundingRateLow';
+  | 'openInterest'
+  | 'fundingRate';
 
 export type SortOption = {
   id: SortOptionId;
@@ -22,16 +19,10 @@ export type SortOption = {
 
 export const SORT_OPTIONS: SortOption[] = [
   {
-    id: 'volumeHigh',
-    labelKey: 'perpsSortVolumeHighToLow',
+    id: 'volume',
+    labelKey: 'perpsSortVolume',
     field: 'volume',
     direction: 'desc',
-  },
-  {
-    id: 'volumeLow',
-    labelKey: 'perpsSortVolumeLowToHigh',
-    field: 'volume',
-    direction: 'asc',
   },
   {
     id: 'priceChangeHigh',
@@ -46,28 +37,16 @@ export const SORT_OPTIONS: SortOption[] = [
     direction: 'asc',
   },
   {
-    id: 'openInterestHigh',
-    labelKey: 'perpsSortOpenInterestHighToLow',
+    id: 'openInterest',
+    labelKey: 'perpsSortOpenInterest',
     field: 'openInterest',
     direction: 'desc',
   },
   {
-    id: 'openInterestLow',
-    labelKey: 'perpsSortOpenInterestLowToHigh',
-    field: 'openInterest',
-    direction: 'asc',
-  },
-  {
-    id: 'fundingRateHigh',
-    labelKey: 'perpsSortFundingRateHighToLow',
+    id: 'fundingRate',
+    labelKey: 'perpsSortFundingRate',
     field: 'fundingRate',
     direction: 'desc',
-  },
-  {
-    id: 'fundingRateLow',
-    labelKey: 'perpsSortFundingRateLowToHigh',
-    field: 'fundingRate',
-    direction: 'asc',
   },
 ];
 

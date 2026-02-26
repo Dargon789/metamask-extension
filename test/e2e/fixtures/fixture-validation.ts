@@ -59,7 +59,6 @@ const getFixtureIgnoredKeys = (): string[] => [
   'data.CurrencyController.currencyRates.ETH.conversionDate',
   'data.CurrencyController.currencyRates.ETH.conversionRate',
   'data.NetworkController.networkConfigurationsByChainId.0x539.lastUpdatedAt',
-  'data.NotificationServicesController.metamaskNotificationsList',
   'data.PhishingController.c2DomainBlocklistLastFetched',
   'data.PhishingController.hotlistLastFetched',
   'data.PhishingController.stalelistLastFetched',

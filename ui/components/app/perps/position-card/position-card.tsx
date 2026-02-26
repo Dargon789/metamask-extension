@@ -15,8 +15,8 @@ import { useNavigate } from 'react-router-dom';
 import { useFormatters } from '../../../../hooks/useFormatters';
 import { PerpsTokenLogo } from '../perps-token-logo';
 import { getDisplayName, getPositionDirection } from '../utils';
+import type { Position } from '../types';
 import { PERPS_MARKET_DETAIL_ROUTE } from '../../../../helpers/constants/routes';
-import type { Position } from '@metamask/perps-controller';
 
 export type PositionCardProps = {
   position: Position;
@@ -25,7 +25,7 @@ export type PositionCardProps = {
 
 /**
  * PositionCard component displays individual position information
- * Two rows: coin/leverage/direction + size on left, position value + P&L on right
+ * Two rows: coin/leverage/direction + size on left, entry price + P&L on right
  * Clicking the card navigates to the market detail page for that symbol
  *
  * @param options0 - Component props
@@ -42,7 +42,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
   const pnlNum = parseFloat(position.unrealizedPnl);
   const isProfit = pnlNum >= 0;
   const absSize = Math.abs(parseFloat(position.size)).toString();
-  const displayName = getDisplayName(position.symbol);
+  const displayName = getDisplayName(position.coin);
   const pnlPrefix = isProfit ? '+' : '-';
   const formattedPnl = `${pnlPrefix}${formatCurrencyWithMinThreshold(Math.abs(pnlNum), 'USD')}`;
 
@@ -52,7 +52,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
     } else {
       // TODO: Add Metrics tracking
       navigate(
-        `${PERPS_MARKET_DETAIL_ROUTE}/${encodeURIComponent(position.symbol)}`,
+        `${PERPS_MARKET_DETAIL_ROUTE}/${encodeURIComponent(position.coin)}`,
       );
     }
   }, [navigate, position, onClick]);
@@ -61,19 +61,19 @@ export const PositionCard: React.FC<PositionCardProps> = ({
     <ButtonBase
       className={twMerge(
         // Reset ButtonBase defaults for card layout
-        'justify-start rounded-none min-w-0',
-        // Card styles (matches tokens tab: 62px height, 8px v-padding, 16px h-padding, 16px gap)
-        'gap-4 text-left cursor-pointer',
-        'bg-default pt-2 pb-2 px-4 h-[62px]',
+        'justify-start rounded-none min-w-0 h-auto',
+        // Card styles
+        'gap-3 text-left cursor-pointer',
+        'bg-default px-4 py-3',
         'hover:bg-hover active:bg-pressed',
       )}
       isFullWidth
       onClick={handleClick}
-      data-testid={`position-card-${position.symbol}`}
+      data-testid={`position-card-${position.coin}`}
     >
       {/* Token Logo */}
       <PerpsTokenLogo
-        symbol={position.symbol}
+        symbol={position.coin}
         size={AvatarTokenSize.Md}
         className="shrink-0"
       />
@@ -100,7 +100,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
         </Text>
       </Box>
 
-      {/* Right side: Position value and P&L */}
+      {/* Right side: Entry price and P&L */}
       <Box
         className="shrink-0"
         flexDirection={BoxFlexDirection.Column}
@@ -108,10 +108,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
         gap={1}
       >
         <Text variant={TextVariant.BodySm} fontWeight={FontWeight.Medium}>
-          {formatCurrencyWithMinThreshold(
-            parseFloat(position.positionValue),
-            'USD',
-          )}
+          ${position.entryPrice}
         </Text>
         <Text
           variant={TextVariant.BodySm}

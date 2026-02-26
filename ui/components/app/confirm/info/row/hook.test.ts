@@ -1,8 +1,14 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { useSelector } from 'react-redux';
 
+import { createMockInternalAccount } from '../../../../../../test/jest/mocks';
 import { toChecksumHexAddress } from '../../../../../../shared/modules/hexstring-utils';
 import { shortenAddress } from '../../../../../helpers/utils/util';
+import {
+  getAccountName,
+  getInternalAccounts,
+  getIsMultichainAccountsState2Enabled,
+} from '../../../../../selectors';
 import { useFallbackDisplayName } from './hook';
 
 jest.mock('react-redux', () => ({
@@ -11,8 +17,11 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('../../../../../selectors', () => ({
+  getAccountName: jest.fn(),
   getAddressBookEntry: jest.fn(),
   getEnsResolutionByAddress: jest.fn(),
+  getInternalAccounts: jest.fn(),
+  getIsMultichainAccountsState2Enabled: jest.fn(),
   getMetadataContractName: jest.fn(),
 }));
 
@@ -25,6 +34,10 @@ type MockSelector = <TSelected = unknown>(
 ) => TSelected;
 
 const mockUseSelector = useSelector as jest.MockedFunction<MockSelector>;
+
+const mockGetAccountName = getAccountName as jest.MockedFunction<
+  typeof getAccountName
+>;
 
 describe('hook.ts', () => {
   beforeEach(() => {
@@ -39,6 +52,12 @@ describe('hook.ts', () => {
     const setupMocks = (overrides: Record<string, unknown> = {}) => {
       // Setup useSelector mock
       mockUseSelector.mockImplementation((selector) => {
+        if (selector === getInternalAccounts) {
+          return overrides.getInternalAccounts ?? [];
+        }
+        if (selector === getIsMultichainAccountsState2Enabled) {
+          return overrides.getIsMultichainAccountsState2Enabled ?? false;
+        }
         // Handle function selectors that take arguments
         if (typeof selector === 'function') {
           // This is for inline arrow functions like (state) => getAccountGroupsByAddress(state, [hexAddress])
@@ -57,16 +76,41 @@ describe('hook.ts', () => {
         }
         return null;
       });
+
+      // Setup direct function mocks
+      mockGetAccountName.mockReturnValue(overrides.accountName || '');
     };
 
     beforeEach(() => {
       setupMocks();
     });
 
-    it('returns account name when available', () => {
+    it('returns account name when available (legacy accounts)', () => {
+      const mockAccountName = 'My Account';
+      const mockInternalAccount = createMockInternalAccount({
+        name: mockAccountName,
+        address: expectedChecksumAddress,
+      });
+
+      setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [mockInternalAccount],
+        accountName: mockAccountName,
+      });
+
+      const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
+
+      expect(result.current).toEqual({
+        displayName: mockAccountName,
+        hexAddress: expectedChecksumAddress,
+      });
+    });
+
+    it('returns account name when available (multichain accounts)', () => {
       const mockAccountName = 'My Multichain Account';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: true,
         getAccountGroupsByAddress: [{ metadata: { name: mockAccountName } }],
       });
 
@@ -78,11 +122,14 @@ describe('hook.ts', () => {
       });
     });
 
-    it('returns address book contact name when account name is not available', () => {
+    it('should return address book contact name when account name is not available', () => {
       const mockContactName = 'John Doe';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getAddressBookEntry: { name: mockContactName },
+        accountName: '',
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -93,11 +140,14 @@ describe('hook.ts', () => {
       });
     });
 
-    it('returns metadata contract name when account name and address book contact are not available', () => {
+    it('should return metadata contract name when account name and address book contact are not available', () => {
       const mockMetadataName = 'USDC Token';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getMetadataContractName: mockMetadataName,
+        accountName: '',
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -108,11 +158,14 @@ describe('hook.ts', () => {
       });
     });
 
-    it('returns ENS name when other names are not available', () => {
+    it('should return ENS name when other names are not available', () => {
       const mockEnsName = 'johndoe.eth';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getEnsResolutionByAddress: mockEnsName,
+        accountName: '',
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -123,8 +176,12 @@ describe('hook.ts', () => {
       });
     });
 
-    it('returns shortened address when no other names are available', () => {
-      setupMocks();
+    it('should return shortened address when no other names are available', () => {
+      setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
+        accountName: '',
+      });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
 
@@ -134,14 +191,16 @@ describe('hook.ts', () => {
       });
     });
 
-    it('prioritizes account name over other names', () => {
+    it('should prioritize account name over other names', () => {
       const mockAccountName = 'My Account';
 
       setupMocks({
-        getAccountGroupsByAddress: [{ metadata: { name: mockAccountName } }],
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getAddressBookEntry: { name: 'John Doe' },
         getMetadataContractName: 'USDC Token',
         getEnsResolutionByAddress: 'johndoe.eth',
+        accountName: mockAccountName,
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -152,13 +211,16 @@ describe('hook.ts', () => {
       });
     });
 
-    it('prioritizes address book contact name over metadata and ENS names', () => {
+    it('should prioritize address book contact name over metadata and ENS names', () => {
       const mockContactName = 'John Doe';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getAddressBookEntry: { name: mockContactName },
         getMetadataContractName: 'USDC Token',
         getEnsResolutionByAddress: 'johndoe.eth',
+        accountName: '',
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -169,12 +231,15 @@ describe('hook.ts', () => {
       });
     });
 
-    it('prioritizes metadata name over ENS name', () => {
+    it('should prioritize metadata name over ENS name', () => {
       const mockMetadataName = 'USDC Token';
 
       setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
         getMetadataContractName: mockMetadataName,
         getEnsResolutionByAddress: 'johndoe.eth',
+        accountName: '',
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -185,11 +250,13 @@ describe('hook.ts', () => {
       });
     });
 
-    it('handles multichain accounts state correctly', () => {
+    it('should handle multichain accounts state correctly', () => {
       setupMocks({
+        getIsMultichainAccountsState2Enabled: true,
         getAccountGroupsByAddress: [
           { metadata: { name: 'Multichain Account' } },
         ],
+        getInternalAccounts: [],
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -197,9 +264,11 @@ describe('hook.ts', () => {
       expect(result.current.displayName).toBe('Multichain Account');
     });
 
-    it('handles empty account group in multichain state', () => {
+    it('should handle empty account group in multichain state', () => {
       setupMocks({
+        getIsMultichainAccountsState2Enabled: true,
         getAccountGroupsByAddress: [],
+        getInternalAccounts: [],
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -210,9 +279,11 @@ describe('hook.ts', () => {
       });
     });
 
-    it('handles undefined account group metadata', () => {
+    it('should handle undefined account group metadata', () => {
       setupMocks({
+        getIsMultichainAccountsState2Enabled: true,
         getAccountGroupsByAddress: [{ metadata: undefined }],
+        getInternalAccounts: [],
       });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
@@ -223,8 +294,12 @@ describe('hook.ts', () => {
       });
     });
 
-    it('calls utility functions with correct parameters', () => {
-      setupMocks();
+    it('should call utility functions with correct parameters', () => {
+      setupMocks({
+        getIsMultichainAccountsState2Enabled: false,
+        getInternalAccounts: [],
+        accountName: '',
+      });
 
       const { result } = renderHook(() => useFallbackDisplayName(mockAddress));
 

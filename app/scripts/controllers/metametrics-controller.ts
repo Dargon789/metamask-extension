@@ -14,6 +14,7 @@ import { NameType } from '@metamask/name-controller';
 import {
   bytesToHex,
   getErrorMessage,
+  type Hex,
   isErrorWithMessage,
   isErrorWithStack,
 } from '@metamask/utils';
@@ -32,7 +33,7 @@ import {
   type StateMetadata,
 } from '@metamask/base-controller';
 import type { Messenger } from '@metamask/messenger';
-import type { Json, Hex } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 import {
   ENVIRONMENT_TYPE_BACKGROUND,
   PLATFORM_FIREFOX,
@@ -62,9 +63,7 @@ import { METAMETRICS_FINALIZE_EVENT_FRAGMENT_ALARM } from '../../../shared/const
 import {
   checkAlarmExists,
   generateRandomId,
-  getDeviceType,
   getInstallType,
-  getOs,
   getPlatform,
   isValidDate,
 } from '../lib/util';
@@ -1463,8 +1462,6 @@ export default class MetaMetricsController extends BaseController<
       )?.[0]?.[1]?.profile?.profileId,
       [MetaMetricsUserTrait.Platform]: getPlatform(),
       [MetaMetricsUserTrait.InstallType]: getInstallType(),
-      [MetaMetricsUserTrait.DeviceType]: getDeviceType(),
-      [MetaMetricsUserTrait.Os]: getOs(),
     };
 
     if (!this.previousUserTraits && metamaskState.participateInMetaMetrics) {

@@ -1,4 +1,4 @@
-import { home, HomeQueryParams } from './home';
+import homeRoute, { HomeQueryParams } from './home';
 import { DEFAULT_ROUTE, Destination } from './route';
 
 function assertPathDestination(
@@ -32,7 +32,7 @@ describe('homeRoute', () => {
               [HomeQueryParams.OpenNetworkSelector]: searchParamVal,
             });
 
-      const result = home.handler(params);
+      const result = homeRoute.handler(params);
 
       assertPathDestination(result);
       expect(result.path).toBe(DEFAULT_ROUTE);

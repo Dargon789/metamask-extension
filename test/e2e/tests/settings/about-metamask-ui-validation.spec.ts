@@ -1,5 +1,5 @@
 import { Suite } from 'mocha';
-import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
+import FixtureBuilder from '../../fixtures/fixture-builder';
 import { withFixtures } from '../../helpers';
 import { Driver } from '../../webdriver/driver';
 import packageJson from '../../../../package.json';
@@ -14,7 +14,7 @@ describe('Setting - About MetaMask :', function (this: Suite) {
   it('validate the view', async function () {
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2().build(),
+        fixtures: new FixtureBuilder().build(),
         title: this.test?.fullTitle(),
       },
       async ({ driver }: { driver: Driver }) => {

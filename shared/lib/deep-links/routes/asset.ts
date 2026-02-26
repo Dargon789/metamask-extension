@@ -10,7 +10,7 @@ export enum AssetQueryParams {
   AssetId = 'assetId',
 }
 
-export const asset = new Route({
+export default new Route({
   pathname: '/asset',
   getTitle: (_: URLSearchParams) => 'deepLink_theAssetPage',
   handler: function handler(params: URLSearchParams) {
@@ -23,12 +23,12 @@ export const asset = new Route({
       throw new Error('Invalid assetId parameter');
     }
 
-    const selectedAsset = parseCaipAssetType(assetId);
+    const asset = parseCaipAssetType(assetId);
 
-    const { chain, chainId: caipChainId, assetReference } = selectedAsset;
+    const { chain, chainId: caipChainId, assetReference } = asset;
 
     const isEvmNamespace = chain.namespace === KnownCaipNamespace.Eip155;
-    const isNative = selectedAsset.assetNamespace === 'slip44';
+    const isNative = asset.assetNamespace === 'slip44';
 
     const assetPath = () => {
       // Asset Path Format: /asset/{hex-chainId}

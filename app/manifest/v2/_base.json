@@ -68,8 +68,7 @@
     "webRequestBlocking",
     "*://*.eth/",
     "notifications",
-    "identity",
-    "cookies"
+    "identity"
   ],
   "short_name": "__MSG_appName__"
 }

@@ -486,6 +486,7 @@ describe('Multichain API', function () {
             const upgradeAndBatchTxConfirmation = new Eip7702AndSendCalls(
               driver,
             );
+            await upgradeAndBatchTxConfirmation.clickUseSmartAccountButton();
             await upgradeAndBatchTxConfirmation.clickFooterConfirmButtonAndAndWaitForWindowToClose();
 
             await driver.switchToWindowWithTitle(
@@ -559,6 +560,7 @@ describe('Multichain API', function () {
             const upgradeAndBatchTxConfirmation = new Eip7702AndSendCalls(
               driver,
             );
+            await upgradeAndBatchTxConfirmation.clickUseSmartAccountButton();
             await upgradeAndBatchTxConfirmation.clickFooterConfirmButtonAndAndWaitForWindowToClose();
 
             await driver.switchToWindowWithTitle(

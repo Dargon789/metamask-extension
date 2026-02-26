@@ -1,7 +1,6 @@
 import { TransactionMeta } from '@metamask/transaction-controller';
 import React from 'react';
 
-import { TransactionPaySection } from '../../../rows/transaction-pay-section/transaction-pay-section';
 import { useConfirmContext } from '../../../../context/confirm';
 import { useDappSwapContext } from '../../../../context/dapp-swap';
 import { DappSwapComparisonBanner } from '../../dapp-swap-comparison-banner/dapp-swap-comparison-banner';
@@ -31,7 +30,6 @@ const BaseTransactionInfo = () => {
           <TransactionDetails />
         </>
       )}
-      <TransactionPaySection />
       <GasFeesSection />
       <AdvancedDetails />
       <EstimatedPointsSection />

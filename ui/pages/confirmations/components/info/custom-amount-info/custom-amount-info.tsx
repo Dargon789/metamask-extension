@@ -25,7 +25,6 @@ import {
 import { BridgeFeeRow } from '../../rows/bridge-fee-row/bridge-fee-row';
 import { BridgeTimeRow } from '../../rows/bridge-time-row/bridge-time-row';
 import { TotalRow } from '../../rows/total-row/total-row';
-import { ConfirmInfoRowSize } from '../../../../../components/app/confirm/info/row/row';
 import {
   PercentageButtons,
   PercentageButtonsSkeleton,
@@ -247,9 +246,9 @@ function BottomContainer() {
       gap={2}
       paddingBottom={4}
     >
-      <BridgeFeeRow variant={ConfirmInfoRowSize.Small} />
-      <BridgeTimeRow rowVariant={ConfirmInfoRowSize.Small} />
-      <TotalRow variant={ConfirmInfoRowSize.Small} />
+      <BridgeFeeRow />
+      <BridgeTimeRow />
+      <TotalRow />
     </Box>
   );
 }

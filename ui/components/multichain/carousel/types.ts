@@ -24,7 +24,7 @@ export type CarouselProps = {
   onSlideClick?: (slideId: string, navigation?: NavigationAction) => void;
   onEmptyState?: () => void;
   onSlideClose?: (slideId: string, isLastSlide: boolean) => void;
-  onActiveSlideChange?: (slide: CarouselSlide) => void;
+  onRenderSlides?: (slides: CarouselSlide[]) => void;
 };
 
 // Carousel state management
