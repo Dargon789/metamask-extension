@@ -9,6 +9,10 @@ export const LOCAL_NODE_PRIVATE_KEY =
 export const LOCAL_NODE_MNEMONIC =
   'spread raise short crane omit tent fringe mandate neglect detail suspect cradle';
 
+/** networkClientId for localhost (0x539); matches default-fixture.json. */
+export const LOCALHOST_NETWORK_CLIENT_ID =
+  '3a5eb6f2-cb62-428d-897c-b7ded577d7c2';
+
 /** Address of the account derived from the default onboarding fixture. */
 export const DEFAULT_FIXTURE_ACCOUNT =
   '0x5CfE73b6021E818B776b421B1c4Db2474086a7e1';
@@ -124,6 +128,16 @@ export const SATS_IN_1_BTC = 100000000; // sats
 /* Default (mocked) SOLANA address created using test SRP */
 export const DEFAULT_SOLANA_ACCOUNT =
   'E6Aa9DDv7zsePJHosoqiNb3cFuup3fkXTyRH2pZ1nVzP';
+
+/* Default fixture SOLANA address */
+export const DEFAULT_FIXTURE_SOLANA_ACCOUNT =
+  '4tE76eixEgyJDrdykdWJR1XBkzUk4cLMvqjR2xVJUxer';
+
+/* Solana Mainnet chain ID (genesis hash) */
+export const SOLANA_MAINNET_CHAIN_ID = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+
+/* Solana Mainnet scope in CAIP-2 format */
+export const SOLANA_MAINNET_SCOPE = `solana:${SOLANA_MAINNET_CHAIN_ID}`;
 
 /* Default (mocked) SOLANA balance used by the Solana RPC provider */
 export const DEFAULT_SOLANA_BALANCE = 1; // SOL

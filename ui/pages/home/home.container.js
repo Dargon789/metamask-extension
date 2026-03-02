@@ -15,6 +15,7 @@ import {
   getShowOutdatedBrowserWarning,
   getNewNetworkAdded,
   getIsSigningQRHardwareTransaction,
+  getIsHardwareWalletErrorModalVisible,
   getNewNftAddedMessage,
   getNewTokensImported,
   getRemoveNftMessage,
@@ -70,9 +71,7 @@ import { getIsBrowserDeprecated } from '../../helpers/utils/util';
 import {
   ENVIRONMENT_TYPE_NOTIFICATION,
   ENVIRONMENT_TYPE_POPUP,
-  ///: BEGIN:ONLY_INCLUDE_IF(keyring-snaps)
   SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES,
-  ///: END:ONLY_INCLUDE_IF
 } from '../../../shared/constants/app';
 import {
   AlertTypes,
@@ -116,11 +115,9 @@ const mapStateToProps = (state) => {
       Web3ShimUsageAlertStates.recorded;
 
   const hasAllowedPopupRedirectApprovals = hasPendingApprovals(state, [
-    ///: BEGIN:ONLY_INCLUDE_IF(keyring-snaps)
     SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES.confirmAccountCreation,
     SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES.confirmAccountRemoval,
     SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES.showSnapAccountRedirect,
-    ///: END:ONLY_INCLUDE_IF
   ]);
 
   const shouldShowSeedPhraseReminder =
@@ -154,6 +151,8 @@ const mapStateToProps = (state) => {
     newNetworkAddedName: getNewNetworkAdded(state),
     editedNetwork: getEditedNetwork(state),
     isSigningQRHardwareTransaction: getIsSigningQRHardwareTransaction(state),
+    isHardwareWalletErrorModalVisible:
+      getIsHardwareWalletErrorModalVisible(state),
     newNftAddedMessage: getNewNftAddedMessage(state),
     removeNftMessage: getRemoveNftMessage(state),
     newTokensImported: getNewTokensImported(state),
