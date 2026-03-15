@@ -64,7 +64,6 @@ export function buildErrorContent(
         recoveryInstructions: [
           t('hardwareWalletErrorRecoveryUnlock1'),
           t('hardwareWalletErrorRecoveryUnlock2'),
-          t('hardwareWalletErrorRecoveryUnlock3'),
         ],
       };
 
@@ -72,18 +71,17 @@ export function buildErrorContent(
     case ErrorCode.DeviceStateEthAppClosed:
       return {
         variant: 'recovery',
-        title: t('hardwareWalletErrorTitleConnectYourDevice', [t(walletType)]),
+        title: t('hardwareWalletTitleEthAppNotOpen'),
         recoveryInstructions: [t('hardwareWalletEthAppNotOpenDescription')],
       };
 
     case ErrorCode.DeviceStateBlindSignNotSupported:
       return {
         variant: 'recovery',
-        title: t('hardwareWalletErrorTitleConnectYourDevice', [t(walletType)]),
+        title: t('hardwareWalletErrorTitleBlindSignNotSupported'),
         recoveryInstructions: [
           t('hardwareWalletErrorTitleBlindSignNotSupportedInstruction1'),
           t('hardwareWalletErrorTitleBlindSignNotSupportedInstruction2'),
-          t('hardwareWalletErrorTitleBlindSignNotSupportedInstruction3'),
         ],
       };
 
@@ -107,7 +105,6 @@ export function buildErrorContent(
         recoveryInstructions: [
           t('hardwareWalletErrorRecoveryUnlock1'),
           t('hardwareWalletErrorRecoveryUnlock2'),
-          t('hardwareWalletErrorRecoveryUnlock3'),
         ],
       };
 

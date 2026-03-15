@@ -15,7 +15,7 @@ const { sprintf } = require('sprintf-js');
 const lodash = require('lodash');
 const { retry } = require('../../../development/lib/retry');
 const { quoteXPathText } = require('../../helpers/quoteXPathText');
-const { isManifestV3 } = require('../../../shared/modules/mv3.utils');
+const { isManifestV3 } = require('../../../shared/lib/mv3.utils');
 const { WindowHandles } = require('../background-socket/window-handles');
 const {
   getServerMochaToBackground,
@@ -1245,6 +1245,15 @@ class Driver {
   }
 
   /**
+   * Retrieves the handle of the current active window or tab.
+   *
+   * @returns {Promise<string>} A promise that resolves with the current window handle.
+   */
+  async getCurrentWindowHandle() {
+    return await this.driver.getWindowHandle();
+  }
+
+  /**
    * Function that aims to simulate a click action on a specified web element
    * within a web page and waits for the current window to close.
    *
@@ -1730,6 +1739,9 @@ class Driver {
       'Event fragment with id transaction-added-',
       // Sidepanel
       'GL Context was lost',
+      // Null/empty URLs that Chrome blocks before reaching the proxy
+      'net::ERR_BLOCKED_BY_CLIENT',
+      'null is blocked',
     ]);
 
     const cdpConnection = await this.driver.createCDPConnection('page');

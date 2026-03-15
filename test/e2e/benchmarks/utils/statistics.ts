@@ -8,13 +8,16 @@
  * - Sanity checks for metric validation
  */
 
+import { ThresholdSeverity } from '../../../../shared/constants/benchmarks';
 import type {
+  BenchmarkResults,
+  PercentileKey,
   PercentileThreshold,
   StatisticalResult,
   ThresholdConfig,
   ThresholdViolation,
-  TimerStatistics,
-} from './types';
+} from '../../../../shared/constants/benchmarks';
+import type { TimerStatistics } from './types';
 
 /**
  * CV (Coefficient of Variation) thresholds for data quality assessment
@@ -37,6 +40,12 @@ export const Z_SCORE_THRESHOLD = 3;
  * Default: 2 minutes (reasonable timeout for most UI operations)
  */
 export const MAX_METRIC_DURATION_MS = 120_000;
+
+/**
+ * Maximum allowed duration (ms) for per-run total (sum of all timers in a run).
+ * Totals can legitimately exceed MAX_METRIC_DURATION_MS since they aggregate many steps.
+ */
+export const MAX_TOTAL_DURATION_MS = 600_000; // 10 minutes
 
 /**
  * Minimum allowed duration (ms) - metrics below this are suspicious
@@ -316,11 +325,18 @@ export const filterBySanityChecks = (
   return { filtered, excludedCount, reasons };
 };
 
+export type TimerStatisticsOptions = {
+  /** Override max duration (ms) for sanity check; used for per-run totals. */
+  maxDurationMs?: number;
+};
+
 export const calculateTimerStatistics = (
   timerId: string,
   durations: number[],
+  options?: TimerStatisticsOptions,
 ): TimerStatistics => {
-  const sanityResult = filterBySanityChecks(durations);
+  const maxDuration = options?.maxDurationMs ?? MAX_METRIC_DURATION_MS;
+  const sanityResult = filterBySanityChecks(durations, maxDuration);
   const { filtered, outlierCount } = detectOutliers(sanityResult.filtered);
   const sorted = [...filtered].sort((a, b) => a - b);
   const mean = calculateMean(filtered);
@@ -401,7 +417,7 @@ export const getEffectiveThreshold = (
  */
 const validatePercentile = (
   metricId: string,
-  percentile: 'p75' | 'p95',
+  percentile: PercentileKey,
   value: number,
   thresholds: PercentileThreshold,
   ciMultiplier?: number,
@@ -409,25 +425,23 @@ const validatePercentile = (
   const warnThreshold = getEffectiveThreshold(thresholds.warn, ciMultiplier);
   const failThreshold = getEffectiveThreshold(thresholds.fail, ciMultiplier);
 
-  // Check fail threshold first (more severe)
   if (value > failThreshold) {
     return {
       metricId,
       percentile,
       value,
       threshold: failThreshold,
-      severity: 'fail',
+      severity: ThresholdSeverity.Fail,
     };
   }
 
-  // Check warn threshold
   if (value > warnThreshold) {
     return {
       metricId,
       percentile,
       value,
       threshold: warnThreshold,
-      severity: 'warn',
+      severity: ThresholdSeverity.Warn,
     };
   }
 
@@ -508,23 +522,73 @@ export const validateThresholds = (
     violations.push(...timerViolations);
   }
 
-  // Passed if no 'fail' severity violations
-  const passed = !violations.some((v) => v.severity === 'fail');
+  const passed = !violations.some((v) => v.severity === ThresholdSeverity.Fail);
 
   return { violations, passed };
 };
 
 /**
- * Format threshold violations into human-readable messages
+ * Validate a BenchmarkResults object against configured thresholds.
+ * Used by startup benchmarks which produce BenchmarkResults directly
+ * rather than TimerStatistics[].
  *
- * @param violations - Array of threshold violations
+ * @param results - Benchmark results containing p75/p95 maps
+ * @param thresholdConfig - Threshold configuration for metrics
+ * @returns Object containing violations array and whether all thresholds passed
  */
-export const formatThresholdViolations = (
-  violations: ThresholdViolation[],
-): string[] => {
-  return violations.map((v) => {
-    const severityPrefix = v.severity === 'fail' ? '❌ FAIL' : '⚠️ WARN';
-    const percentileLabel = v.percentile.toUpperCase();
-    return `${severityPrefix}: ${v.metricId} ${percentileLabel} (${v.value.toFixed(2)}ms) exceeds threshold (${v.threshold.toFixed(2)}ms)`;
-  });
+export const validateResultThresholds = (
+  results: BenchmarkResults,
+  thresholdConfig: ThresholdConfig,
+): { violations: ThresholdViolation[]; passed: boolean } => {
+  const violations: ThresholdViolation[] = [];
+
+  for (const [metricId, thresholds] of Object.entries(thresholdConfig)) {
+    if (thresholds.p75 && results.p75[metricId] !== undefined) {
+      const violation = validatePercentile(
+        metricId,
+        'p75',
+        results.p75[metricId],
+        thresholds.p75,
+        thresholds.ciMultiplier,
+      );
+      if (violation) {
+        violations.push(violation);
+      }
+    }
+
+    if (thresholds.p95 && results.p95[metricId] !== undefined) {
+      const violation = validatePercentile(
+        metricId,
+        'p95',
+        results.p95[metricId],
+        thresholds.p95,
+        thresholds.ciMultiplier,
+      );
+      if (violation) {
+        violations.push(violation);
+      }
+    }
+  }
+
+  const passed = !violations.some((v) => v.severity === ThresholdSeverity.Fail);
+  return { violations, passed };
 };
+
+/**
+ * Log threshold validation results to the console.
+ *
+ * @param violations - Array of threshold violations (empty = all passed)
+ */
+export function logThresholdResult(violations: ThresholdViolation[]): void {
+  if (violations.length > 0) {
+    console.log('\n  Threshold Violations:');
+    violations.forEach((v) => {
+      const icon = v.severity === ThresholdSeverity.Fail ? '🔺' : '🔼';
+      console.log(
+        `    ${icon} ${v.metricId} (${v.percentile}): ${v.value.toFixed(2)}ms > ${v.threshold}ms`,
+      );
+    });
+  } else {
+    console.log('  All thresholds passed');
+  }
+}
