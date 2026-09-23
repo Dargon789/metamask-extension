@@ -21,6 +21,7 @@ import {
   RequestStatus,
   isNonEvmChainId,
   isStellarChainId,
+  type QuoteMetadata,
 } from '@metamask/bridge-controller';
 import type { RemoteFeatureFlagControllerState } from '@metamask/remote-feature-flag-controller';
 import type { AccountsControllerState } from '@metamask/accounts-controller';
@@ -54,7 +55,10 @@ import {
   type AccountGroupObject,
   type AccountTreeControllerState,
 } from '@metamask/account-tree-controller';
-import { ALLOWED_BRIDGE_CHAIN_IDS } from '../../../shared/constants/bridge';
+import {
+  ALLOWED_BRIDGE_CHAIN_IDS,
+  BRIDGE_QUOTE_RESPONSE_MIGRATION_PHASE,
+} from '../../../shared/constants/bridge';
 import { convertCaipToHexChainId } from '../../../shared/lib/network.utils';
 import {
   createDeepEqualSelector,
@@ -88,7 +92,11 @@ import {
   getPriceImpactNumber,
   getTotalNetworkFee,
 } from '../../pages/bridge/utils/quote';
-import { getInternalAccountsByScope } from '../../selectors/accounts';
+import { isArcTokenUSDC } from '../../components/app/assets/enablement/arc';
+import {
+  getInternalAccountsByScope,
+  getInternalAccountByAddress,
+} from '../../selectors/accounts';
 import { getSelectedInternalAccount } from '../../../shared/lib/selectors/accounts';
 import { getGasFeesSponsoredNetworkEnabled } from '../../selectors';
 import {
@@ -104,9 +112,11 @@ import {
 import { getAllEnabledNetworksForAllNamespaces } from '../../selectors/multichain/networks';
 import { type MultichainAccountsState } from '../../selectors/multichain-accounts/account-tree.types';
 import { getIsRWATokensEnabled } from '../../selectors/rwa/feature-flags';
+import { getIsAssetRequireActivate } from '../../selectors/stellar-assets';
 import {
   isStockRWAToken,
   isTokenTradingOpenAt,
+  isTokenInOffHoursAt,
 } from '../../pages/bridge/hooks/useRWAToken';
 import { getQuoteStreamReasonString } from '../../pages/bridge/utils/quote-stream';
 import {
@@ -225,16 +235,29 @@ const getChainRanking = (state: BridgeAppState) =>
 const MINIMUM_NATIVE_RESERVE_BALANCE_PER_CHAIN: { [key: CaipChainId]: string } =
   {
     'eip155:143': '10',
+    // Arc: reserve pays gas only for ONE swap-or-bridge + its approve
+    // (~528k gas worst case). The 0.875% MetaMask fee is taken from the swap
+    // amount, not this native balance, so it's excluded here.
+    // 0.05 = ~5x base-fee-spike headroom over the 20 gwei floor.
+    'eip155:5042': '0.05',
     [MultichainNetworks.BITCOIN]: '0.00003',
   };
 
 const getMinimumReserveBalanceForCaipAssetId = (
   caipAssetId?: CaipAssetType,
 ): string => {
-  if (!caipAssetId || !isNativeAddress(caipAssetId)) {
+  if (!caipAssetId) {
     return '0';
   }
   const { chainId } = parseCaipAssetType(caipAssetId);
+  if (isArcTokenUSDC(caipAssetId)) {
+    return MINIMUM_NATIVE_RESERVE_BALANCE_PER_CHAIN[chainId] ?? '0';
+  }
+
+  if (!isNativeAddress(caipAssetId)) {
+    return '0';
+  }
+
   return MINIMUM_NATIVE_RESERVE_BALANCE_PER_CHAIN[chainId] ?? '0';
 };
 
@@ -265,7 +288,7 @@ const buildInsufficientNativeReserveError = ({
     nativeBalance &&
     validatedSrcAmount &&
     fromToken &&
-    isNativeAddress(fromToken.assetId) &&
+    (isNativeAddress(fromToken.assetId) || isArcTokenUSDC(fromToken.assetId)) &&
     normalizedMaxSwappableNativeBalance.lt(validatedSrcAmount)
     ? {
         minimumNativeBalanceToBeKeptInAccount,
@@ -762,12 +785,44 @@ export const getIsStockMarketClosed = (
   }
   const fromToken = getFromToken(state);
   const toToken = getToToken(state);
+  // Off-hours sessions occur while the regular market window is closed, but
+  // trading remains available — so those tokens are not treated as closed.
+  // `nextPause` is regular-hours-only (see `isTokenInOffHoursAt`); a pause
+  // must not keep a token closed when its off-hours window is open.
   const isFromClosed =
     isStockRWAToken(fromToken) &&
-    !isTokenTradingOpenAt(fromToken, currentTimeInMs);
+    !isTokenTradingOpenAt(fromToken, currentTimeInMs) &&
+    !isTokenInOffHoursAt(fromToken, currentTimeInMs);
   const isToClosed =
-    isStockRWAToken(toToken) && !isTokenTradingOpenAt(toToken, currentTimeInMs);
+    isStockRWAToken(toToken) &&
+    !isTokenTradingOpenAt(toToken, currentTimeInMs) &&
+    !isTokenInOffHoursAt(toToken, currentTimeInMs);
   return isFromClosed || isToClosed;
+};
+
+export const getIsInOffHoursTrading = (
+  state: BridgeAppState,
+  currentTimeInMs: number,
+): boolean => {
+  const isRWAEnabled = getIsRWATokensEnabled(state);
+  if (!isRWAEnabled) {
+    return false;
+  }
+  // If any stock leg is fully closed (not tradable even via off-hours),
+  // market-closed takes precedence — keep these flags mutually exclusive
+  // so the UI does not show both the danger market-closed banner and the
+  // dismissable off-hours warning (e.g. weekends when only one RWA supports
+  // extended hours).
+  if (getIsStockMarketClosed(state, currentTimeInMs)) {
+    return false;
+  }
+  const fromToken = getFromToken(state);
+  const toToken = getToToken(state);
+  return (
+    (isStockRWAToken(fromToken) &&
+      isTokenInOffHoursAt(fromToken, currentTimeInMs)) ||
+    (isStockRWAToken(toToken) && isTokenInOffHoursAt(toToken, currentTimeInMs))
+  );
 };
 
 export const getBridgeQuotes = createSelector(
@@ -780,9 +835,17 @@ export const getBridgeQuotes = createSelector(
     const quotes = selectBridgeQuotes(controllerStates, {
       sortOrder,
       selectedQuote,
+      // Determines how quote metadata is resolved
+      migrationPhase: BRIDGE_QUOTE_RESPONSE_MIGRATION_PHASE,
     });
 
-    return quotes;
+    return quotes as Omit<
+      ReturnType<typeof selectBridgeQuotes>,
+      'activeQuote' | 'sortedQuotes'
+    > & {
+      activeQuote: (QuoteResponse & QuoteMetadata) | null;
+      sortedQuotes: (QuoteResponse & QuoteMetadata)[];
+    };
   },
 );
 
@@ -906,9 +969,14 @@ export const getInsufficientNativeReserveError = createSelector(
     const isBitcoinNativeReserveChain = Boolean(
       fromToken?.chainId && isBitcoinChainId(fromToken.chainId),
     );
+    const isArcUsdcReserveToken = Boolean(
+      fromToken?.assetId && isArcTokenUSDC(fromToken.assetId),
+    );
     const shouldApplyNativeReserve =
       minimumNativeReserveBalance !== '0' &&
-      (isNetworkGasSponsored || isBitcoinNativeReserveChain);
+      (isNetworkGasSponsored ||
+        isBitcoinNativeReserveChain ||
+        isArcUsdcReserveToken);
 
     const minimumNativeBalanceToBeKeptInAccount = shouldApplyNativeReserve
       ? minimumNativeReserveBalance
@@ -1008,7 +1076,7 @@ export const getQuoteRequestInsufficientBal = createSelector(
     ),
 );
 
-const getQuoteStreamComplete = (state: BridgeAppState) =>
+export const getQuoteStreamComplete = (state: BridgeAppState) =>
   state.metamask.quoteStreamComplete;
 
 /**
@@ -1164,6 +1232,89 @@ export const computeQuoteValidationErrors = (
   };
 };
 
+/**
+ * Whether the quote destination wallet matches the active account for the
+ * destination chain. Defaults to `true` when dest is unknown so Activate-CTA
+ * UI remains available before quote params settle.
+ * @param state
+ */
+export const getIsDestSameAsActiveAccount = createDeepEqualSelector(
+  [getQuoteRequest, getToToken, (state: BridgeAppState) => state],
+  (quoteRequest, toToken, state) => {
+    const destWalletAddress = quoteRequest?.destWalletAddress;
+    if (!destWalletAddress || !toToken?.chainId) {
+      return true;
+    }
+
+    const destAccount = getInternalAccountByAddress(state, destWalletAddress);
+    const activeAccount = getInternalAccountBySelectedAccountGroupAndCaip(
+      state,
+      toToken.chainId,
+    );
+
+    return Boolean(destAccount?.id) && destAccount?.id === activeAccount?.id;
+  },
+);
+
+/**
+ * Display name for the quote destination account (account group name, then
+ * account metadata name). Used when messaging about a non-active dest account.
+ * @param state
+ */
+export const getDestAccountDisplayName = createDeepEqualSelector(
+  [getQuoteRequest, (state: BridgeAppState) => state],
+  (quoteRequest, state) => {
+    const destWalletAddress = quoteRequest?.destWalletAddress;
+    if (!destWalletAddress) {
+      return null as string | null;
+    }
+
+    const destAccount = getInternalAccountByAddress(state, destWalletAddress);
+    return (
+      getAccountGroupNameByInternalAccount(state, destAccount ?? null) ??
+      destAccount?.metadata?.name ??
+      null
+    );
+  },
+);
+
+/**
+ * True when bridging cross-chain to a Stellar classic asset that still needs a
+ * trustline on the **destination** account (quote `destWalletAddress`), not
+ * merely the currently selected account group. Same-chain Stellar swaps are
+ * excluded (activation is handled elsewhere in that flow). External recipients
+ * with no matching internal account return false (no in-app activate CTA).
+ * @param state
+ */
+const getIsDestAssetRequireActivate = createDeepEqualSelector(
+  [getFromToken, getToToken, getQuoteRequest, (state: BridgeAppState) => state],
+  (fromToken, toToken, quoteRequest, state) => {
+    if (
+      !fromToken ||
+      !toToken?.assetId ||
+      !isCrossChain(fromToken.chainId, toToken.chainId)
+    ) {
+      return false;
+    }
+
+    const destWalletAddress = quoteRequest?.destWalletAddress;
+    if (!destWalletAddress) {
+      return false;
+    }
+
+    const destAccount = getInternalAccountByAddress(state, destWalletAddress);
+    if (!destAccount?.id) {
+      // External / unknown recipient — cannot check or activate trustline here.
+      return false;
+    }
+
+    return getIsAssetRequireActivate(state, {
+      assetId: toToken.assetId,
+      accountId: destAccount.id,
+    });
+  },
+);
+
 const _getBaseValidationErrors = createDeepEqualSelector(
   [
     getBridgeQuotes,
@@ -1181,6 +1332,7 @@ const _getBaseValidationErrors = createDeepEqualSelector(
     (state: BridgeAppState) => isHardwareWallet(state as never),
     getQuoteStreamComplete,
     getActiveQuoteInsufficientNativeReserveError,
+    getIsDestAssetRequireActivate,
   ],
   (
     { activeQuote, quotesLastFetchedMs, isLoading, quotesRefreshCount },
@@ -1197,6 +1349,7 @@ const _getBaseValidationErrors = createDeepEqualSelector(
     isHardwareWalletAccount,
     quoteStreamCompleteData,
     insufficientNativeReserveError,
+    isDestAssetRequireActivate,
   ) => {
     const quoteValidation = computeQuoteValidationErrors(activeQuote, {
       priceImpactThresholds,
@@ -1224,6 +1377,7 @@ const _getBaseValidationErrors = createDeepEqualSelector(
           !isLoading &&
           quotesRefreshCount > 0,
         ),
+      isDestAssetRequireActivate,
     };
   },
 );
@@ -1241,6 +1395,10 @@ const getValidationErrorsAtTime = createParameterizedSelector(20)(
       currentTimeInMs === undefined
         ? false
         : getIsStockMarketClosed(state, currentTimeInMs),
+    isInOffHoursTrading:
+      currentTimeInMs === undefined
+        ? false
+        : getIsInOffHoursTrading(state, currentTimeInMs),
   }),
 );
 
@@ -1277,7 +1435,9 @@ export const getWarningLabels = (
     isPriceImpactError,
     isTxAlertPresent,
     isStockMarketClosed,
+    isInOffHoursTrading,
     isQuoteExpired,
+    isDestAssetRequireActivate,
   } = getValidationErrors(state, currentTimeInMs);
   const warnings: QuoteWarning[] = [];
   isEstimatedReturnLow && warnings.push('low_return');
@@ -1290,11 +1450,14 @@ export const getWarningLabels = (
   isPriceImpactError && warnings.push('price_impact');
   isTxAlertPresent && warnings.push('tx_alert');
   isStockMarketClosed && warnings.push('market_closed');
+  isInOffHoursTrading && warnings.push('off_hours' as QuoteWarning);
   isQuoteExpired && warnings.push('quote_expired');
   // @ts-expect-error: insufficient_native_reserve is not a valid QuoteWarning yet
   isInsufficientNativeReserve && warnings.push('insufficient_native_reserve');
   isNetworkFeeUnavailable &&
     warnings.push('network_fee_unavailable' as QuoteWarning);
+  // @ts-expect-error: dest_asset_require_activate is not a valid QuoteWarning yet
+  isDestAssetRequireActivate && warnings.push('dest_asset_require_activate');
   return warnings;
 };
 

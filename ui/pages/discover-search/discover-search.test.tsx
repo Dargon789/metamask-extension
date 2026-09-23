@@ -29,8 +29,8 @@ jest.mock('../../hooks/discover-search/useDiscoverSearch', () => ({
   useDiscoverSearch: (options: unknown) => mockUseDiscoverSearch(options),
 }));
 
-jest.mock('../../hooks/discover-search/useDiscoverAssetPress', () => ({
-  useEnableDiscoverAssetNetwork: () => mockEnsureNetworkEnabled,
+jest.mock('../../hooks/useEnableFeaturedEvmNetwork', () => ({
+  useEnableFeaturedEvmNetwork: () => mockEnsureNetworkEnabled,
 }));
 
 jest.mock('../../components/ui/toast/toast', () => ({
@@ -317,13 +317,13 @@ describe('DiscoverSearchPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('navigates home on back', () => {
+  it('navigates back on back button click', () => {
     renderPage();
 
     fireEvent.click(screen.getByTestId('discover-search-back-button'));
 
     expect(mockRunCloseTransition).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
   it('navigates to the CAIP asset route when an asset result is clicked', async () => {
@@ -341,7 +341,7 @@ describe('DiscoverSearchPage', () => {
   });
 
   it('shows a success toast when it enables a popular network', async () => {
-    mockEnsureNetworkEnabled.mockResolvedValue('Base');
+    mockEnsureNetworkEnabled.mockResolvedValue({ name: 'Base' });
     renderPage();
 
     fireEvent.click(

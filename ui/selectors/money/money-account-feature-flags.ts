@@ -2,7 +2,13 @@ import { createSelector } from 'reselect';
 import { isObject } from '@metamask/utils';
 import { getRemoteFeatureFlags } from '../../../shared/lib/selectors/remote-feature-flags';
 import { getBooleanFeatureFlag } from '../../../shared/lib/remote-feature-flag-utils';
-import { isMoneyAccountEnabled } from '../../../shared/lib/money/feature-flags';
+import {
+  isMoneyAccountEnabled,
+  isMoneyActivityDetailsEnabled,
+  isMoneyActivityMockDataEnabled,
+  isMoneyEarningSectionEnabled,
+  isMoneyHomeScreenCardEnabled,
+} from '../../../shared/lib/money/feature-flags';
 import { getMoneyAccountVaultConfig } from '../../../shared/lib/money/vault-config';
 
 /**
@@ -14,6 +20,8 @@ export type MoneyVaultApyRemoteConfig = {
   /** When configured, always shown instead of the live APY. */
   vaultApyOverride: number | undefined;
 };
+
+export const FALLBACK_MONEY_DEPOSIT_MIN_BALANCE = 0.01;
 
 /**
  * Parses a raw flag value into a non-negative finite number.
@@ -54,6 +62,32 @@ export const selectMoneyAccountFeatureEnabled = createSelector(
 );
 
 /**
+ * Selects whether the `moneyHomeScreenCardEnabled` flag is on.
+ *
+ * This flag controls whether the money balance is shown on the extension home.
+ * If the money account is disabled generally, having this flag turned on will
+ * still not show the balance
+ *
+ * @param state - The MetaMask state object.
+ * @returns Whether the home screen Money card is enabled.
+ */
+export const selectMoneyHomeScreenCardEnabled = createSelector(
+  getRemoteFeatureFlags,
+  isMoneyHomeScreenCardEnabled,
+);
+
+/**
+ * Selects whether the realized Earnings section on Money Home is enabled.
+ *
+ * @param state - The MetaMask state object.
+ * @returns Whether the Earnings section is enabled.
+ */
+export const selectMoneyEarningSectionEnabled = createSelector(
+  getRemoteFeatureFlags,
+  isMoneyEarningSectionEnabled,
+);
+
+/**
  * Selects the Money Account vault config, or `undefined` when the flag is
  * unserved or malformed.
  *
@@ -85,6 +119,19 @@ export const selectMoneyVaultApyRemoteConfig = createSelector(
 );
 
 /**
+ * Selects the minimum wallet-asset balance required for Money deposits.
+ *
+ * @param state - The MetaMask state object.
+ * @returns The minimum fiat balance, defaulting to one cent.
+ */
+export const selectMoneyDepositMinBalance = createSelector(
+  getRemoteFeatureFlags,
+  (flags): number =>
+    parseNonNegativeFinite(flags?.earnMoneyDepositMinAssetBalance) ??
+    FALLBACK_MONEY_DEPOSIT_MIN_BALANCE,
+);
+
+/**
  * Selects whether the optimized Money Account deposit quote pipeline is
  * enabled. Supports a plain boolean as well as the version-gated and
  * progressive-rollout flag shapes.
@@ -96,4 +143,33 @@ export const selectMoneyAccountDepositQuotePipelineEnabled = createSelector(
   getRemoteFeatureFlags,
   (flags) =>
     getBooleanFeatureFlag(flags?.moneyAccountDepositQuotePipeline, false),
+);
+
+/**
+ * Selects whether Money Home should render curated mock activity rows.
+ *
+ * Remote `moneyActivityMockDataEnabled` (plain boolean) wins; otherwise the
+ * `MM_MONEY_ACTIVITY_MOCK_DATA_ENABLED` env var is used. Defaults off.
+ *
+ * @param state - The MetaMask state object.
+ * @returns Whether mock activity data is enabled.
+ */
+export const selectMoneyActivityMockDataEnabled = createSelector(
+  getRemoteFeatureFlags,
+  isMoneyActivityMockDataEnabled,
+);
+
+/**
+ * Selects whether tapping a Money activity row should open transaction
+ * details.
+ *
+ * Remote `moneyEnableActivityDetails` (plain boolean) wins; otherwise the
+ * `MM_MONEY_ENABLE_ACTIVITY_DETAILS` env var is used. Defaults off.
+ *
+ * @param state - The MetaMask state object.
+ * @returns Whether activity details navigation is enabled.
+ */
+export const selectMoneyActivityDetailsEnabled = createSelector(
+  getRemoteFeatureFlags,
+  isMoneyActivityDetailsEnabled,
 );
